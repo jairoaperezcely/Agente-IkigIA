@@ -76,7 +76,7 @@ if not api_key:
 
 # Configurar el modelo
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 # 1. MOSTRAR HISTORIAL DE CHAT
 for message in st.session_state.messages:
@@ -126,3 +126,4 @@ if prompt := st.chat_input("Escriba su instrucción aquí..."):
                 
             except Exception as e:
                 st.error(f"Ocurrió un error: {e}")
+
