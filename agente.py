@@ -9,10 +9,10 @@ import tempfile
 import time
 import os
 from io import BytesIO
-import json # <--- NECESARIO PARA GUARDAR LA MEMORIA EXACTA
+import json
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Agente V7.0 (Memoria Persistente)", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente V7.2 (Panel Unificado)", page_icon="🧬", layout="wide")
 
 # --- FUNCIONES DE LECTURA ---
 def get_pdf_text(pdf_file):
@@ -26,10 +26,9 @@ def get_docx_text(docx_file):
     doc = docx.Document(docx_file)
     return "\n".join([para.text for para in doc.paragraphs])
 
-# Exportar para LECTURA HUMANA (Word)
 def create_chat_docx(messages):
     doc = docx.Document()
-    doc.add_heading('Historial de Conversación', 0)
+    doc.add_heading('Acta de Conversación - Agente IA', 0)
     for msg in messages:
         role = "USUARIO" if msg["role"] == "user" else "IA"
         doc.add_heading(role, level=2)
@@ -89,37 +88,54 @@ with st.sidebar:
     
     st.divider()
     
-    # --- SECCIÓN NUEVA: GESTIÓN DE MEMORIA (Time Machine) ---
-    st.subheader("💾 GESTIÓN DE MEMORIA")
+    # --- SECCIÓN UNIFICADA DE GUARDADO (AHORA ARRIBA) ---
+    st.subheader("💾 GUARDAR SESIÓN")
     
-    # 1. GUARDAR (Exportar JSON)
-    if st.session_state.messages:
-        # Convertimos la memoria a texto JSON
+    if len(st.session_state.messages) > 0:
+        col1, col2 = st.columns(2)
+        
+        # Botón 1: Word (Legible)
+        docx_file = create_chat_docx(st.session_state.messages)
+        st.download_button(
+            label="📄 Word",
+            data=docx_file,
+            file_name="acta_chat.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            help="Descargar acta en Word para leer o imprimir."
+        )
+        
+        # Botón 2: JSON (Memoria)
         chat_json = json.dumps(st.session_state.messages)
         st.download_button(
-            label="📥 Guardar Cerebro (Backup)",
+            label="🧠 Cerebro",
             data=chat_json,
             file_name="memoria_agente.json",
             mime="application/json",
-            help="Descarga este archivo para continuar la conversación otro día."
+            help="Descargar archivo para continuar el chat otro día."
         )
+    else:
+        st.info("Escribe en el chat para habilitar los botones de descarga.")
 
-    # 2. CARGAR (Importar JSON)
-    uploaded_memory = st.file_uploader("📤 Restaurar Cerebro (Subir .json)", type=['json'])
+    st.divider()
+
+    # --- RESTAURAR MEMORIA ---
+    st.subheader("🔄 RESTAURAR")
+    uploaded_memory = st.file_uploader("Subir archivo .json", type=['json'])
     if uploaded_memory is not None:
-        if st.button("🔄 Cargar Conversación Previa"):
+        if st.button("Cargar Memoria"):
             try:
                 loaded_messages = json.load(uploaded_memory)
                 st.session_state.messages = loaded_messages
-                st.success("✅ ¡Memoria restaurada! La IA recuerda todo.")
+                st.success("✅ ¡Memoria cargada!")
+                time.sleep(1)
                 st.rerun()
             except:
-                st.error("El archivo está dañado.")
+                st.error("Archivo incorrecto.")
 
     st.divider()
     
     # --- CARGA DE DOCUMENTOS ---
-    st.subheader("📥 Fuentes")
+    st.subheader("📥 FUENTES DE INFO")
     tab1, tab2, tab3, tab4 = st.tabs(["📄 Doc", "📹 MP4", "🔴 YT", "🌐 Web"])
     
     # 1. Documentos
@@ -166,16 +182,6 @@ with st.sidebar:
 
     st.divider()
     
-    # Descarga en Word (Para leer, no para restaurar)
-    if st.session_state.messages:
-        docx_file = create_chat_docx(st.session_state.messages)
-        st.download_button(
-            label="📄 Descargar Acta (Word)",
-            data=docx_file,
-            file_name="acta_conversacion.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
-    
     if st.button("🗑️ Borrar Todo"):
         st.session_state.messages = []
         st.session_state.contexto_texto = ""
@@ -213,7 +219,7 @@ if prompt := st.chat_input("Escriba su consulta..."):
                 instruccion = f"Actúa como {rol}."
                 
                 if st.session_state.contexto_texto:
-                    instruccion += f"\n\n--- DOC ---\n{st.session_state.contexto_texto[:40000]}\n--- FIN ---\n"
+                    instruccion += f"\n\n--- DOC --- {st.session_state.contexto_texto[:40000]} --- FIN ---\n"
                 
                 if st.session_state.archivo_video_gemini:
                     contenido.append(st.session_state.archivo_video_gemini)
@@ -226,5 +232,9 @@ if prompt := st.chat_input("Escriba su consulta..."):
                 response = model.generate_content(contenido)
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
+                
+                # --- FORZAR ACTUALIZACIÓN PARA QUE SALGAN LOS BOTONES ---
+                st.rerun()
+                
             except Exception as e:
                 st.error(f"Error: {e}")
