@@ -10,7 +10,7 @@ import time
 import os
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Agente Médico V5.1 (Gemini 2.5)", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente Médico & Trading V5.5", page_icon="🧬", layout="wide")
 
 # --- FUNCIONES DE LECTURA DE TEXTO ---
 def get_pdf_text(pdf_file):
@@ -59,7 +59,18 @@ with st.sidebar:
     api_key = st.text_input("🔑 API Key:", type="password")
     
     st.divider()
-    rol = st.radio("🎭 Rol:", ["Vicedecano Académico", "Director de UCI", "Mentor de Trading", "Experto en Telesalud"])
+    
+    # --- LISTA EXACTA DE 7 ROLES ---
+    st.subheader("🎭 Seleccione el Rol")
+    rol = st.radio("Perfil Activo:", [
+        "Vicedecano Académico", 
+        "Director de UCI", 
+        "Experto en Telesalud",
+        "Investigador Científico",
+        "Profesor universitario",
+        "Asistente Personal",
+        "Mentor de Trading"
+    ])
     
     st.divider()
     st.subheader("📥 Cargar Información")
@@ -80,15 +91,12 @@ with st.sidebar:
         if uploaded_video and api_key and st.button("👁️ Analizar Video"):
             genai.configure(api_key=api_key)
             with st.spinner("Subiendo video a la nube de IA (Gemini 2.5)..."):
-                # Guardar temporalmente
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
                     tmp_file.write(uploaded_video.read())
                     tmp_path = tmp_file.name
                 
-                # Subir a Gemini File API
                 video_file = genai.upload_file(path=tmp_path)
                 
-                # Esperar a que se procese
                 while video_file.state.name == "PROCESSING":
                     time.sleep(2)
                     video_file = genai.get_file(video_file.name)
@@ -98,7 +106,6 @@ with st.sidebar:
                 else:
                     st.session_state.archivo_video_gemini = video_file
                     st.success("✅ Video listo en Gemini 2.5")
-                    # Limpieza local
                     os.remove(tmp_path)
 
     # 3. YouTube
@@ -123,7 +130,7 @@ with st.sidebar:
         st.rerun()
 
 # --- CHAT PRINCIPAL ---
-st.title(f"🤖 Agente 2.5: {rol}")
+st.title(f"🤖 Agente: {rol}")
 
 if not api_key:
     st.warning("⚠️ Ingrese API Key para continuar.")
@@ -131,7 +138,7 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-# --- CORRECCIÓN FINAL: MODELO 2.5 FLASH ---
+# --- MODELO 2.5 FLASH ---
 try:
     model = genai.GenerativeModel('gemini-2.5-flash')
 except Exception as e:
@@ -150,32 +157,24 @@ if prompt := st.chat_input("Escriba su consulta..."):
     with st.chat_message("assistant"):
         with st.spinner("Gemini 2.5 pensando..."):
             try:
-                # Construir el contenido para enviar
                 contenido_multimodal = []
-                
-                # 1. Instrucción de Rol
                 instruccion = f"Actúa como {rol}. Responde al usuario."
                 
-                # 2. Agregar Video si existe
                 if st.session_state.archivo_video_gemini:
                     contenido_multimodal.append(st.session_state.archivo_video_gemini)
                     instruccion += " (Basa tu respuesta en el video adjunto)."
                 
-                # 3. Agregar Texto de PDF/YouTube si existe
                 if st.session_state.contexto_texto:
                     instruccion += f"\n\nCONTEXTO ADICIONAL:\n{st.session_state.contexto_texto[:30000]}..."
                 
-                # 4. Agregar historial de chat reciente (texto)
                 historial_texto = []
-                for msg in st.session_state.messages[-4:]: # Últimos 4 mensajes
+                for msg in st.session_state.messages[-4:]:
                      historial_texto.append(msg["role"] + ": " + msg["content"])
                 
                 instruccion += "\n\nHISTORIAL:\n" + "\n".join(historial_texto)
                 instruccion += f"\n\nPREGUNTA USUARIO: {prompt}"
 
                 contenido_multimodal.append(instruccion)
-
-                # Enviar todo junto
                 response = model.generate_content(contenido_multimodal)
                 
                 st.markdown(response.text)
