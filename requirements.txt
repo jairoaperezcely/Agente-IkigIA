@@ -1,7 +1,7 @@
 streamlit
-google-generativeai
-duckduckgo-search
+google-generativeai>=0.7.0
 pypdf
 python-docx
+duckduckgo-search
 beautifulsoup4
-requests
+youtube-transcript-api
