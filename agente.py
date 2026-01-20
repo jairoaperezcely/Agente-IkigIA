@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Agente V12.5 (Suite Completa)", page_icon="💼", layout="wide")
+st.set_page_config(page_title="Agente IkigAI", page_icon="💼", layout="wide")
 
 # --- FUNCIONES DE LECTURA ---
 def get_pdf_text(pdf_file):
@@ -123,7 +123,7 @@ with st.sidebar:
     st.subheader("🛠️ GENERADOR DE ARCHIVOS")
     
     # 1. DOC LIMPIO (NUEVO)
-    if st.button("📄 Word (Solo Último Texto)"):
+    if st.button("📄 Word"):
         if not st.session_state.messages: st.error("No hay respuesta para descargar.")
         else:
             last_msg = st.session_state.messages[-1]["content"]
@@ -133,7 +133,7 @@ with st.sidebar:
         st.download_button("📥 Bajar Documento.docx", st.session_state.generated_word_clean, "documento_ia.docx")
 
     # 2. PPTX
-    if st.button("🗣️ PPTX (Resumen Chat)"):
+    if st.button("🗣️ PPTX"):
         with st.spinner("Creando PPTX..."):
             hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
             prompt = f"Crea JSON para PPTX basado en: {hist}. Formato: [{{'title':'T','content':['A']}}]"
@@ -146,7 +146,7 @@ with st.sidebar:
     if st.session_state.generated_pptx: st.download_button("📥 Bajar PPTX", st.session_state.generated_pptx, "presentacion.pptx")
 
     # 3. EXCEL
-    if st.button("x ̅  Excel (Tablas/Datos)"):
+    if st.button("xlx Excel"):
         if len(st.session_state.messages) < 2: st.error("Faltan datos.")
         else:
             with st.spinner("Creando Excel..."):
@@ -180,7 +180,7 @@ with st.sidebar:
     if st.button("🗑️ Nueva Sesión"): st.session_state.clear(); st.rerun()
 
 # --- CHAT ---
-st.title(f"🤖 Agente V12.5: {rol}")
+st.title(f"🤖 Agente IkigAI: {rol}")
 if st.session_state.generated_chart: st.pyplot(st.session_state.generated_chart); st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
 
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
@@ -201,3 +201,4 @@ if p := st.chat_input("Escriba aquí..."):
             st.markdown(res.text)
             st.session_state.messages.append({"role": "assistant", "content": res.text})
             st.rerun()
+
