@@ -11,256 +11,193 @@ import os
 from io import BytesIO
 import json
 from datetime import date
-# LIBRERÍAS GRÁFICAS Y PPTX
+# LIBRERÍAS DE OFICINA
 from pptx import Presentation
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
+import pandas as pd
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Agente V11.5 (Analista Gráfico Pro)", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Agente V12.5 (Suite Completa)", page_icon="💼", layout="wide")
 
-# --- FUNCIONES DE LECTURA DE TEXTO ---
+# --- FUNCIONES DE LECTURA ---
 def get_pdf_text(pdf_file):
     reader = PdfReader(pdf_file)
     text = ""
-    for page in reader.pages:
-        text += page.extract_text()
+    for page in reader.pages: text += page.extract_text()
     return text
 
 def get_docx_text(docx_file):
     doc = docx.Document(docx_file)
     return "\n".join([para.text for para in doc.paragraphs])
 
-# --- FUNCIÓN GENERAR WORD (ACTA) ---
+# --- 1. GENERAR WORD (ACTA - HISTORIAL) ---
 def create_chat_docx(messages):
     doc = docx.Document()
-    doc.add_heading(f'Acta de Sesión: {date.today().strftime("%d/%m/%Y")}', 0)
+    doc.add_heading(f'Acta: {date.today().strftime("%d/%m/%Y")}', 0)
     for msg in messages:
-        role = "USUARIO" if msg["role"] == "user" else "ASISTENTE IA"
+        role = "USUARIO" if msg["role"] == "user" else "IA"
         doc.add_heading(role, level=2)
         doc.add_paragraph(msg["content"])
-        doc.add_paragraph("---")
-    buffer = BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
+    buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# --- FUNCIÓN GENERAR POWERPOINT (PPTX) ---
+# --- 2. GENERAR WORD (LIMPIO - DOCUMENTO) ---
+def create_clean_docx(text_content):
+    doc = docx.Document()
+    # Limpiamos posibles bloques de código markdown
+    clean_text = text_content.replace("```markdown", "").replace("```", "")
+    for paragraph in clean_text.split('\n'):
+        if paragraph.strip(): 
+            doc.add_paragraph(paragraph)
+    buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
+    return buffer
+
+# --- 3. GENERAR PPTX ---
 def generate_pptx_from_data(slide_data):
     prs = Presentation()
-    title_slide_layout = prs.slide_layouts[0]
-    slide = prs.slides.add_slide(title_slide_layout)
+    slide = prs.slides.add_slide(prs.slide_layouts[0])
     slide.shapes.title.text = slide_data[0].get("title", "Presentación IA")
-    slide.placeholders[1].text = f"Fecha: {date.today().strftime('%d/%m/%Y')}"
-
-    bullet_slide_layout = prs.slide_layouts[1]
-    for slide_info in slide_data[1:]:
-        slide = prs.slides.add_slide(bullet_slide_layout)
-        slide.shapes.title.text = slide_info.get("title", "Título")
+    slide.placeholders[1].text = f"Fecha: {date.today()}"
+    for info in slide_data[1:]:
+        slide = prs.slides.add_slide(prs.slide_layouts[1])
+        slide.shapes.title.text = info.get("title", "Título")
         tf = slide.placeholders[1].text_frame
-        content_list = slide_info.get("content", [])
-        if content_list:
-            tf.text = content_list[0]
-            for point in content_list[1:]:
-                p = tf.add_paragraph()
-                p.text = point
-                p.level = 0
-    buffer = BytesIO()
-    prs.save(buffer)
-    buffer.seek(0)
+        for point in info.get("content", []):
+            p = tf.add_paragraph(); p.text = point; p.level = 0
+    buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
     return buffer
 
-# --- NUEVA FUNCIÓN: MOTOR GRÁFICO AVANZADO (V11.5) ---
+# --- 4. GENERAR EXCEL ---
+def generate_excel_from_data(excel_data):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        for sheet_name, data in excel_data.items():
+            df = pd.DataFrame(data)
+            df.to_excel(writer, index=False, sheet_name=sheet_name[:30])
+    output.seek(0)
+    return output
+
+# --- 5. GENERAR GRÁFICO ---
 def generate_advanced_chart(chart_data):
-    """Genera gráficos complejos (líneas, barras mixtas) desde JSON."""
-    title = chart_data.get("title", "Análisis Gráfico")
-    labels = chart_data.get("labels", [])
-    datasets = chart_data.get("datasets", []) # Lista de series de datos
-
-    # Configuración profesional del lienzo
     fig, ax = plt.subplots(figsize=(10, 5))
-    plt.style.use('seaborn-v0_8-darkgrid') # Estilo más financiero/profesional
-
-    # Iterar sobre cada serie de datos (ej: Línea MACD, Línea Señal, Barras Histograma)
-    for ds in datasets:
-        label_name = ds.get("label", "Serie")
-        values = ds.get("values", [])
-        chart_type = ds.get("type", "line").lower() # 'line' o 'bar'
-        color = ds.get("color", None)
-
-        # Validar que la longitud de los datos coincida con las etiquetas
-        if len(values) != len(labels):
-            st.warning(f"⚠️ Desajuste de datos en serie '{label_name}'. Se omitirá.")
-            continue
-
-        if chart_type == "line":
-            # Dibujar Línea (Trading/Tendencias)
-            ax.plot(labels, values, label=label_name, marker='o', markersize=4, linewidth=2, color=color)
-        else:
-            # Dibujar Barra (Volumen/Histograma) - con transparencia
-            ax.bar(labels, values, label=label_name, alpha=0.5, color=color)
-
-    ax.set_title(title, fontsize=14, fontweight='bold')
-    ax.set_ylabel("Valor / Nivel")
-    ax.legend(frameon=True) # Mostrar leyenda
-    ax.grid(True, linestyle='--', alpha=0.7)
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
+    plt.style.use('seaborn-v0_8-darkgrid')
+    labels = chart_data.get("labels", [])
+    for ds in chart_data.get("datasets", []):
+        if len(ds["values"]) == len(labels):
+            if ds.get("type") == "line": ax.plot(labels, ds["values"], label=ds["label"], marker='o')
+            else: ax.bar(labels, ds["values"], label=ds["label"], alpha=0.6)
+    ax.legend(); ax.set_title(chart_data.get("title", "Gráfico")); plt.tight_layout()
     return fig
 
-# --- FUNCIONES WEB Y YOUTUBE ---
-def get_youtube_text(video_url):
+# --- FUNCIONES WEB/YT ---
+def get_youtube_text(url):
     try:
-        if "v=" in video_url: video_id = video_url.split("v=")[1].split("&")[0]
-        elif "youtu.be" in video_url: video_id = video_url.split("/")[-1]
-        else: return "URL inválida."
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-        text = " ".join([entry['text'] for entry in transcript])
-        return f"TRANSCRIPCIÓN YOUTUBE:\n{text}"
-    except: return "No se pudo obtener la transcripción."
+        vid = url.split("v=")[1].split("&")[0] if "v=" in url else url.split("/")[-1]
+        t = YouTubeTranscriptApi.get_transcript(vid, languages=['es', 'en'])
+        return "YT: " + " ".join([i['text'] for i in t])
+    except: return "Error YT"
 
 def get_web_text(url):
-    try:
-        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-        soup = BeautifulSoup(response.content, 'html.parser')
-        text = "\n".join([p.get_text() for p in soup.find_all('p')])
-        return f"CONTENIDO WEB ({url}):\n{text}"
-    except Exception as e: return f"Error web: {str(e)}"
+    try: return "WEB: " + "\n".join([p.get_text() for p in BeautifulSoup(requests.get(url).content, 'html.parser').find_all('p')])
+    except: return "Error Web"
 
 # --- ESTADO ---
 if "messages" not in st.session_state: st.session_state.messages = []
 if "contexto_texto" not in st.session_state: st.session_state.contexto_texto = ""
 if "archivo_multimodal" not in st.session_state: st.session_state.archivo_multimodal = None
-if "info_archivos" not in st.session_state: st.session_state.info_archivos = "Ninguno"
+# Estados para descargas
 if "generated_pptx" not in st.session_state: st.session_state.generated_pptx = None
 if "generated_chart" not in st.session_state: st.session_state.generated_chart = None
+if "generated_excel" not in st.session_state: st.session_state.generated_excel = None
+if "generated_word_clean" not in st.session_state: st.session_state.generated_word_clean = None
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("⚙️ Panel de Control")
+    st.header("⚙️ Control")
     api_key = st.text_input("🔑 API Key:", type="password")
-    temp_val = st.slider("Creatividad:", 0.0, 1.0, 0.2, 0.1)
+    temp = st.slider("Creatividad", 0.0, 1.0, 0.2)
     st.divider()
-    rol = st.radio("Perfil Activo:", ["Vicedecano Académico", "Director de UCI", "Mentor de Trading", "Experto en Telesalud", "Investigador Científico", "Profesor universitario", "Asistente Personal"])
-    prompts_roles = {
-        "Vicedecano Académico": "Eres Vicedecano riguroso. Cita normativas.",
-        "Director de UCI": "Eres Director de UCI. Prioriza seguridad y datos clínicos.",
-        "Mentor de Trading": "Eres Trader Institucional (Smart Money). Analiza estructura, liquidez y riesgo con precisión.",
-        "Experto en Telesalud": "Eres experto en Salud Digital y normativa.",
-        "Investigador Científico": "Eres metodólogo. Prioriza validez estadística.",
-        "Profesor universitario": "Eres docente socrático. Explica con claridad.",
-        "Asistente Personal": "Eres asistente ejecutivo eficiente."
-    }
-    st.divider()
+    rol = st.radio("Rol:", ["Vicedecano Académico", "Director de UCI", "Consultor telesalud", "Profesor Universitario", "Investigador", "Mentor de Trading", "Asistente personal"])
     
-    # --- HERRAMIENTAS DE SALIDA (ACTUALIZADO V11.5) ---
-    st.subheader("🛠️ HERRAMIENTAS DE SALIDA")
+    # --- HERRAMIENTAS DE SALIDA ---
+    st.subheader("🛠️ GENERADOR DE ARCHIVOS")
     
-    # BOTÓN PPTX
-    if st.button("🗣️ Generar PPTX (Resumen)"):
-        if len(st.session_state.messages) < 2: st.error("Necesito historial.")
+    # 1. DOC LIMPIO (NUEVO)
+    if st.button("📄 Word (Solo Último Texto)"):
+        if not st.session_state.messages: st.error("No hay respuesta para descargar.")
         else:
-            with st.spinner("Diseñando diapositivas..."):
-                historial = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]])
-                prompt_pptx = f"""Basado en:\n{historial}\nCrea resumen para PPTX de 4-6 slides. SALIDA JSON ÚNICAMENTE: [{{{"title": "T1", "content": []}}}, {{{"title": "T2", "content": ["P1", "P2"]}}}]"""
-                try:
-                    genai.configure(api_key=api_key)
-                    # USAMOS GEMINI 2.5 FLASH AQUÍ TAMBIÉN
-                    model_tool = genai.GenerativeModel('gemini-2.5-flash', generation_config={"temperature": 0.1})
-                    response = model_tool.generate_content(prompt_pptx)
-                    cleaned_json = response.text.strip().removeprefix("```json").removesuffix("```")
-                    st.session_state.generated_pptx = generate_pptx_from_data(json.loads(cleaned_json))
-                    st.success("✅ PPTX Listo")
-                except Exception as e: st.error(f"Error PPTX: {e}")
-    if st.session_state.generated_pptx:
-        st.download_button("📥 Descargar Presentación.pptx", st.session_state.generated_pptx, "resumen_ia.pptx")
+            last_msg = st.session_state.messages[-1]["content"]
+            st.session_state.generated_word_clean = create_clean_docx(last_msg)
+            st.success("✅ Doc Listo")
+    if st.session_state.generated_word_clean:
+        st.download_button("📥 Bajar Documento.docx", st.session_state.generated_word_clean, "documento_ia.docx")
 
-    # BOTÓN GRÁFICO AVANZADO (NUEVO PROMPT)
-    if st.button("📈 Generar Gráfico Pro (Datos)"):
-         if len(st.session_state.messages) < 2: st.error("Necesito historial con datos numéricos.")
-         else:
-            with st.spinner("Analizando datos complejos..."):
-                historial = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]])
-                # PROMPT MUCHO MÁS SOFISTICADO PARA ESTRUCTURAR DATOS COMPLEJOS
-                prompt_chart = f"""
-                Actúa como Analista de Datos Financieros/Científicos. Analiza el historial reciente.
-                Extrae datos numéricos y decide la mejor forma de graficarlos (Líneas para tendencias/tiempo, Barras para histogramas/categorías).
-                TU SALIDA DEBE SER ÚNICAMENTE UN JSON VÁLIDO con este formato complejo exacto. Si no hay datos, "datasets": [].
-                {{
-                    "title": "Título del Análisis (ej: MACD vs Señal)",
-                    "labels": ["T1", "T2", "T3", "T4"],  <-- Eje X (Tiempo/Categorías)
-                    "datasets": [   <-- Lista de series
-                        {{"label": "Línea Rápida (MACD)", "type": "line", "values": [1.2, 1.5, 1.3, 1.8], "color": "blue"}},
-                        {{"label": "Línea Lenta (Señal)", "type": "line", "values": [1.3, 1.4, 1.4, 1.6], "color": "red"}},
-                        {{"label": "Histograma", "type": "bar", "values": [-0.1, 0.1, -0.1, 0.2], "color": "grey"}}
-                    ]
-                }}
-                HISTORIAL: {historial}
-                """
+    # 2. PPTX
+    if st.button("🗣️ PPTX (Resumen Chat)"):
+        with st.spinner("Creando PPTX..."):
+            hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
+            prompt = f"Crea JSON para PPTX basado en: {hist}. Formato: [{{'title':'T','content':['A']}}]"
+            try:
+                genai.configure(api_key=api_key); mod = genai.GenerativeModel('gemini-2.5-flash')
+                res = mod.generate_content(prompt)
+                st.session_state.generated_pptx = generate_pptx_from_data(json.loads(res.text.replace("```json","").replace("```","")))
+                st.success("✅ PPTX Listo")
+            except: st.error("Error PPTX")
+    if st.session_state.generated_pptx: st.download_button("📥 Bajar PPTX", st.session_state.generated_pptx, "presentacion.pptx")
+
+    # 3. EXCEL
+    if st.button("x ̅  Excel (Tablas/Datos)"):
+        if len(st.session_state.messages) < 2: st.error("Faltan datos.")
+        else:
+            with st.spinner("Creando Excel..."):
+                hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
+                prompt_excel = f"""Analiza: {hist}. Genera JSON para Excel. Si es encuesta, columnas Pregunta/Tipo. Si son datos, sus columnas. JSON: {{'Hoja1': [{{'ColA':'Val1'}}]}}"""
                 try:
-                    genai.configure(api_key=api_key)
-                    # USAMOS GEMINI 2.5 FLASH AQUÍ TAMBIÉN
-                    model_tool = genai.GenerativeModel('gemini-2.5-flash', generation_config={"temperature": 0.1})
-                    response = model_tool.generate_content(prompt_chart)
-                    cleaned_json = response.text.strip().removeprefix("```json").removesuffix("```")
-                    chart_data = json.loads(cleaned_json)
-                    if not chart_data["datasets"]: st.warning("No encontré estructura de datos clara.")
-                    else:
-                        st.session_state.generated_chart = generate_advanced_chart(chart_data)
-                        st.success("✅ Gráfico Pro Generado (Ver arriba)")
-                except Exception as e: st.error(f"Error generando gráfico: {e}. Intenta pedir los datos más claros.")
+                    genai.configure(api_key=api_key); mod = genai.GenerativeModel('gemini-2.5-flash')
+                    res = mod.generate_content(prompt_excel)
+                    st.session_state.generated_excel = generate_excel_from_data(json.loads(res.text.replace("```json","").replace("```","")))
+                    st.success("✅ Excel Listo")
+                except: st.error("Error Excel")
+    if st.session_state.generated_excel: st.download_button("📥 Bajar Excel.xlsx", st.session_state.generated_excel, "datos.xlsx")
+
+    # 4. GRÁFICO
+    if st.button("📊 Generar Gráfico"):
+        with st.spinner("Graficando..."):
+            hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
+            prompt = f"Extrae datos de: {hist}. JSON: {{'title':'T','labels':['A'],'datasets':[{{'label':'L','values':[1],'type':'bar'}}]}}"
+            try:
+                genai.configure(api_key=api_key); mod = genai.GenerativeModel('gemini-2.5-flash')
+                res = mod.generate_content(prompt)
+                st.session_state.generated_chart = generate_advanced_chart(json.loads(res.text.replace("```json","").replace("```","")))
+                st.success("✅ Gráfico Listo")
+            except: st.error("No hay datos claros.")
 
     st.divider()
-    st.subheader("💾 GESTIÓN")
-    # ZONA DE GUARDADO WORD / JSON
-    if len(st.session_state.messages) > 0: 
-        c1, c2 = st.columns(2)
-        c1.download_button("📄Acta", create_chat_docx(st.session_state.messages), "acta.docx")
-        c2.download_button("🧠JSON", json.dumps(st.session_state.messages), "memoria.json")
-    
-    # ZONA DE RESTAURAR MEMORIA (CORREGIDA LA VARIABLE)
-    uploaded_memory = st.file_uploader("Restaurar Cerebro", type=['json'])
-    if uploaded_memory and st.button("Cargar Memoria"):
-        st.session_state.messages = json.load(uploaded_memory)
-        st.rerun()
-        
-    st.divider()
-    if st.button("🗑️ Borrar Todo"): 
-        st.session_state.clear() 
-        st.rerun()
+    # GESTIÓN (Acta Completa / Backup)
+    if st.session_state.messages: 
+        st.download_button("💾 Acta Completa (Chat)", create_chat_docx(st.session_state.messages), "historial_chat.docx")
+        st.download_button("🧠 Backup Memoria", json.dumps(st.session_state.messages), "cerebro.json")
+    if st.button("🗑️ Nueva Sesión"): st.session_state.clear(); st.rerun()
 
-# --- CHAT PRINCIPAL ---
-st.title(f"🤖 Agente Analista: {rol}")
-if not api_key: st.warning("⚠️ Ingrese API Key."); st.stop()
+# --- CHAT ---
+st.title(f"🤖 Agente V12.5: {rol}")
+if st.session_state.generated_chart: st.pyplot(st.session_state.generated_chart); st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
 
-# MOSTRAR GRÁFICO PRO EN LA PARTE SUPERIOR
-if st.session_state.generated_chart:
-    st.pyplot(st.session_state.generated_chart)
-    if st.button("❌ Cerrar Gráfico Visual"): st.session_state.generated_chart = None; st.rerun()
-
+if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 genai.configure(api_key=api_key)
-try: 
-    # GEMINI 2.5 FLASH (O 2.0-FLASH-EXP SI 2.5 AÚN NO ESTÁ PÚBLICO EN API)
-    model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"temperature": temp_val})
-except: st.error("Error Modelo"); st.stop()
+model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"temperature": temp})
 
-for m in st.session_state.messages:
-    with st.chat_message(m["role"]): st.markdown(m["content"])
+for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
 
-if prompt := st.chat_input("Instrucción..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.markdown(prompt)
+if p := st.chat_input("Escriba aquí..."):
+    st.session_state.messages.append({"role": "user", "content": p})
+    st.chat_message("user").markdown(p)
     with st.chat_message("assistant"):
         with st.spinner("Pensando..."):
-            hc = st.session_state.contexto_texto != "" or st.session_state.archivo_multimodal is not None
-            rf = "MODO ESTRICTO (Usar solo adjuntos)." if hc else "MODO CHAT GENERAL (Usar conocimiento libre)."
-            ins = f"Actúa como {rol}.\nFECHA: {date.today()}\nCONTEXTO: {prompts_roles[rol]}\n{rf}\nESTILO: Natural, directo, sin clichés IA.\nAPA 7: Si hay DOI úsalo. Webs dinámicas usan 'Recuperado el {date.today()}'.\n"
-            if st.session_state.contexto_texto: ins += f"\n--- DOCS ---\n{st.session_state.contexto_texto[:500000]}\n--- FIN ---\n"
-            con = [ins]
-            if st.session_state.archivo_multimodal: con.append(st.session_state.archivo_multimodal)
-            hist = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[-5:]])
-            con.append(f"\nHISTORIAL:\n{hist}\nSOLICITUD: {prompt}")
-            res = model.generate_content(con)
+            ctx = st.session_state.contexto_texto
+            prompt = f"Rol: {rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Pregunta: {p}"
+            if ctx: prompt += f"\nDOC: {ctx[:500000]}"
+            res = model.generate_content(prompt)
             st.markdown(res.text)
             st.session_state.messages.append({"role": "assistant", "content": res.text})
             st.rerun()
