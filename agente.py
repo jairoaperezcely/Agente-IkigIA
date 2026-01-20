@@ -218,7 +218,7 @@ generation_config = {"temperature": temp_val}
 
 try:
     # Usamos Flash por velocidad y capacidad de contexto masivo
-    model = genai.GenerativeModel('gemini-1.5-flash', generation_config=generation_config)
+    model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
 except Exception as e:
     st.error(f"Error Gemini: {e}")
     st.stop()
@@ -278,3 +278,4 @@ if prompt := st.chat_input("Escriba su instrucción..."):
                 
             except Exception as e:
                 st.error(f"Error: {e}")
+
