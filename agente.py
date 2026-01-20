@@ -13,7 +13,7 @@ import json
 from datetime import date 
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Agente V10.0 (Híbrido & 2.0 Flash)", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente V10.0 (Híbrido & 2.5 Flash)", page_icon="🧬", layout="wide")
 
 # --- FUNCIONES DE LECTURA DE TEXTO ---
 def get_pdf_text(pdf_file):
@@ -296,3 +296,4 @@ if prompt := st.chat_input("Escriba su instrucción..."):
                 
             except Exception as e:
                 st.error(f"Error: {e}")
+
