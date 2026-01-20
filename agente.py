@@ -13,7 +13,7 @@ import json
 from datetime import date 
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Agente V9.5 (Masivo & Multimodal)", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente V10.0 (Híbrido & 2.0 Flash)", page_icon="🧬", layout="wide")
 
 # --- FUNCIONES DE LECTURA DE TEXTO ---
 def get_pdf_text(pdf_file):
@@ -217,7 +217,8 @@ genai.configure(api_key=api_key)
 generation_config = {"temperature": temp_val}
 
 try:
-    # Usamos Flash por velocidad y capacidad de contexto masivo
+    # --- MODELO ACTUALIZADO (GEMINI 2.5 FLASH) ---
+    # Si le da error de modelo, cambie a 'gemini-1.5-flash'
     model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
 except Exception as e:
     st.error(f"Error Gemini: {e}")
@@ -238,22 +239,39 @@ if prompt := st.chat_input("Escriba su instrucción..."):
                 contenido = []
                 fecha_hoy = date.today().strftime("%d de %B de %Y")
                 
-                # --- PROMPT MAESTRO (APA 7 + ANTI-ROBOT) ---
+                # --- CEREBRO HÍBRIDO: ¿HAY ARCHIVOS O ES CHAT LIBRE? ---
+                hay_contexto = st.session_state.contexto_texto != "" or st.session_state.archivo_multimodal is not None
+                
+                if hay_contexto:
+                    regla_fuente = """
+                    🚨 MODO ESTRICTO (CON ARCHIVOS):
+                    1. Basa tus respuestas EXCLUSIVAMENTE en los archivos adjuntos.
+                    2. NO uses conocimiento externo a menos que se te pida explícitamente "complementar".
+                    3. Si el dato no está en el archivo, di: "No se menciona en el documento".
+                    """
+                else:
+                    regla_fuente = """
+                    🔓 MODO CHAT GENERAL (SIN ARCHIVOS):
+                    1. NO hay archivos adjuntos. Eres libre de usar tu vasto conocimiento médico/académico/financiero.
+                    2. Sé creativo y útil.
+                    """
+
+                # --- PROMPT MAESTRO ---
                 instruccion = f"""
                 Actúa como {rol}.
                 FECHA DE HOY: {fecha_hoy}
-                CONTEXTO: {prompts_roles[rol]}
+                CONTEXTO DE ROL: {prompts_roles[rol]}
+                
+                {regla_fuente}
                 
                 REGLAS DE ESTILO (ANTI-ROBOT):
-                1. Escribe natural. PROHIBIDO usar: "cabe destacar", "en conclusión", "juega un papel crucial", "tapiz", "sinergia", "desbloquear potencial".
+                1. Escribe natural. PROHIBIDO usar: "cabe destacar", "en conclusión", "juega un papel crucial", "tapiz", "sinergia".
                 2. Sé directo y profesional.
                 
                 REGLAS DE CITACIÓN (APA 7a Edición):
-                1. Basa tus respuestas EXCLUSIVAMENTE en los archivos adjuntos.
-                2. SI TIENE DOI: https://doi.org/...
-                3. FUENTES ESTABLES (PDFs, Artículos): Cita (Autor, Año). NO uses "Recuperado de".
-                4. FUENTES DINÁMICAS (Webs vivas): Usa "Recuperado el {fecha_hoy} de [URL]".
-                5. Si no está en el documento, di: "No se menciona en el texto".
+                1. SI TIENE DOI: https://doi.org/...
+                2. FUENTES ESTABLES: Cita (Autor, Año). NO uses "Recuperado de".
+                3. FUENTES DINÁMICAS (Solo si citas Webs externas): Usa "Recuperado el {fecha_hoy} de [URL]".
                 """
                 
                 # Inyectar Texto Acumulado
@@ -278,4 +296,3 @@ if prompt := st.chat_input("Escriba su instrucción..."):
                 
             except Exception as e:
                 st.error(f"Error: {e}")
-
