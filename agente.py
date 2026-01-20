@@ -10,10 +10,14 @@ import time
 import os
 from io import BytesIO
 import json
-from datetime import date 
+from datetime import date
+# --- NUEVAS LIBRERÍAS V11.0 ---
+from pptx import Presentation
+from pptx.util import Inches, Pt
+import matplotlib.pyplot as plt
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Agente V10.0 (Híbrido & 2.5 Flash)", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente V11.0 (Constructor PPTX/Gráficos)", page_icon="🧬", layout="wide")
 
 # --- FUNCIONES DE LECTURA DE TEXTO ---
 def get_pdf_text(pdf_file):
@@ -27,273 +31,284 @@ def get_docx_text(docx_file):
     doc = docx.Document(docx_file)
     return "\n".join([para.text for para in doc.paragraphs])
 
-# --- FUNCIÓN PARA GENERAR WORD (ACTA) ---
+# --- FUNCIÓN GENERAR WORD (ACTA) ---
 def create_chat_docx(messages):
     doc = docx.Document()
-    doc.add_heading('Acta de Sesión con IA', 0)
-    doc.add_paragraph(f"Fecha de sesión: {date.today().strftime('%d/%m/%Y')}")
-    
+    doc.add_heading(f'Acta de Sesión: {date.today().strftime("%d/%m/%Y")}', 0)
     for msg in messages:
         role = "USUARIO" if msg["role"] == "user" else "ASISTENTE IA"
         doc.add_heading(role, level=2)
         doc.add_paragraph(msg["content"])
         doc.add_paragraph("---")
-    
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
+# --- NUEVA FUNCIÓN: GENERAR POWERPOINT (PPTX) ---
+def generate_pptx_from_data(slide_data):
+    """Crea un PPTX basado en una lista de datos estructurados."""
+    prs = Presentation()
+    
+    # Diapositiva de Título
+    title_slide_layout = prs.slide_layouts[0]
+    slide = prs.slides.add_slide(title_slide_layout)
+    title = slide.shapes.title
+    subtitle = slide.placeholders[1]
+    title.text = slide_data[0].get("title", "Presentación Generada por IA")
+    subtitle.text = f"Fecha: {date.today().strftime('%d/%m/%Y')}"
+
+    # Diapositivas de Contenido
+    bullet_slide_layout = prs.slide_layouts[1]
+    for slide_info in slide_data[1:]:
+        slide = prs.slides.add_slide(bullet_slide_layout)
+        shapes = slide.shapes
+        title_shape = shapes.title
+        body_shape = shapes.placeholders[1]
+        
+        title_shape.text = slide_info.get("title", "Título")
+        tf = body_shape.text_frame
+        
+        content_list = slide_info.get("content", [])
+        if content_list:
+            tf.text = content_list[0] # Primer punto
+            for point in content_list[1:]:
+                p = tf.add_paragraph()
+                p.text = point
+                p.level = 0 # Nivel de viñeta
+
+    buffer = BytesIO()
+    prs.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+# --- NUEVA FUNCIÓN: GENERAR GRÁFICO (MATPLOTLIB) ---
+def generate_chart_from_data(chart_data):
+    """Genera un gráfico de barras simple desde datos JSON."""
+    labels = chart_data.get("labels", [])
+    values = chart_data.get("values", [])
+    title = chart_data.get("title", "Gráfico de Datos")
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    bars = ax.bar(labels, values, color='#4A90E2')
+    
+    ax.set_ylabel('Valor')
+    ax.set_title(title)
+    plt.xticks(rotation=45, ha='right')
+    
+    # Añadir valores sobre las barras
+    for bar in bars:
+        height = bar.get_height()
+        ax.annotate(f'{height}',
+                    xy=(bar.get_x() + bar.get_width() / 2, height),
+                    xytext=(0, 3),  # 3 points vertical offset
+                    textcoords="offset points",
+                    ha='center', va='bottom')
+    
+    plt.tight_layout()
+    return fig
+
 # --- FUNCIONES WEB Y YOUTUBE ---
 def get_youtube_text(video_url):
     try:
-        if "v=" in video_url:
-            video_id = video_url.split("v=")[1].split("&")[0]
-        elif "youtu.be" in video_url:
-            video_id = video_url.split("/")[-1]
-        else:
-            return "URL inválida."
+        if "v=" in video_url: video_id = video_url.split("v=")[1].split("&")[0]
+        elif "youtu.be" in video_url: video_id = video_url.split("/")[-1]
+        else: return "URL inválida."
         transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
         text = " ".join([entry['text'] for entry in transcript])
         return f"TRANSCRIPCIÓN YOUTUBE:\n{text}"
-    except:
-        return "No se pudo obtener la transcripción."
+    except: return "No se pudo obtener la transcripción."
 
 def get_web_text(url):
     try:
         response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
         soup = BeautifulSoup(response.content, 'html.parser')
-        paragraphs = soup.find_all('p')
-        text = "\n".join([p.get_text() for p in paragraphs])
+        text = "\n".join([p.get_text() for p in soup.find_all('p')])
         return f"CONTENIDO WEB ({url}):\n{text}"
-    except Exception as e:
-        return f"Error web: {str(e)}"
+    except Exception as e: return f"Error web: {str(e)}"
 
-# --- LÓGICA DE MEMORIA (ESTADO) ---
+# --- ESTADO ---
 if "messages" not in st.session_state: st.session_state.messages = []
 if "contexto_texto" not in st.session_state: st.session_state.contexto_texto = ""
 if "archivo_multimodal" not in st.session_state: st.session_state.archivo_multimodal = None
 if "info_archivos" not in st.session_state: st.session_state.info_archivos = "Ninguno"
+if "generated_pptx" not in st.session_state: st.session_state.generated_pptx = None
+if "generated_chart" not in st.session_state: st.session_state.generated_chart = None
 
-# --- BARRA LATERAL (CONTROLES) ---
+# --- BARRA LATERAL ---
 with st.sidebar:
     st.header("⚙️ Panel de Control")
     api_key = st.text_input("🔑 API Key:", type="password")
     
-    # 1. CONTROL DE TEMPERATURA
     st.caption("Creatividad (0=Preciso | 1=Libre):")
     temp_val = st.slider("", 0.0, 1.0, 0.2, 0.1)
     
     st.divider()
     
-    # 2. SELECCIÓN DE ROL
-    rol = st.radio("Perfil Activo:", [
-        "Vicedecano Académico", 
-        "Director de UCI", 
-        "Experto en Telesalud",
-        "Investigador Científico",
-        "Profesor universitario",
-        "Asistente Personal",
-        "Mentor de Trading"
-    ])
+    rol = st.radio("Perfil Activo:", ["Vicedecano Académico", "Director de UCI", "Experto en Telesalud", "Investigador Científico", "Profesor universitario", "Asistente Personal", "Mentor de Trading"])
     
-    # DICCIONARIO DE ROLES (PROMPTS)
     prompts_roles = {
-        "Vicedecano Académico": "Eres un Vicedecano riguroso, ético y normativo. Cita siempre la fuente.",
-        "Director de UCI": "Eres Director de UCI. Prioriza seguridad del paciente y guías clínicas.",
-        "Mentor de Trading": "Eres Trader Institucional (Smart Money). Analiza liquidez, estructura y riesgo.",
-        "Experto en Telesalud": "Eres experto en Salud Digital, interoperabilidad y normativa.",
-        "Investigador Científico": "Eres metodólogo. Prioriza validez estadística y bibliografía.",
-        "Profesor universitario": "Eres docente socrático. Explica con claridad y analogías.",
-        "Asistente Personal": "Eres asistente ejecutivo. Organiza y redacta con formalidad."
+        "Vicedecano Académico": "Eres Vicedecano riguroso. Cita normativas.",
+        "Director de UCI": "Eres Director de UCI. Prioriza seguridad del paciente.",
+        "Mentor de Trading": "Eres Trader Institucional (Smart Money). Analiza estructura y riesgo.",
+        "Experto en Telesalud": "Eres experto en Salud Digital y normativa.",
+        "Investigador Científico": "Eres metodólogo. Prioriza validez estadística.",
+        "Profesor universitario": "Eres docente socrático. Explica con claridad.",
+        "Asistente Personal": "Eres asistente ejecutivo eficiente."
     }
 
     st.divider()
     
-    # 3. ZONA DE GUARDADO (SIEMPRE VISIBLE)
+    # --- NUEVA SECCIÓN: HERRAMIENTAS DE SALIDA ---
+    st.subheader("🛠️ HERRAMIENTAS DE SALIDA")
+    
+    # BOTÓN PPTX
+    if st.button("🗣️ Generar PPTX (Resumen)"):
+        if len(st.session_state.messages) < 2: st.error("Necesito historial de chat para resumir.")
+        else:
+            with st.spinner("Diseñando diapositivas..."):
+                # Prompt especial para forzar salida JSON
+                historial = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]])
+                prompt_pptx = f"""
+                Basado en este historial de chat:\n{historial}\n
+                Crea un resumen para una presentación de PowerPoint de 4 a 6 diapositivas.
+                TU SALIDA DEBE SER ÚNICAMENTE UN JSON VÁLIDO con este formato exacto, sin texto antes ni después:
+                [
+                    {{"title": "Título Principal de la Presentación", "content": []}},
+                    {{"title": "Título Diapositiva 2", "content": ["Punto clave 1", "Punto clave 2"]}},
+                    {{"title": "Título Diapositiva 3", "content": ["Punto clave 1", "Punto clave 2"]}}
+                ]
+                """
+                try:
+                    genai.configure(api_key=api_key)
+                    model_tool = genai.GenerativeModel('gemini-2.0-flash-exp', generation_config={"temperature": 0.1})
+                    response_pptx = model_tool.generate_content(prompt_pptx)
+                    # Limpiar respuesta para obtener solo el JSON
+                    cleaned_json = response_pptx.text.strip().removeprefix("```json").removesuffix("```")
+                    slide_data = json.loads(cleaned_json)
+                    st.session_state.generated_pptx = generate_pptx_from_data(slide_data)
+                    st.success("✅ PPTX Generado")
+                except Exception as e: st.error(f"Error generando PPTX: {e}")
+
+    # DESCARGA PPTX
+    if st.session_state.generated_pptx:
+        st.download_button("📥 Descargar Presentación.pptx", st.session_state.generated_pptx, "resumen_ia.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+
+    # BOTÓN GRÁFICO
+    if st.button("📊 Generar Gráfico (Datos)"):
+         if len(st.session_state.messages) < 2: st.error("Necesito historial con datos.")
+         else:
+            with st.spinner("Extrayendo datos y graficando..."):
+                historial = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]])
+                prompt_chart = f"""
+                Analiza el historial de chat e identifica datos numéricos comparables para un gráfico de barras.
+                TU SALIDA DEBE SER ÚNICAMENTE UN JSON VÁLIDO con este formato exacto, sin texto antes ni después. 
+                Si no hay datos, devuelve un JSON con listas vacías.
+                {{
+                    "title": "Título del Gráfico",
+                    "labels": ["Categoría A", "Categoría B", "Categoría C"],
+                    "values": [10, 25, 15]
+                }}
+                """
+                try:
+                    genai.configure(api_key=api_key)
+                    model_tool = genai.GenerativeModel('gemini-2.0-flash-exp', generation_config={"temperature": 0.1})
+                    response_chart = model_tool.generate_content(prompt_chart)
+                    cleaned_json = response_chart.text.strip().removeprefix("```json").removesuffix("```")
+                    chart_data = json.loads(cleaned_json)
+                    if not chart_data["values"]: st.warning("No encontré datos numéricos claros para graficar.")
+                    else:
+                        st.session_state.generated_chart = generate_chart_from_data(chart_data)
+                        st.success("✅ Gráfico Generado")
+                except Exception as e: st.error(f"Error generando gráfico: {e}")
+
+    st.divider()
+
+    # --- GESTIÓN DE SESIÓN Y FUENTES (Lo mismo de V10) ---
     st.subheader("💾 GESTIÓN")
     if len(st.session_state.messages) > 0:
         col1, col2 = st.columns(2)
         docx_file = create_chat_docx(st.session_state.messages)
-        col1.download_button("📄 Acta", docx_file, "acta_sesion.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        col1.download_button("📄 Acta", docx_file, "acta.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         chat_json = json.dumps(st.session_state.messages)
         col2.download_button("🧠 Backup", chat_json, "memoria.json", "application/json")
-    else:
-        st.info("Inicia el chat para habilitar guardado.")
-
-    # CARGAR BACKUP
+    else: st.info("Escribe para habilitar guardado.")
+    
     uploaded_memory = st.file_uploader("Restaurar (.json)", type=['json'])
     if uploaded_memory and st.button("🔄 Cargar Memoria"):
-        try:
-            st.session_state.messages = json.load(uploaded_memory)
-            st.success("¡Memoria restaurada!")
-            time.sleep(1)
-            st.rerun()
-        except:
-            st.error("Archivo inválido")
-
+        st.session_state.messages = json.load(uploaded_memory)
+        st.rerun()
     st.divider()
-    
-    # 4. CARGA DE ARCHIVOS (MULTIMODAL & MASIVO)
     st.subheader("📥 FUENTES")
     tab1, tab2, tab3, tab4 = st.tabs(["📚 Lote Docs", "👁️ Media", "🔴 YT", "🌐 Web"])
-    
-    # --- PESTAÑA 1: CARGA MASIVA (PDF/WORD) ---
     with tab1:
-        uploaded_docs = st.file_uploader("Subir Múltiples Archivos", 
-                                       type=['pdf', 'docx'], 
-                                       accept_multiple_files=True)
-        
-        if uploaded_docs:
-            if st.button(f"🧠 Procesar {len(uploaded_docs)} Archivos"):
-                texto_acumulado = ""
-                barra = st.progress(0)
-                with st.spinner("Leyendo biblioteca..."):
-                    for i, doc in enumerate(uploaded_docs):
-                        try:
-                            if doc.type == "application/pdf":
-                                contenido = get_pdf_text(doc)
-                            else:
-                                contenido = get_docx_text(doc)
-                            texto_acumulado += f"\n--- INICIO ARCHIVO: {doc.name} ---\n{contenido}\n--- FIN ARCHIVO ---\n"
-                        except:
-                            st.error(f"Error en {doc.name}")
-                        barra.progress((i + 1) / len(uploaded_docs))
-                
-                st.session_state.contexto_texto = texto_acumulado
-                st.session_state.info_archivos = f"{len(uploaded_docs)} archivos cargados."
-                st.success("✅ ¡Biblioteca cargada a la memoria!")
-
-        if st.session_state.info_archivos != "Ninguno":
-            st.caption(f"En memoria: {st.session_state.info_archivos}")
-
-    # --- PESTAÑA 2: MULTIMEDIA (VIDEO, IMAGEN, AUDIO) ---
+        uploaded_docs = st.file_uploader("PDF/Word Masivo", type=['pdf', 'docx'], accept_multiple_files=True)
+        if uploaded_docs and st.button(f"🧠 Procesar {len(uploaded_docs)}"):
+            texto_acumulado = ""
+            barra = st.progress(0)
+            with st.spinner("Leyendo..."):
+                for i, doc in enumerate(uploaded_docs):
+                    if doc.type == "application/pdf": c = get_pdf_text(doc)
+                    else: c = get_docx_text(doc)
+                    texto_acumulado += f"\n--- {doc.name} ---\n{c}\n------\n"
+                    barra.progress((i + 1) / len(uploaded_docs))
+            st.session_state.contexto_texto = texto_acumulado
+            st.session_state.info_archivos = f"{len(uploaded_docs)} archivos."
+            st.success("✅ Cargado")
+        if st.session_state.info_archivos != "Ninguno": st.caption(f"Memoria: {st.session_state.info_archivos}")
     with tab2:
-        uploaded_media = st.file_uploader("Video/Foto/Audio", type=['mp4', 'mov', 'png', 'jpg', 'jpeg', 'mp3', 'wav', 'm4a'])
+        uploaded_media = st.file_uploader("Media", type=['mp4', 'png', 'jpg', 'mp3', 'wav'])
         if uploaded_media and api_key and st.button("Subir Media"):
             genai.configure(api_key=api_key)
-            with st.spinner(f"Procesando {uploaded_media.type}..."):
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.' + uploaded_media.name.split('.')[-1]) as tmp_file:
-                    tmp_file.write(uploaded_media.read())
-                    tmp_path = tmp_file.name
-                
-                media_file = genai.upload_file(path=tmp_path)
-                
-                while media_file.state.name == "PROCESSING":
-                    time.sleep(2)
-                    media_file = genai.get_file(media_file.name)
-                
-                st.session_state.archivo_multimodal = media_file
-                st.success("✅ Archivo multimedia listo")
-                os.remove(tmp_path)
-
-    # --- PESTAÑA 3: YOUTUBE ---
+            with st.spinner("Procesando..."):
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.' + uploaded_media.name.split('.')[-1]) as tf:
+                    tf.write(uploaded_media.read())
+                    tp = tf.name
+                mf = genai.upload_file(path=tp)
+                while mf.state.name == "PROCESSING": time.sleep(1); mf = genai.get_file(mf.name)
+                st.session_state.archivo_multimodal = mf
+                st.success("✅ Listo"); os.remove(tp)
     with tab3:
-        if st.button("Leer YT") and (yt_url := st.text_input("Link YT")):
-            st.session_state.contexto_texto = get_youtube_text(yt_url)
-            st.success("✅ YT Cargado")
-            
-    # --- PESTAÑA 4: WEB ---
+        if st.button("Leer YT") and (u := st.text_input("Link YT")): st.session_state.contexto_texto = get_youtube_text(u); st.success("✅ YT")
     with tab4:
-        if st.button("Leer Web") and (web_url := st.text_input("Link Web")):
-            st.session_state.contexto_texto = get_web_text(web_url)
-            st.success("✅ Web Cargada")
-
-    if st.button("🗑️ Nueva Sesión"):
-        st.session_state.messages = []
-        st.session_state.contexto_texto = ""
-        st.session_state.archivo_multimodal = None
-        st.session_state.info_archivos = "Ninguno"
+        if st.button("Leer Web") and (w := st.text_input("Link Web")): st.session_state.contexto_texto = get_web_text(w); st.success("✅ Web")
+    if st.button("🗑️ Borrar Todo"):
+        for key in st.session_state.keys(): del st.session_state[key]
         st.rerun()
 
 # --- CHAT PRINCIPAL ---
-st.title(f"🤖 Agente: {rol}")
+st.title(f"🤖 Agente Constructor: {rol}")
 
-if not api_key:
-    st.warning("⚠️ Ingrese API Key.")
-    st.stop()
+if not api_key: st.warning("⚠️ Ingrese API Key."); st.stop()
+
+# MOSTRAR GRÁFICO SI SE GENERÓ
+if st.session_state.generated_chart:
+    st.pyplot(st.session_state.generated_chart)
+    if st.button("❌ Cerrar Gráfico"):
+        st.session_state.generated_chart = None
+        st.rerun()
 
 genai.configure(api_key=api_key)
-generation_config = {"temperature": temp_val}
+try: model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"temperature": temp_val})
+except: st.error("Error Modelo"); st.stop()
 
-try:
-    # --- MODELO ACTUALIZADO (GEMINI 2.5 FLASH) ---
-    # Si le da error de modelo, cambie a 'gemini-1.5-flash'
-    model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
-except Exception as e:
-    st.error(f"Error Gemini: {e}")
-    st.stop()
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]): st.markdown(m["content"])
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-if prompt := st.chat_input("Escriba su instrucción..."):
+if prompt := st.chat_input("Instrucción..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
+    with st.chat_message("user"): st.markdown(prompt)
     with st.chat_message("assistant"):
         with st.spinner("Pensando..."):
-            try:
-                contenido = []
-                fecha_hoy = date.today().strftime("%d de %B de %Y")
-                
-                # --- CEREBRO HÍBRIDO: ¿HAY ARCHIVOS O ES CHAT LIBRE? ---
-                hay_contexto = st.session_state.contexto_texto != "" or st.session_state.archivo_multimodal is not None
-                
-                if hay_contexto:
-                    regla_fuente = """
-                    🚨 MODO ESTRICTO (CON ARCHIVOS):
-                    1. Basa tus respuestas EXCLUSIVAMENTE en los archivos adjuntos.
-                    2. NO uses conocimiento externo a menos que se te pida explícitamente "complementar".
-                    3. Si el dato no está en el archivo, di: "No se menciona en el documento".
-                    """
-                else:
-                    regla_fuente = """
-                    🔓 MODO CHAT GENERAL (SIN ARCHIVOS):
-                    1. NO hay archivos adjuntos. Eres libre de usar tu vasto conocimiento médico/académico/financiero.
-                    2. Sé creativo y útil.
-                    """
-
-                # --- PROMPT MAESTRO ---
-                instruccion = f"""
-                Actúa como {rol}.
-                FECHA DE HOY: {fecha_hoy}
-                CONTEXTO DE ROL: {prompts_roles[rol]}
-                
-                {regla_fuente}
-                
-                REGLAS DE ESTILO (ANTI-ROBOT):
-                1. Escribe natural. PROHIBIDO usar: "cabe destacar", "en conclusión", "juega un papel crucial", "tapiz", "sinergia".
-                2. Sé directo y profesional.
-                
-                REGLAS DE CITACIÓN (APA 7a Edición):
-                1. SI TIENE DOI: https://doi.org/...
-                2. FUENTES ESTABLES: Cita (Autor, Año). NO uses "Recuperado de".
-                3. FUENTES DINÁMICAS (Solo si citas Webs externas): Usa "Recuperado el {fecha_hoy} de [URL]".
-                """
-                
-                # Inyectar Texto Acumulado
-                if st.session_state.contexto_texto:
-                    instruccion += f"\n\n--- BIBLIOTECA DE ARCHIVOS ---\n{st.session_state.contexto_texto[:800000]}\n--- FIN BIBLIOTECA ---\n"
-                
-                # Inyectar Multimedia
-                if st.session_state.archivo_multimodal:
-                    contenido.append(st.session_state.archivo_multimodal)
-                    instruccion += " (Analiza el archivo multimedia adjunto)."
-
-                # Historial
-                historial = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[-5:]])
-                instruccion += f"\n\nHISTORIAL:\n{historial}\n\nSOLICITUD: {prompt}"
-
-                contenido.append(instruccion)
-                
-                response = model.generate_content(contenido)
-                st.markdown(response.text)
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
-                st.rerun()
-                
-            except Exception as e:
-                st.error(f"Error: {e}")
-
+            hc = st.session_state.contexto_texto != "" or st.session_state.archivo_multimodal is not None
+            rf = "MODO ESTRICTO (Usar solo adjuntos)." if hc else "MODO CHAT GENERAL (Usar conocimiento libre)."
+            ins = f"Actúa como {rol}.\nFECHA: {date.today()}\nCONTEXTO: {prompts_roles[rol]}\n{rf}\nESTILO: Natural, directo, sin clichés IA.\nAPA 7: Si hay DOI úsalo. Webs dinámicas usan 'Recuperado el {date.today()}'.\n"
+            if st.session_state.contexto_texto: ins += f"\n--- DOCS ---\n{st.session_state.contexto_texto[:500000]}\n--- FIN ---\n"
+            con = [ins]
+            if st.session_state.archivo_multimodal: con.append(st.session_state.archivo_multimodal)
+            hist = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[-5:]])
+            con.append(f"\nHISTORIAL:\n{hist}\nSOLICITUD: {prompt}")
+            res = model.generate_content(con)
+            st.markdown(res.text)
+            st.session_state.messages.append({"role": "assistant", "content": res.text})
+            st.rerun()
