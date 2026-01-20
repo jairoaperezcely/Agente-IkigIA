@@ -165,7 +165,8 @@ with st.sidebar:
                 prompt_pptx = f"""Basado en:\n{historial}\nCrea resumen para PPTX de 4-6 slides. SALIDA JSON ÚNICAMENTE: [{{{"title": "T1", "content": []}}}, {{{"title": "T2", "content": ["P1", "P2"]}}}]"""
                 try:
                     genai.configure(api_key=api_key)
-                    model_tool = genai.GenerativeModel('gemini-2.0-flash-exp', generation_config={"temperature": 0.1})
+                    # USAMOS GEMINI 2.5 FLASH AQUÍ TAMBIÉN
+                    model_tool = genai.GenerativeModel('gemini-2.5-flash', generation_config={"temperature": 0.1})
                     response = model_tool.generate_content(prompt_pptx)
                     cleaned_json = response.text.strip().removeprefix("```json").removesuffix("```")
                     st.session_state.generated_pptx = generate_pptx_from_data(json.loads(cleaned_json))
@@ -198,7 +199,8 @@ with st.sidebar:
                 """
                 try:
                     genai.configure(api_key=api_key)
-                    model_tool = genai.GenerativeModel('gemini-2.0-flash-exp', generation_config={"temperature": 0.1})
+                    # USAMOS GEMINI 2.5 FLASH AQUÍ TAMBIÉN
+                    model_tool = genai.GenerativeModel('gemini-2.5-flash', generation_config={"temperature": 0.1})
                     response = model_tool.generate_content(prompt_chart)
                     cleaned_json = response.text.strip().removeprefix("```json").removesuffix("```")
                     chart_data = json.loads(cleaned_json)
@@ -209,11 +211,23 @@ with st.sidebar:
                 except Exception as e: st.error(f"Error generando gráfico: {e}. Intenta pedir los datos más claros.")
 
     st.divider()
-    st.subheader("💾 GESTIÓN"); 
-    if len(st.session_state.messages)>0: c1,c2=st.columns(2);c1.download_button("📄Acta",create_chat_docx(st.session_state.messages),"acta.docx");c2.download_button("🧠JSON",json.dumps(st.session_state.messages),"memoria.json")
-    if st.file_uploader("Restaurar",type=['json'])and st.button("Cargar"):st.session_state.messages=json.load(uploaded_memory);st.rerun()
+    st.subheader("💾 GESTIÓN")
+    # ZONA DE GUARDADO WORD / JSON
+    if len(st.session_state.messages) > 0: 
+        c1, c2 = st.columns(2)
+        c1.download_button("📄Acta", create_chat_docx(st.session_state.messages), "acta.docx")
+        c2.download_button("🧠JSON", json.dumps(st.session_state.messages), "memoria.json")
+    
+    # ZONA DE RESTAURAR MEMORIA (CORREGIDA LA VARIABLE)
+    uploaded_memory = st.file_uploader("Restaurar Cerebro", type=['json'])
+    if uploaded_memory and st.button("Cargar Memoria"):
+        st.session_state.messages = json.load(uploaded_memory)
+        st.rerun()
+        
     st.divider()
-    if st.button("🗑️ Borrar Todo"): st.session_state.clear(); st.rerun()
+    if st.button("🗑️ Borrar Todo"): 
+        st.session_state.clear() 
+        st.rerun()
 
 # --- CHAT PRINCIPAL ---
 st.title(f"🤖 Agente Analista: {rol}")
@@ -225,7 +239,9 @@ if st.session_state.generated_chart:
     if st.button("❌ Cerrar Gráfico Visual"): st.session_state.generated_chart = None; st.rerun()
 
 genai.configure(api_key=api_key)
-try: model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"temperature": temp_val})
+try: 
+    # GEMINI 2.5 FLASH (O 2.0-FLASH-EXP SI 2.5 AÚN NO ESTÁ PÚBLICO EN API)
+    model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"temperature": temp_val})
 except: st.error("Error Modelo"); st.stop()
 
 for m in st.session_state.messages:
