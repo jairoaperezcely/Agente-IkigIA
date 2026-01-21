@@ -21,7 +21,7 @@ from streamlit_mermaid import st_mermaid  # <--- LIBRERÍA VISUAL
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente V15 (Visualizador)", page_icon="👁️", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V15", page_icon="👁️", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 # Si falla, usa 'gemini-2.0-flash-exp'
@@ -327,3 +327,4 @@ if p := st.chat_input("Instrucción..."):
             st.markdown(res.text)
             st.session_state.messages.append({"role": "assistant", "content": res.text})
             st.rerun()
+
