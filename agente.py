@@ -22,7 +22,7 @@ from pptx import Presentation
 from pptx.util import Pt as PtxPt, Inches as PtxInches
 from pptx.dml.color import RGBColor as PtxRGB
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
-from pptx.enum.shapes import MSO_SHAPE # <--- NUEVO PARA DIBUJAR FORMAS
+from pptx.enum.shapes import MSO_SHAPE 
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit.components.v1 as components 
@@ -36,7 +36,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V27", page_icon="🎨", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V28", page_icon="📊", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -101,7 +101,7 @@ def get_pptx_text(pptx_file):
 # FUNCIONES DE GENERACIÓN (OUTPUT DE LUJO)
 # ==========================================
 
-# 1. WORD ACTA (LIMPIEZA REFORZADA)
+# 1. WORD ACTA
 def create_chat_docx(messages):
     doc = docx.Document()
     for section in doc.sections:
@@ -141,7 +141,6 @@ def create_clean_docx(text_content):
     for section in doc.sections:
         section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
 
-    # Portada
     for _ in range(3): doc.add_paragraph("")
     title = doc.add_paragraph("INFORME EJECUTIVO")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -188,21 +187,18 @@ def create_clean_docx(text_content):
 
             if not stripped: continue
 
-            # Detectar encabezados (limpieza profunda)
             header_match = re.match(r'^(#+)\s*(.*)', stripped)
             if header_match:
                 hashes, raw_text = header_match.groups()
                 level = len(hashes)
                 clean_title = clean_md(raw_text)
-                
                 if level == 1:
                     h = doc.add_heading(clean_title, level=1)
                     h.runs[0].font.color.rgb = RGBColor(0, 51, 102); h.runs[0].font.size = Pt(16)
                 elif level == 2:
                     h = doc.add_heading(clean_title, level=2)
                     h.runs[0].font.color.rgb = RGBColor(50, 50, 50); h.runs[0].font.size = Pt(14)
-                else:
-                    doc.add_heading(clean_title, level=3)
+                else: doc.add_heading(clean_title, level=3)
             elif stripped.startswith('- ') or stripped.startswith('* '):
                 doc.add_paragraph(clean_md(stripped[2:]), style='List Bullet')
             elif re.match(r'^\d+\.', stripped):
@@ -217,7 +213,7 @@ def create_clean_docx(text_content):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (DESIGN STUDIO V27)
+# 3. PPTX PRO (MULTIMEDIA V28)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -228,60 +224,74 @@ def generate_pptx_from_data(slide_data, template_file=None):
     
     def clean_text(txt): return re.sub(r'\*\*(.*?)\*\*', r'\1', txt).strip()
 
-    # --- FUNCIÓN DE DISEÑO AUTOMÁTICO ---
+    # --- DISEÑO BASE ---
     def apply_design(slide, title_shape=None):
-        if using_template: return # Si hay plantilla, respetamos su diseño
+        if using_template: return
+        # Banda lateral
+        shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0), PtxInches(0), PtxInches(0.4), PtxInches(7.5))
+        shape.fill.solid(); shape.fill.fore_color.rgb = PtxRGB(0, 51, 102); shape.line.fill.background()
         
-        # 1. Banda Lateral Azul (Decorativa)
-        left = PtxInches(0); top = PtxInches(0)
-        width = PtxInches(0.4); height = PtxInches(7.5)
-        shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
-        shape.fill.solid(); shape.fill.fore_color.rgb = PtxRGB(0, 51, 102) # Navy
-        shape.line.fill.background() # Sin borde
-
-        # 2. Línea de Acento bajo el título
+        # Estilo Título
         if title_shape:
-            left = PtxInches(0.8); top = PtxInches(1.4)
-            width = PtxInches(8); height = PtxInches(0.05)
-            line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
-            line.fill.solid(); line.fill.fore_color.rgb = PtxRGB(0, 150, 200) # Cyan
-            line.line.fill.background()
-
-            # Estilizar el título mismo
+            # Linea acento
+            line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0.8), PtxInches(1.4), PtxInches(8), PtxInches(0.05))
+            line.fill.solid(); line.fill.fore_color.rgb = PtxRGB(0, 150, 200); line.line.fill.background()
+            
             title_shape.text_frame.paragraphs[0].font.name = 'Arial'
             title_shape.text_frame.paragraphs[0].font.size = PtxPt(36)
             title_shape.text_frame.paragraphs[0].font.bold = True
             title_shape.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
-            title_shape.top = PtxInches(0.5)
-            title_shape.left = PtxInches(0.8)
+            title_shape.top = PtxInches(0.5); title_shape.left = PtxInches(0.8)
+
+    # --- HELPER DE GRÁFICOS ---
+    def create_chart_image(data_dict):
+        # Genera un gráfico en memoria y devuelve el stream BytesIO
+        plt.style.use('seaborn-v0_8-whitegrid')
+        fig, ax = plt.subplots(figsize=(6, 4))
+        
+        labels = data_dict.get('labels', [])
+        values = data_dict.get('values', [])
+        label = data_dict.get('label', 'Datos')
+        
+        colors = ['#003366', '#708090', '#4682B4', '#A9A9A9']
+        
+        if len(labels) == len(values):
+            bars = ax.bar(labels, values, color=colors[:len(labels)], alpha=0.9)
+            ax.bar_label(bars, fmt='%.1f')
+        
+        ax.set_title(label, fontsize=12, fontweight='bold', color='#333333')
+        ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+        plt.tight_layout()
+        
+        img_stream = BytesIO()
+        plt.savefig(img_stream, format='png', dpi=150)
+        img_stream.seek(0)
+        plt.close(fig)
+        return img_stream
 
     # PORTADA
     try:
         slide = prs.slides.add_slide(prs.slide_layouts[0])
         if slide.shapes.title: 
             slide.shapes.title.text = clean_text(slide_data[0].get("title", "Presentación"))
-            # Estilo Portada (Manual)
             if not using_template:
                 slide.shapes.title.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
                 slide.shapes.title.text_frame.paragraphs[0].font.bold = True
-        
         if len(slide.placeholders) > 1: slide.placeholders[1].text = f"{date.today()}"
     except: 
-        slide = prs.slides.add_slide(prs.slide_layouts[6]) # Blank layout fallback
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
 
     # CONTENIDO
     for info in slide_data[1:]:
+        slide_type = info.get("type", "text") # text, table, chart
         content = info.get("content", [])
-        is_table = False
-        if isinstance(content, list) and len(content) > 0 and isinstance(content[0], list): is_table = True
         
-        # Elegir layout (Si no hay plantilla, usamos Blank(6) y dibujamos todo)
+        # Seleccionar layout
         layout_idx = 1 if using_template else 6
         if len(prs.slide_layouts) < 2: layout_idx = 0
-        
         slide = prs.slides.add_slide(prs.slide_layouts[layout_idx])
         
-        # Crear Título Manualmente si es diseño propio
+        # Título
         if not using_template:
             title_shape = slide.shapes.add_textbox(PtxInches(0.8), PtxInches(0.5), PtxInches(8), PtxInches(1))
             title_shape.text = clean_text(info.get("title", "Detalle"))
@@ -289,37 +299,39 @@ def generate_pptx_from_data(slide_data, template_file=None):
         else:
             if slide.shapes.title: slide.shapes.title.text = clean_text(info.get("title", "Detalle"))
 
-        # ---------------- TABLAS ----------------
-        if is_table:
-            rows = len(content); cols = len(content[0])
+        # --- CASO 1: TABLA ---
+        if slide_type == "table":
+            rows = len(content); cols = len(content[0]) if rows > 0 else 1
             left = PtxInches(1); top = PtxInches(2)
             width = PtxInches(8); height = PtxInches(0.8 * rows)
             table = slide.shapes.add_table(rows, cols, left, top, width, height).table
             
             for i, row in enumerate(content):
                 for j, val in enumerate(row):
-                    cell = table.cell(i, j); cell.text = str(val)
-                    p = cell.text_frame.paragraphs[0]
-                    p.font.size = PtxPt(12); p.font.name = 'Arial'
-                    if i == 0: # Cabecera Azul
-                        cell.fill.solid(); cell.fill.fore_color.rgb = PtxRGB(0, 51, 102)
-                        p.font.color.rgb = PtxRGB(255, 255, 255); p.font.bold = True; p.alignment = PP_ALIGN.CENTER
-                    else: # Cuerpo Gris suave
-                        p.font.color.rgb = PtxRGB(60, 60, 60)
+                    if j < cols:
+                        cell = table.cell(i, j); cell.text = str(val)
+                        p = cell.text_frame.paragraphs[0]
+                        p.font.size = PtxPt(12); p.font.name = 'Arial'
+                        if i == 0:
+                            cell.fill.solid(); cell.fill.fore_color.rgb = PtxRGB(0, 51, 102)
+                            p.font.color.rgb = PtxRGB(255, 255, 255); p.font.bold = True; p.alignment = PP_ALIGN.CENTER
+        
+        # --- CASO 2: GRÁFICO (IMAGEN) ---
+        elif slide_type == "chart":
+            chart_data = info.get("chart_data", {}) # Espera dict: {labels:[], values:[], label:''}
+            if chart_data:
+                img_stream = create_chart_image(chart_data)
+                slide.shapes.add_picture(img_stream, PtxInches(1.5), PtxInches(2), width=PtxInches(6))
 
-        # ---------------- TEXTO / LISTAS ----------------
+        # --- CASO 3: TEXTO / LISTA ---
         else:
-            # Si es diseño propio, creamos cuadro de texto
             if not using_template:
                 body_shape = slide.shapes.add_textbox(PtxInches(0.8), PtxInches(1.8), PtxInches(8.5), PtxInches(5))
                 tf = body_shape.text_frame
             else:
-                # Usamos el placeholder de la plantilla
                 for shape in slide.placeholders:
-                    if shape.placeholder_format.idx == 1: 
-                        tf = shape.text_frame; tf.clear(); break
+                    if shape.placeholder_format.idx == 1: tf = shape.text_frame; tf.clear(); break
             
-            # Estilo Inteligente de Texto
             font_size = 24 
             total_chars = sum(len(str(p)) for p in content)
             if total_chars > 500: font_size = 14
@@ -330,8 +342,8 @@ def generate_pptx_from_data(slide_data, template_file=None):
                 p = tf.add_paragraph()
                 p.text = clean_text(str(point))
                 p.font.size = PtxPt(font_size); p.font.name = 'Arial'
-                p.font.color.rgb = PtxRGB(60, 60, 60) # Gris oscuro elegante
-                p.space_after = PtxPt(10) # Espacio entre bullets
+                p.font.color.rgb = PtxRGB(60, 60, 60)
+                p.space_after = PtxPt(10)
 
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
     return buffer
@@ -464,14 +476,21 @@ with st.sidebar:
         st.markdown("##### 🗣️ Presentaciones")
         uploaded_template = st.file_uploader("Plantilla PPTX", type=['pptx'])
         
-        if st.button("Generar PPTX", use_container_width=True):
+        if st.button("Generar PPTX (Multimedia)", use_container_width=True):
             with st.spinner("Diseñando..."):
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
                 prompt = f"""
-                Analiza: {hist}. Genera JSON PPTX.
-                Si hay datos comparativos, usa una MATRIZ DE LISTAS (Tabla).
-                FORMATO JSON: [{{'title':'T','content':['A','B']}}]
-                O PARA TABLAS: [{{'title':'Comparativa','content':[['Header1','Header2'],['Row1Col1','Row1Col2']]}}]
+                Analiza: {hist}. Genera JSON para PPTX.
+                TIPOS DE SLIDE (usa el campo 'type'):
+                1. 'text': Para puntos normales.
+                2. 'table': Si hay datos comparativos (Matriz de listas).
+                3. 'chart': Si hay estadísticas (Bar Chart).
+                
+                FORMATOS:
+                - TEXT: {{'type':'text', 'title':'T', 'content':['A','B']}}
+                - TABLE: {{'type':'table', 'title':'T', 'content':[['Head1','Head2'],['Val1','Val2']]}}
+                - CHART: {{'type':'chart', 'title':'T', 'chart_data': {{'labels':['A','B'], 'values':[10,20], 'label':'Ventas'}} }}
+                
                 IMPORTANTE: Responde SOLO el JSON.
                 """
                 try:
@@ -592,7 +611,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V27: {rol}")
+st.title(f"🤖 Agente V28: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 # 1. VISUALIZADOR MERMAID
