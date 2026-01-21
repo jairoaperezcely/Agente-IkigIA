@@ -10,3 +10,4 @@ python-pptx
 pandas
 openpyxl
 streamlit-mermaid
+plot_mermaid
