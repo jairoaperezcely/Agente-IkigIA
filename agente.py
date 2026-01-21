@@ -25,7 +25,7 @@ from openpyxl.utils import get_column_letter
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V19", page_icon="👔", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V19.1", page_icon="🛡️", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -141,25 +141,39 @@ def create_clean_docx(text_content):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO
+# 3. PPTX PRO (CORREGIDO Y ROBUSTO)
 def generate_pptx_from_data(slide_data, template_file=None):
-    if template_file: prs = Presentation(template_file)
-    else: prs = Presentation()
+    if template_file: 
+        # Si es un archivo subido (BytesIO), hay que resetear el puntero
+        template_file.seek(0)
+        prs = Presentation(template_file)
+    else: 
+        prs = Presentation()
+    
     try:
+        # Intentar usar el layout de título (usualmente índice 0)
         slide_layout = prs.slide_layouts[0] 
         slide = prs.slides.add_slide(slide_layout)
         if slide.shapes.title: slide.shapes.title.text = slide_data[0].get("title", "Presentación")
         if len(slide.placeholders) > 1: slide.placeholders[1].text = f"{date.today()}"
-    except: slide = prs.slides.add_slide(prs.slide_layouts[6]) 
+    except: 
+        # Fallback si falla el layout 0
+        slide = prs.slides.add_slide(prs.slide_layouts[0])
+
     for info in slide_data[1:]:
+        # Intentar usar layout de contenido (usualmente índice 1)
         layout_index = 1 if len(prs.slide_layouts) > 1 else 0
         slide = prs.slides.add_slide(prs.slide_layouts[layout_index])
+        
         if slide.shapes.title: slide.shapes.title.text = info.get("title", "Info")
+        
+        # Llenar el cuerpo del slide
         for shape in slide.placeholders:
             if shape.placeholder_format.idx == 1: 
                 tf = shape.text_frame; tf.clear() 
                 for point in info.get("content", []):
                     p = tf.add_paragraph(); p.text = point; p.level = 0
+    
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
     return buffer
 
@@ -251,18 +265,35 @@ with st.sidebar:
         st.divider()
         st.markdown("##### 🗣️ Presentaciones")
         uploaded_template = st.file_uploader("Plantilla PPTX (Opcional)", type=['pptx'])
+        
+        # --- BOTÓN PPTX BLINDADO (CORRECCIÓN V19.1) ---
         if st.button("Generar PPTX", use_container_width=True):
             with st.spinner("Diseñando..."):
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
-                prompt = f"Analiza: {hist}. Genera JSON PPTX (5 slides): [{{'title':'T','content':['A','B']}}]"
+                prompt = f"""
+                Analiza: {hist}. 
+                Genera JSON para PPTX válido. 
+                FORMATO: [{{'title':'T','content':['A','B']}}]
+                IMPORTANTE: Responde SOLO el JSON, sin texto extra.
+                """
                 try:
                     genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
                     res = mod.generate_content(prompt)
-                    clean_json = res.text.replace("```json","").replace("```","").strip()
+                    
+                    # --- LIMPIEZA QUIRÚRGICA DE JSON ---
+                    clean_text = res.text.replace("```json","").replace("```","").strip()
+                    # Buscar el primer corchete '[' y el último ']'
+                    start = clean_text.find("[")
+                    end = clean_text.rfind("]") + 1
+                    if start != -1 and end != -1:
+                        clean_text = clean_text[start:end]
+                    
                     tpl = uploaded_template if uploaded_template else None
-                    st.session_state.generated_pptx = generate_pptx_from_data(json.loads(clean_json), tpl)
+                    st.session_state.generated_pptx = generate_pptx_from_data(json.loads(clean_text), tpl)
                     st.success("¡Listo!")
-                except Exception as e: st.error("Error PPTX")
+                except Exception as e: 
+                    st.error(f"Error Detallado: {e}") # Ahora sí muestra el error real
+                    
         if st.session_state.generated_pptx: 
             st.download_button("📥 Descargar", st.session_state.generated_pptx, "presentacion.pptx", use_container_width=True)
 
@@ -276,10 +307,15 @@ with st.sidebar:
                 try:
                     genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
                     res = mod.generate_content(prompt)
-                    clean_json = res.text.replace("```json","").replace("```","").strip()
-                    st.session_state.generated_excel = generate_excel_from_data(json.loads(clean_json))
+                    
+                    clean_text = res.text.replace("```json","").replace("```","").strip()
+                    start = clean_text.find("{")
+                    end = clean_text.rfind("}") + 1
+                    if start != -1 and end != -1: clean_text = clean_text[start:end]
+
+                    st.session_state.generated_excel = generate_excel_from_data(json.loads(clean_text))
                     st.success("¡Listo!")
-                except: st.error("Error Excel.")
+                except Exception as e: st.error(f"Error Excel: {e}")
         if st.session_state.generated_excel: 
             st.download_button("📥 Descargar", st.session_state.generated_excel, "datos_pro.xlsx", use_container_width=True)
             
@@ -369,7 +405,7 @@ with st.sidebar:
 # ==========================================
 # CHAT
 # ==========================================
-st.title(f"🤖 Agente V19: {rol}")
+st.title(f"🤖 Agente V19.1: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
