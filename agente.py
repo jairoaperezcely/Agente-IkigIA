@@ -12,17 +12,19 @@ from io import BytesIO
 import json
 from datetime import date
 
-# --- LIBRERÍAS DE OFICINA & GRÁFICOS ---
+# --- LIBRERÍAS DE OFICINA, GRÁFICOS Y VISUALIZACIÓN ---
 from pptx import Presentation
 import matplotlib.pyplot as plt
 import pandas as pd
+from streamlit_mermaid import st_mermaid  # <--- NUEVA LIBRERÍA VISUAL
 
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V14.5", page_icon="🎨", layout="wide")
+st.set_page_config(page_title="Agente V15 (Visualizador Nativo)", page_icon="👁️", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
+# Si el 2.5 falla, use 'gemini-2.0-flash-exp' o 'gemini-1.5-flash'
 
 # ==========================================
 # FUNCIONES DE LECTURA (INPUT)
@@ -144,7 +146,7 @@ if "generated_pptx" not in st.session_state: st.session_state.generated_pptx = N
 if "generated_chart" not in st.session_state: st.session_state.generated_chart = None
 if "generated_excel" not in st.session_state: st.session_state.generated_excel = None
 if "generated_word_clean" not in st.session_state: st.session_state.generated_word_clean = None
-if "generated_mermaid" not in st.session_state: st.session_state.generated_mermaid = None # Nuevo estado visual
+if "generated_mermaid" not in st.session_state: st.session_state.generated_mermaid = None
 
 # ==========================================
 # BARRA LATERAL
@@ -201,7 +203,7 @@ with st.sidebar:
             except Exception as e: st.error(f"Error Excel: {e}")
     if st.session_state.generated_excel: st.download_button("📥 Bajar Excel", st.session_state.generated_excel, "data.xlsx")
 
-    # 4. GRÁFICO (BARRAS/LINEAS)
+    # 4. GRÁFICO
     if st.button("📊 Gráfico Datos"):
         with st.spinner("Graficando..."):
             hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
@@ -213,116 +215,37 @@ with st.sidebar:
                 st.success("✅ Gráfico Listo")
             except: st.error("No hay datos")
 
-    # 5. NUEVO: DIAGRAMA VISUAL (MERMAID)
+    # 5. VISUALIZADOR (MERMAID) - NUEVO
     if st.button("🎨 Generar Esquema Visual"):
         if len(st.session_state.messages) < 1: st.error("Necesito tema.")
         else:
             with st.spinner("Diseñando diagrama..."):
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
                 prompt_mermaid = f"""
-                Analiza el historial reciente: {hist}.
-                Crea un CÓDIGO MERMAID.JS para visualizar esto.
-                
-                Opciones (Elige la mejor):
-                1. 'graph TD' (Diagrama de Flujo) -> Para procesos.
-                2. 'mindmap' (Mapa Mental) -> Para ideas o ramas.
-                3. 'timeline' (Cronología) -> Para historias o fechas.
-                
-                TU RESPUESTA DEBE SER SOLO EL CÓDIGO dentro de bloques ```mermaid ... ```
+                Analiza: {hist}. Crea CÓDIGO MERMAID.JS.
+                Tipos: 'graph TD' (Proceso), 'mindmap' (Mapa Mental), 'timeline' (Historia).
+                SALIDA: Solo el código dentro de bloques ```mermaid ... ```
                 """
                 try:
                     genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
                     res = mod.generate_content(prompt_mermaid)
-                    st.session_state.generated_mermaid = res.text # Guardamos el código markdown
-                    st.success("✅ Esquema Visual Generado (Ver Arriba)")
+                    st.session_state.generated_mermaid = res.text
+                    st.success("✅ Visualización Lista (Ver Arriba)")
                 except Exception as e: st.error(f"Error Visual: {e}")
 
     st.divider()
-    # GESTIÓN Y CARGA MASIVA
-    st.subheader("📥 FUENTES UNIVERSALES")
+    # GESTIÓN
+    st.subheader("📥 FUENTES OMNÍVORAS")
     tab1, tab2, tab3, tab4 = st.tabs(["📂 Docs", "👁️ Media", "🔴 YT", "🌐 Web"])
     
     with tab1:
-        uploaded_docs = st.file_uploader("Subir Archivos", type=['pdf', 'docx', 'xlsx', 'pptx'], accept_multiple_files=True)
-        if uploaded_docs and st.button(f"Leer {len(uploaded_docs)} Archivos"):
+        uploaded_docs = st.file_uploader("Archivos (PDF/DOC/XLS/PPT)", type=['pdf', 'docx', 'xlsx', 'pptx'], accept_multiple_files=True)
+        if uploaded_docs and st.button(f"Leer {len(uploaded_docs)}"):
             text_acc = ""
             prog = st.progress(0)
             for i, doc in enumerate(uploaded_docs):
                 try:
-                    if doc.type == "application/pdf": 
-                        text_acc += f"\n--- PDF: {doc.name} ---\n{get_pdf_text(doc)}"
-                    elif doc.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                        text_acc += f"\n--- WORD: {doc.name} ---\n{get_docx_text(doc)}"
-                    elif doc.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-                        text_acc += f"\n--- EXCEL: {doc.name} ---\n{get_excel_text(doc)}"
-                    elif doc.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-                        text_acc += f"\n--- PPTX: {doc.name} ---\n{get_pptx_text(doc)}"
-                except Exception as e: st.error(f"Error en {doc.name}: {e}")
-                prog.progress((i+1)/len(uploaded_docs))
-            st.session_state.contexto_texto = text_acc
-            st.session_state.info_archivos = f"{len(uploaded_docs)} archivos cargados."
-            st.success("✅ Biblioteca Cargada")
-    
-    with tab2:
-        uploaded_media = st.file_uploader("Media", type=['mp4','mp3','png','jpg'])
-        if uploaded_media and api_key and st.button("Subir Media"):
-            genai.configure(api_key=api_key)
-            with st.spinner("Procesando..."):
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.'+uploaded_media.name.split('.')[-1]) as tf:
-                    tf.write(uploaded_media.read()); tpath = tf.name
-                mfile = genai.upload_file(path=tpath)
-                while mfile.state.name == "PROCESSING": time.sleep(1); mfile = genai.get_file(mfile.name)
-                st.session_state.archivo_multimodal = mfile
-                st.success("✅ Media Lista"); os.remove(tpath)
-    with tab3:
-        if st.button("YT") and (u:=st.text_input("Link YT")): st.session_state.contexto_texto=get_youtube_text(u);st.success("✅ YT")
-    with tab4:
-        if st.button("Web") and (w:=st.text_input("Link Web")): st.session_state.contexto_texto=get_web_text(w);st.success("✅ Web")
-
-    st.divider()
-    if st.session_state.messages:
-        st.download_button("💾 Guardar Chat", create_chat_docx(st.session_state.messages), "chat.docx")
-        st.download_button("🧠 Backup JSON", json.dumps(st.session_state.messages), "memoria.json")
-    if st.file_uploader("Cargar Backup", type=['json']) and st.button("Restaurar"): st.session_state.messages = json.load(uploaded_memory); st.rerun()
-    if st.button("🗑️ Borrar"): st.session_state.clear(); st.rerun()
-
-# ==========================================
-# CHAT
-# ==========================================
-st.title(f"🤖 Agente V14.5: {rol}")
-if not api_key: st.warning("⚠️ API Key requerida"); st.stop()
-
-# ZONA DE VISUALIZACIÓN SUPERIOR
-# 1. Gráficos Estadísticos
-if st.session_state.generated_chart: 
-    st.pyplot(st.session_state.generated_chart)
-    st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
-
-# 2. Esquemas Visuales (Mermaid) - NUEVO
-if st.session_state.generated_mermaid:
-    st.markdown(st.session_state.generated_mermaid) # Esto dibuja el diagrama en pantalla
-    st.button("Cerrar Esquema Visual", on_click=lambda: st.session_state.update(generated_mermaid=None))
-
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel(MODELO_USADO, generation_config={"temperature": temp_val})
-
-for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
-
-if p := st.chat_input("Instrucción..."):
-    st.session_state.messages.append({"role": "user", "content": p})
-    st.chat_message("user").markdown(p)
-    with st.chat_message("assistant"):
-        with st.spinner("..."):
-            ctx = st.session_state.contexto_texto
-            prompt = f"Rol: {rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
-            if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
-            if st.session_state.archivo_multimodal: prompt += " (Analiza el archivo multimedia adjunto)."
-            
-            con = [prompt]
-            if st.session_state.archivo_multimodal: con.insert(0, st.session_state.archivo_multimodal)
-            
-            res = model.generate_content(con)
-            st.markdown(res.text)
-            st.session_state.messages.append({"role": "assistant", "content": res.text})
-            st.rerun()
-
+                    if doc.type == "application/pdf": text_acc += f"\n--- PDF: {doc.name} ---\n{get_pdf_text(doc)}"
+                    elif "word" in doc.type: text_acc += f"\n--- WORD: {doc.name} ---\n{get_docx_text(doc)}"
+                    elif "sheet" in doc.type: text_acc += f"\n--- EXCEL: {doc.name} ---\n{get_excel_text(doc)}"
+                    elif "presentation" in
