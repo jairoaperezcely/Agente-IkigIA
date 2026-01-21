@@ -523,4 +523,17 @@ if p := st.chat_input("Escriba su instrucción..."):
     st.chat_message("user").markdown(p)
     with st.chat_message("assistant"):
         with st.spinner("Pensando..."):
-            ctx =
+            ctx = st.session_state.contexto_texto
+            prompt = f"Rol: {rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
+            if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
+            con = [prompt]
+            if st.session_state.archivo_multimodal: 
+                con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo multimedia).")
+            
+            try:
+                res = model.generate_content(con)
+                st.markdown(res.text)
+                st.session_state.messages.append({"role": "assistant", "content": res.text})
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error: {e}")
