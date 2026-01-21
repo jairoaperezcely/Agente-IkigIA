@@ -2,7 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 import docx
-from docx.shared import Pt, RGBColor, Inches
+from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from bs4 import BeautifulSoup
 import requests
@@ -25,12 +25,12 @@ from openpyxl.utils import get_column_letter
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V18", page_icon="👔", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V19", page_icon="👔", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
 # ==========================================
-# FUNCIÓN VISUALIZADORA MERMAID (FONDO BLANCO)
+# FUNCIÓN VISUALIZADORA MERMAID
 # ==========================================
 def plot_mermaid(code):
     html_code = f"""
@@ -90,155 +90,102 @@ def get_pptx_text(pptx_file):
 # FUNCIONES DE GENERACIÓN (OUTPUT PRO)
 # ==========================================
 
-# 1. WORD ACTA (FORMATO MEMORANDO)
+# 1. WORD ACTA
 def create_chat_docx(messages):
     doc = docx.Document()
-    
-    # Membrete
     header = doc.sections[0].header
     p = header.paragraphs[0]
     p.text = f"CONFIDENCIAL - {date.today()}"
     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-
     title = doc.add_heading('BITÁCORA DE SESIÓN', 0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph("Generado por IA Asistente").alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph("_" * 50).alignment = WD_ALIGN_PARAGRAPH.CENTER
-
     for msg in messages:
         role = "USUARIO" if msg["role"] == "user" else "ASISTENTE"
         p_head = doc.add_paragraph()
         run = p_head.add_run(f"[{role}]")
         run.bold = True
         run.font.color.rgb = RGBColor(0, 51, 102) if role == "ASISTENTE" else RGBColor(100, 100, 100)
-        
         doc.add_paragraph(msg["content"])
-        doc.add_paragraph("") # Espacio
-        
+        doc.add_paragraph("")
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO (FORMATO INTERPRETADO)
+# 2. WORD DOCUMENTO PRO
 def create_clean_docx(text_content):
     doc = docx.Document()
-    
-    # Estilo base
     style = doc.styles['Normal']
     style.font.name = 'Arial'
     style.font.size = Pt(11)
-    
-    # Limpieza inicial
     clean_text = text_content.replace("```markdown", "").replace("```", "")
-    
     lines = clean_text.split('\n')
     for line in lines:
         line = line.strip()
         if not line: continue
-        
-        # Lógica de interpretación de formato
         if line.startswith('# '): 
             h = doc.add_heading(line.replace('# ',''), level=1)
             h.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        elif line.startswith('## '):
-            doc.add_heading(line.replace('## ',''), level=2)
-        elif line.startswith('### '):
-            doc.add_heading(line.replace('### ',''), level=3)
-        elif line.startswith('- ') or line.startswith('* '):
-            p = doc.add_paragraph(line[2:], style='List Bullet')
-        elif line.startswith('1. '):
-            p = doc.add_paragraph(line[3:], style='List Number')
+        elif line.startswith('## '): doc.add_heading(line.replace('## ',''), level=2)
+        elif line.startswith('### '): doc.add_heading(line.replace('### ',''), level=3)
+        elif line.startswith('- ') or line.startswith('* '): doc.add_paragraph(line[2:], style='List Bullet')
+        elif line.startswith('1. '): doc.add_paragraph(line[3:], style='List Number')
         else:
-            # Párrafo normal
             p = doc.add_paragraph(line)
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-    # Pie de página
     section = doc.sections[0]
     footer = section.footer
     p = footer.paragraphs[0]
     p.text = "Documento generado con Tecnología Gemini AI."
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX (PLANTILLA SOPORTADA)
+# 3. PPTX PRO
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: prs = Presentation(template_file)
     else: prs = Presentation()
-
-    # Slide 1: Título
     try:
         slide_layout = prs.slide_layouts[0] 
         slide = prs.slides.add_slide(slide_layout)
         if slide.shapes.title: slide.shapes.title.text = slide_data[0].get("title", "Presentación")
         if len(slide.placeholders) > 1: slide.placeholders[1].text = f"{date.today()}"
-    except:
-        slide = prs.slides.add_slide(prs.slide_layouts[6]) 
-    
-    # Slides Contenido
+    except: slide = prs.slides.add_slide(prs.slide_layouts[6]) 
     for info in slide_data[1:]:
         layout_index = 1 if len(prs.slide_layouts) > 1 else 0
         slide = prs.slides.add_slide(prs.slide_layouts[layout_index])
-        
-        if slide.shapes.title: 
-            slide.shapes.title.text = info.get("title", "Info")
-        
-        # Buscar el cuerpo de texto
+        if slide.shapes.title: slide.shapes.title.text = info.get("title", "Info")
         for shape in slide.placeholders:
             if shape.placeholder_format.idx == 1: 
-                tf = shape.text_frame
-                tf.clear() 
+                tf = shape.text_frame; tf.clear() 
                 for point in info.get("content", []):
-                    p = tf.add_paragraph()
-                    p.text = point
-                    p.level = 0
-
+                    p = tf.add_paragraph(); p.text = point; p.level = 0
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
     return buffer
 
-# 4. EXCEL (DISEÑO PROFESIONAL)
+# 4. EXCEL PRO
 def generate_excel_from_data(excel_data):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         for sheet_name, data in excel_data.items():
             df = pd.DataFrame(data)
             df.to_excel(writer, index=False, sheet_name=sheet_name[:30])
-            
-            # ACCEDEMOS A LA HOJA PARA DARLE ESTILO
             worksheet = writer.sheets[sheet_name[:30]]
-            
-            # Estilos
             header_font = Font(bold=True, color="FFFFFF")
-            header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid") # Azul Corporativo
+            header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
             border_style = Side(border_style="thin", color="000000")
             border = Border(left=border_style, right=border_style, top=border_style, bottom=border_style)
-            
-            # Ajustar columnas y pintar cabecera
             for col_idx, column_cells in enumerate(worksheet.columns, 1):
-                # 1. Ajustar Ancho (Auto-width)
-                max_length = 0
                 column_letter = get_column_letter(col_idx)
-                for cell in column_cells:
-                    try:
-                        if len(str(cell.value)) > max_length: max_length = len(str(cell.value))
-                    except: pass
-                worksheet.column_dimensions[column_letter].width = max_length + 4 # Un poco de aire extra
-                
-                # 2. Pintar Cabecera (Primera fila)
+                worksheet.column_dimensions[column_letter].width = 20
                 header_cell = worksheet[f"{column_letter}1"]
-                header_cell.font = header_font
-                header_cell.fill = header_fill
+                header_cell.font = header_font; header_cell.fill = header_fill
                 header_cell.alignment = Alignment(horizontal="center")
-                
-                # 3. Poner bordes a todo
-                for cell in column_cells:
-                    cell.border = border
-
+                for cell in column_cells: cell.border = border
     output.seek(0)
     return output
 
-# 5. GRÁFICO
+# 5. GRÁFICO PRO
 def generate_advanced_chart(chart_data):
     fig, ax = plt.subplots(figsize=(10, 5))
     plt.style.use('seaborn-v0_8-darkgrid')
@@ -275,96 +222,109 @@ if "generated_word_clean" not in st.session_state: st.session_state.generated_wo
 if "generated_mermaid" not in st.session_state: st.session_state.generated_mermaid = None
 
 # ==========================================
-# BARRA LATERAL
+# BARRA LATERAL (DISEÑO ELEGANTE CON TABS)
 # ==========================================
 with st.sidebar:
-    st.header("⚙️ Panel de Control")
+    st.header("⚙️ Configuración")
     api_key = st.text_input("🔑 API Key:", type="password")
     temp_val = st.slider("Creatividad", 0.0, 1.0, 0.2)
     st.divider()
     rol = st.radio("Rol:", ["Vicedecano Académico", "Director de UCI", "Consultor Telesalud", "Profesor Universitario", "Investigador Científico", "Mentor de Trading", "Asistente Personal"])
     
-    st.subheader("🛠️ FÁBRICA DE ARCHIVOS")
+    st.markdown("---")
+    st.subheader("🏭 Centro de Producción")
     
-    # 1. DOC PRO
-    if st.button("📄 Word (Documento Pro)"):
-        if st.session_state.messages:
-            last_msg = st.session_state.messages[-1]["content"]
-            st.session_state.generated_word_clean = create_clean_docx(last_msg)
-            st.success("✅ Doc Formateado Listo")
-    if st.session_state.generated_word_clean: st.download_button("📥 Bajar Doc", st.session_state.generated_word_clean, "documento_pro.docx")
+    # --- AQUÍ ESTÁ EL DISEÑO ELEGANTE CON PESTAÑAS ---
+    tab_office, tab_data, tab_visual = st.tabs(["📝 Oficina", "📊 Analítica", "🎨 Diseño"])
 
-    # 2. PPTX (CON PLANTILLA)
-    st.markdown("---")
-    uploaded_template = st.file_uploader("🎨 Subir Plantilla PPTX (Opcional)", type=['pptx'])
-    if st.button("🗣️ Generar PPTX"):
-        with st.spinner("Diseñando..."):
-            hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
-            prompt = f"Analiza: {hist}. Genera JSON PPTX (5-7 slides): [{{'title':'T','content':['A','B']}}]"
-            try:
-                genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
-                res = mod.generate_content(prompt)
-                clean_json = res.text.replace("```json","").replace("```","").strip()
-                tpl = uploaded_template if uploaded_template else None
-                st.session_state.generated_pptx = generate_pptx_from_data(json.loads(clean_json), tpl)
-                st.success("✅ PPTX Listo")
-            except Exception as e: st.error(f"Error: {e}")
-    if st.session_state.generated_pptx: st.download_button("📥 Bajar PPTX", st.session_state.generated_pptx, "presentacion.pptx")
-    st.markdown("---")
-
-    # 3. EXCEL PRO
-    if st.button("x ̅  Excel (Formateado)"):
-        with st.spinner("Diseñando Excel..."):
-            hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
-            prompt = f"Analiza: {hist}. JSON Excel: {{'Hoja1': [{{'ColumnaA':'Dato1', 'ColumnaB':'Dato2'}}]}}"
-            try:
-                genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
-                res = mod.generate_content(prompt)
-                clean_json = res.text.replace("```json","").replace("```","").strip()
-                st.session_state.generated_excel = generate_excel_from_data(json.loads(clean_json))
-                st.success("✅ Excel Listo")
-            except: st.error("Error Excel.")
-    if st.session_state.generated_excel: st.download_button("📥 Bajar Excel", st.session_state.generated_excel, "datos_pro.xlsx")
-
-    # 4. GRÁFICO
-    if st.button("📊 Gráfico Datos"):
-        with st.spinner("Graficando..."):
-            hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
-            prompt = f"Datos de: {hist}. JSON: {{'title':'T','labels':['A'],'datasets':[{{'label':'L','values':[1],'type':'bar'}}]}}"
-            try:
-                genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
-                res = mod.generate_content(prompt)
-                clean_json = res.text.replace("```json","").replace("```","").strip()
-                st.session_state.generated_chart = generate_advanced_chart(json.loads(clean_json))
-                st.success("✅ Gráfico Listo")
-            except: st.error("No hay datos.")
-
-    # 5. MERMAID
-    if st.button("🎨 Generar Esquema Visual"):
-        if len(st.session_state.messages) < 1: st.error("Falta tema.")
-        else:
+    # 1. PESTAÑA OFICINA (Word & PPT)
+    with tab_office:
+        st.markdown("##### 📄 Documentos")
+        if st.button("Generar Word (Pro)", use_container_width=True):
+            if st.session_state.messages:
+                last_msg = st.session_state.messages[-1]["content"]
+                st.session_state.generated_word_clean = create_clean_docx(last_msg)
+                st.success("¡Listo!")
+        if st.session_state.generated_word_clean: 
+            st.download_button("📥 Descargar", st.session_state.generated_word_clean, "documento_pro.docx", use_container_width=True)
+        
+        st.divider()
+        st.markdown("##### 🗣️ Presentaciones")
+        uploaded_template = st.file_uploader("Plantilla PPTX (Opcional)", type=['pptx'])
+        if st.button("Generar PPTX", use_container_width=True):
             with st.spinner("Diseñando..."):
-                hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
-                prompt_mermaid = f"""
-                Analiza: {hist}. Crea CÓDIGO MERMAID.JS válido.
-                REGLAS: NO usar paréntesis () en nodos. Usa [].
-                Tipos: 'graph TD', 'mindmap'.
-                SALIDA: Solo bloque ```mermaid ... ```
-                """
+                hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
+                prompt = f"Analiza: {hist}. Genera JSON PPTX (5 slides): [{{'title':'T','content':['A','B']}}]"
                 try:
                     genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
-                    res = mod.generate_content(prompt_mermaid)
-                    st.session_state.generated_mermaid = res.text
-                    st.success("✅ Esquema Listo")
-                except Exception as e: st.error(f"Error Visual: {e}")
+                    res = mod.generate_content(prompt)
+                    clean_json = res.text.replace("```json","").replace("```","").strip()
+                    tpl = uploaded_template if uploaded_template else None
+                    st.session_state.generated_pptx = generate_pptx_from_data(json.loads(clean_json), tpl)
+                    st.success("¡Listo!")
+                except Exception as e: st.error("Error PPTX")
+        if st.session_state.generated_pptx: 
+            st.download_button("📥 Descargar", st.session_state.generated_pptx, "presentacion.pptx", use_container_width=True)
 
-    st.divider()
-    st.subheader("📥 FUENTES")
-    tab1, tab2, tab3 = st.tabs(["📂 Docs", "👁️ Media", "🌐 Web/YT"])
+    # 2. PESTAÑA ANALÍTICA (Excel & Charts)
+    with tab_data:
+        st.markdown("##### 📗 Hojas de Cálculo")
+        if st.button("Generar Excel (Pro)", use_container_width=True):
+            with st.spinner("Calculando..."):
+                hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
+                prompt = f"Analiza: {hist}. JSON Excel: {{'Hoja1': [{{'ColumnaA':'Dato1', 'ColumnaB':'Dato2'}}]}}"
+                try:
+                    genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
+                    res = mod.generate_content(prompt)
+                    clean_json = res.text.replace("```json","").replace("```","").strip()
+                    st.session_state.generated_excel = generate_excel_from_data(json.loads(clean_json))
+                    st.success("¡Listo!")
+                except: st.error("Error Excel.")
+        if st.session_state.generated_excel: 
+            st.download_button("📥 Descargar", st.session_state.generated_excel, "datos_pro.xlsx", use_container_width=True)
+            
+        st.divider()
+        st.markdown("##### 📈 Gráficos")
+        if st.button("Generar Gráfico", use_container_width=True):
+            with st.spinner("Graficando..."):
+                hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
+                prompt = f"Datos de: {hist}. JSON: {{'title':'T','labels':['A'],'datasets':[{{'label':'L','values':[1],'type':'bar'}}]}}"
+                try:
+                    genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
+                    res = mod.generate_content(prompt)
+                    clean_json = res.text.replace("```json","").replace("```","").strip()
+                    st.session_state.generated_chart = generate_advanced_chart(json.loads(clean_json))
+                    st.success("¡Listo!")
+                except: st.error("Sin datos.")
+
+    # 3. PESTAÑA DISEÑO (Mermaid)
+    with tab_visual:
+        st.markdown("##### 🎨 Diagramas")
+        if st.button("Crear Esquema Visual", use_container_width=True):
+            if len(st.session_state.messages) < 1: st.error("Falta tema.")
+            else:
+                with st.spinner("Dibujando..."):
+                    hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
+                    prompt_mermaid = f"""
+                    Analiza: {hist}. Crea CÓDIGO MERMAID.JS válido.
+                    REGLAS: NO usar paréntesis () en nodos. Usa [].
+                    Tipos: 'graph TD', 'mindmap'.
+                    SALIDA: Solo bloque ```mermaid ... ```
+                    """
+                    try:
+                        genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
+                        res = mod.generate_content(prompt_mermaid)
+                        st.session_state.generated_mermaid = res.text
+                        st.success("¡Listo!")
+                    except Exception as e: st.error(f"Error: {e}")
+
+    st.markdown("---")
+    st.subheader("📥 Fuentes")
+    tab1, tab2, tab3 = st.tabs(["📂 Docs", "👁️ Media", "🌐 Web"])
     
     with tab1:
         uploaded_docs = st.file_uploader("Archivos", type=['pdf', 'docx', 'xlsx', 'pptx'], accept_multiple_files=True)
-        if uploaded_docs and st.button(f"Leer {len(uploaded_docs)} Docs"):
+        if uploaded_docs and st.button(f"Leer {len(uploaded_docs)} Docs", use_container_width=True):
             text_acc = ""
             for doc in uploaded_docs:
                 try:
@@ -374,11 +334,11 @@ with st.sidebar:
                     elif "presentation" in doc.type: text_acc += get_pptx_text(doc)
                 except: pass
             st.session_state.contexto_texto = text_acc
-            st.success("✅ Biblioteca Cargada")
+            st.success("Cargado")
     
     with tab2:
         up_media = st.file_uploader("Media", type=['mp4','mp3','png','jpg'])
-        if up_media and api_key and st.button("Subir Media"):
+        if up_media and api_key and st.button("Subir Media", use_container_width=True):
             genai.configure(api_key=api_key)
             with st.spinner("Procesando..."):
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.'+up_media.name.split('.')[-1]) as tf:
@@ -386,29 +346,30 @@ with st.sidebar:
                 mfile = genai.upload_file(path=tpath)
                 while mfile.state.name == "PROCESSING": time.sleep(1); mfile = genai.get_file(mfile.name)
                 st.session_state.archivo_multimodal = mfile
-                st.success("✅ Media Lista"); os.remove(tpath)
+                st.success("Listo"); os.remove(tpath)
     
     with tab3:
-        if st.button("YT") and (u:=st.text_input("Link YT")): 
-            st.session_state.contexto_texto=get_youtube_text(u);st.success("✅ YT")
-        if st.button("Web") and (w:=st.text_input("Link Web")): 
-            st.session_state.contexto_texto=get_web_text(w);st.success("✅ Web")
+        if st.button("Leer YT", use_container_width=True) and (u:=st.text_input("Link YT")): 
+            st.session_state.contexto_texto=get_youtube_text(u);st.success("OK")
+        if st.button("Leer Web", use_container_width=True) and (w:=st.text_input("Link Web")): 
+            st.session_state.contexto_texto=get_web_text(w);st.success("OK")
 
-    st.divider()
+    st.markdown("---")
     if st.session_state.messages:
-        st.download_button("💾 Chat Oficial", create_chat_docx(st.session_state.messages), "acta.docx")
-        st.download_button("🧠 Backup", json.dumps(st.session_state.messages), "mem.json")
+        c1, c2 = st.columns(2)
+        c1.download_button("💾 Chat", create_chat_docx(st.session_state.messages), "acta.docx", use_container_width=True)
+        c2.download_button("🧠 Backup", json.dumps(st.session_state.messages), "mem.json", use_container_width=True)
     
     uploaded_memory = st.file_uploader("Cargar Backup", type=['json'])
-    if uploaded_memory and st.button("Restaurar"): 
+    if uploaded_memory and st.button("Restaurar", use_container_width=True): 
         st.session_state.messages = json.load(uploaded_memory); st.rerun()
         
-    if st.button("🗑️ Borrar Todo"): st.session_state.clear(); st.rerun()
+    if st.button("🗑️ Borrar Todo", use_container_width=True): st.session_state.clear(); st.rerun()
 
 # ==========================================
 # CHAT
 # ==========================================
-st.title(f"🤖 Agente V18: {rol}")
+st.title(f"🤖 Agente V19: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
@@ -427,7 +388,7 @@ model = genai.GenerativeModel(MODELO_USADO, generation_config={"temperature": te
 
 for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
 
-if p := st.chat_input("Instrucción..."):
+if p := st.chat_input("Escriba su instrucción..."):
     st.session_state.messages.append({"role": "user", "content": p})
     st.chat_message("user").markdown(p)
     with st.chat_message("assistant"):
