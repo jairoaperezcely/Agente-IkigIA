@@ -31,7 +31,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V23", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V24", page_icon="💎", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -112,19 +112,26 @@ def create_chat_docx(messages):
     t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph("_" * 40).alignment = WD_ALIGN_PARAGRAPH.CENTER
     
+    # Función local para limpiar asteriscos del chat
+    def clean_chat_text(txt):
+        return txt.replace("**", "").replace("__", "")
+
     for msg in messages:
         role = "USUARIO" if msg["role"] == "user" else "ASISTENTE"
         p_head = doc.add_paragraph()
         run = p_head.add_run(f"[{role}]")
         run.bold = True
         run.font.color.rgb = RGBColor(0, 51, 102) if role == "ASISTENTE" else RGBColor(80, 80, 80)
-        p_msg = doc.add_paragraph(msg["content"])
+        
+        # Limpiamos el contenido del mensaje antes de escribirlo
+        clean_content = clean_chat_text(msg["content"])
+        p_msg = doc.add_paragraph(clean_content)
         p_msg.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         doc.add_paragraph("")
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO PRO
+# 2. WORD DOCUMENTO PRO (LIMPIEZA PROFUNDA)
 def create_clean_docx(text_content):
     doc = docx.Document()
     style = doc.styles['Normal']
@@ -144,34 +151,55 @@ def create_clean_docx(text_content):
     meta.alignment = WD_ALIGN_PARAGRAPH.CENTER; meta.runs[0].italic = True
     doc.add_page_break()
 
+    # --- FUNCIÓN DE LIMPIEZA MAESTRA ---
+    def clean_markdown_marks(text):
+        # Quita **, __, y comillas raras
+        text = text.replace("**", "").replace("__", "").replace("`", "")
+        return text.strip()
+
     clean_text = text_content.replace("```markdown", "").replace("```", "")
     lines = clean_text.split('\n')
     
     for line in lines:
         line = line.strip()
         if not line: continue
+        
+        # Detectar encabezados, limpiarlos y crearlos
         if line.startswith('# '): 
-            h1 = doc.add_heading(line.replace('# ',''), level=1)
+            raw_text = line.replace('# ','')
+            h1 = doc.add_heading(clean_markdown_marks(raw_text), level=1)
             h1.runs[0].font.color.rgb = RGBColor(0, 51, 102); h1.runs[0].font.size = Pt(16)
         elif line.startswith('## '):
-            h2 = doc.add_heading(line.replace('## ',''), level=2)
+            raw_text = line.replace('## ','')
+            h2 = doc.add_heading(clean_markdown_marks(raw_text), level=2)
             h2.runs[0].font.color.rgb = RGBColor(50, 50, 50); h2.runs[0].font.size = Pt(14)
-        elif line.startswith('### '): doc.add_heading(line.replace('### ',''), level=3)
+        elif line.startswith('### '): 
+            raw_text = line.replace('### ','')
+            doc.add_heading(clean_markdown_marks(raw_text), level=3)
+            
+        # Listas (Limpiando el contenido)
         elif line.startswith('- ') or line.startswith('* '):
-            p = doc.add_paragraph(line[2:], style='List Bullet')
+            raw_text = line[2:]
+            p = doc.add_paragraph(clean_markdown_marks(raw_text), style='List Bullet')
             p.paragraph_format.space_after = Pt(2)
         elif line[0].isdigit() and line[1] == '.':
             parts = line.split('.', 1)
-            if len(parts) > 1: doc.add_paragraph(parts[1].strip(), style='List Number')
-            else: doc.add_paragraph(line)
+            if len(parts) > 1: 
+                p = doc.add_paragraph(clean_markdown_marks(parts[1]), style='List Number')
+                p.paragraph_format.space_after = Pt(2)
+            else: 
+                doc.add_paragraph(clean_markdown_marks(line))
+        
+        # Párrafos normales (Limpieza total)
         else:
-            p = doc.add_paragraph(line.replace("**", ""))
+            final_text = clean_markdown_marks(line)
+            p = doc.add_paragraph(final_text)
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY; p.paragraph_format.space_after = Pt(8)
 
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (MOTOR INTELIGENTE)
+# 3. PPTX PRO (LIMPIEZA)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -274,9 +302,9 @@ with st.sidebar:
     temp_val = st.slider("Creatividad", 0.0, 1.0, 0.2)
     st.divider()
     
-    # --- ROL SELECCIONADO (CON EL NUEVO SOCIO ESTRATÉGICO) ---
+    # ROL (CON NUEVO ESTRATEGA)
     rol = st.radio("Rol:", [
-        "Socio Estratégico (Innovación)", # <--- NUEVO
+        "Socio Estratégico (Innovación)", 
         "Vicedecano Académico",
         "Director de UCI",
         "Consultor Telesalud",
@@ -286,7 +314,6 @@ with st.sidebar:
         "Asistente Personal"
     ])
 
-    # --- DESCRIPCIONES DE ROL (PERSONALIDAD) ---
     prompts_roles = {
         "Socio Estratégico (Innovación)": """
             Eres un Consultor Senior en Estrategia y Transformación (estilo McKinsey/IDEO).
@@ -296,16 +323,15 @@ with st.sidebar:
             3. Si el usuario pide algo básico, entrégalo, pero añade una sección de "Visión Disruptiva".
             ACTITUD: Proactiva, visionaria y analítica.
         """,
-        "Vicedecano Académico": "Eres Vicedecano. Tu tono es institucional, estratégico, riguroso, normativo y formal. Citas reglamentos y buscas la excelencia académica.",
+        "Vicedecano Académico": "Eres Vicedecano con visión estratégica. Tu tono es institucional, riguroso, normativo y formal. Citas reglamentos y buscas la excelencia académica.",
         "Director de UCI": "Eres Médico Intensivista. Prioriza la vida, las guías clínicas, la seguridad del paciente y la toma de decisiones basada en evidencia.",
-        "Consultor Telesalud": "Eres experto en Salud Digital, telemedicina e innovación, Leyes (Colombia) y Tecnología. Conoces la normativa de habilitación y protección de datos.",
-        "Profesor Universitario": "Eres docente. Explica con las mejores estrategias pedagogicas, paciencia y ejemplos claros. Tu objetivo es que el estudiante entienda los fundamentos.",
+        "Consultor Telesalud": "Eres experto e innovador en Salud Digital y telemedicina, Leyes (Colombia) y Tecnología. Conoces la normativa de habilitación y protección de datos.",
+        "Profesor Universitario": "Eres docente. Explica con estrategias pedagogicas innovadoras, paciencia y ejemplos claros. Tu objetivo es que el estudiante entienda los fundamentos.",
         "Investigador Científico": "Eres metodólogo. Prioriza datos, referencias bibliográficas (Vancouver/APA) y el rigor del método científico.",
         "Mentor de Trading": "Eres Trader Institucional. Analiza estructura de mercado, liquidez y gestión de riesgo. No das consejos financieros, enseñas a leer el mercado.",
         "Asistente Personal": "Eres un asistente ejecutivo eficiente, conciso y organizado. Vas directo al grano."
     }
     
-    # --- MODO VOZ ---
     st.markdown("---")
     modo_voz = st.toggle("🎙️ Modo Voz (Experimental)")
     if modo_voz:
@@ -457,7 +483,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V23: {rol}")
+st.title(f"🤖 Agente V24: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 # 1. VISUALIZADOR MERMAID
@@ -493,8 +519,7 @@ if modo_voz:
                 while mfile.state.name == "PROCESSING": time.sleep(0.5); mfile = genai.get_file(mfile.name)
                 
                 ctx = st.session_state.contexto_texto
-                # --- INYECCIÓN DE ROL ESTRATÉGICO EN VOZ ---
-                instruccion_rol = prompts_roles[rol] # <--- CLAVE: Recuperamos la descripción
+                instruccion_rol = prompts_roles[rol]
                 prompt_text = f"Rol: {rol}. INSTRUCCIONES ROL: {instruccion_rol}. Responde brevemente (para audio). Contexto: {ctx[:50000]}"
                 
                 res = model.generate_content([prompt_text, mfile])
@@ -516,8 +541,7 @@ else:
         with st.chat_message("assistant"):
             with st.spinner("Pensando..."):
                 ctx = st.session_state.contexto_texto
-                # --- INYECCIÓN DE ROL ESTRATÉGICO EN TEXTO ---
-                instruccion_rol = prompts_roles[rol] # <--- CLAVE: Recuperamos la descripción
+                instruccion_rol = prompts_roles[rol]
                 prompt = f"Rol: {rol}. PERFIL DE COMPORTAMIENTO: {instruccion_rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
                 
                 if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
