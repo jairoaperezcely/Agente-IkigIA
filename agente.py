@@ -13,9 +13,11 @@ import os
 from io import BytesIO
 import json
 from datetime import date
+import re # Importamos expresiones regulares para limpieza
 
 # --- LIBRERÍAS DE OFICINA, GRÁFICOS Y ESTILOS ---
 from pptx import Presentation
+from pptx.util import Pt as PtxPt # Alias para evitar conflicto con docx
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit.components.v1 as components 
@@ -25,7 +27,7 @@ from openpyxl.utils import get_column_letter
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V19.1", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V20", page_icon="👔", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -141,39 +143,64 @@ def create_clean_docx(text_content):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (CORREGIDO Y ROBUSTO)
+# 3. PPTX PRO (MOTOR INTELIGENTE V2)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
-        # Si es un archivo subido (BytesIO), hay que resetear el puntero
         template_file.seek(0)
         prs = Presentation(template_file)
     else: 
         prs = Presentation()
     
+    # Función auxiliar para limpiar texto sucio de la IA
+    def clean_text(txt):
+        txt = re.sub(r'\*\*(.*?)\*\*', r'\1', txt) # Quitar negritas markdown
+        return txt.strip()
+
+    # SLIDE 1: PORTADA
     try:
-        # Intentar usar el layout de título (usualmente índice 0)
-        slide_layout = prs.slide_layouts[0] 
-        slide = prs.slides.add_slide(slide_layout)
-        if slide.shapes.title: slide.shapes.title.text = slide_data[0].get("title", "Presentación")
-        if len(slide.placeholders) > 1: slide.placeholders[1].text = f"{date.today()}"
-    except: 
-        # Fallback si falla el layout 0
+        slide = prs.slides.add_slide(prs.slide_layouts[0])
+        if slide.shapes.title: 
+            slide.shapes.title.text = clean_text(slide_data[0].get("title", "Presentación"))
+        # Intentar poner fecha en subtítulo
+        if len(slide.placeholders) > 1: 
+            slide.placeholders[1].text = f"Generado el: {date.today()}"
+    except:
         slide = prs.slides.add_slide(prs.slide_layouts[0])
 
+    # SLIDES DE CONTENIDO
     for info in slide_data[1:]:
-        # Intentar usar layout de contenido (usualmente índice 1)
+        # Elegir Layout 1 (Título + Objetos)
         layout_index = 1 if len(prs.slide_layouts) > 1 else 0
         slide = prs.slides.add_slide(prs.slide_layouts[layout_index])
         
-        if slide.shapes.title: slide.shapes.title.text = info.get("title", "Info")
+        # Título
+        if slide.shapes.title: 
+            slide.shapes.title.text = clean_text(info.get("title", "Info"))
         
-        # Llenar el cuerpo del slide
+        # Lógica inteligente de contenido
+        content_list = info.get("content", [])
+        
+        # Calcular tamaño de fuente dinámico según cantidad de texto
+        total_chars = sum(len(point) for point in content_list)
+        font_size = 24 # Tamaño base
+        if total_chars > 600: font_size = 14
+        elif total_chars > 400: font_size = 18
+        elif total_chars > 200: font_size = 20
+        
+        # Buscar el cuadro de texto principal
         for shape in slide.placeholders:
             if shape.placeholder_format.idx == 1: 
-                tf = shape.text_frame; tf.clear() 
-                for point in info.get("content", []):
-                    p = tf.add_paragraph(); p.text = point; p.level = 0
-    
+                tf = shape.text_frame
+                tf.clear() # Limpiar lo que traiga la plantilla
+                
+                for point in content_list:
+                    cleaned_point = clean_text(point)
+                    p = tf.add_paragraph()
+                    p.text = cleaned_point
+                    p.font.size = PtxPt(font_size) # Aplicar tamaño dinámico
+                    p.level = 0 # Nivel base
+                    p.space_after = PtxPt(6) # Espacio entre puntos
+
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
     return buffer
 
@@ -248,7 +275,6 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("🏭 Centro de Producción")
     
-    # --- AQUÍ ESTÁ EL DISEÑO ELEGANTE CON PESTAÑAS ---
     tab_office, tab_data, tab_visual = st.tabs(["📝 Oficina", "📊 Analítica", "🎨 Diseño"])
 
     # 1. PESTAÑA OFICINA (Word & PPT)
@@ -266,33 +292,34 @@ with st.sidebar:
         st.markdown("##### 🗣️ Presentaciones")
         uploaded_template = st.file_uploader("Plantilla PPTX (Opcional)", type=['pptx'])
         
-        # --- BOTÓN PPTX BLINDADO (CORRECCIÓN V19.1) ---
+        # --- BOTÓN PPTX OPTIMIZADO PARA ORDEN ---
         if st.button("Generar PPTX", use_container_width=True):
-            with st.spinner("Diseñando..."):
+            with st.spinner("Diseñando Diapositivas..."):
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
+                # PROMPT ESTRICTO DE ORDEN
                 prompt = f"""
                 Analiza: {hist}. 
-                Genera JSON para PPTX válido. 
-                FORMATO: [{{'title':'T','content':['A','B']}}]
-                IMPORTANTE: Responde SOLO el JSON, sin texto extra.
+                Genera JSON para PPTX.
+                REGLAS DE DISEÑO:
+                1. MÁXIMO 5 puntos por diapositiva.
+                2. TEXTO CORTO: Máximo 10 palabras por punto (Resumir al extremo).
+                3. SIN MARCADORES Markdown (No usar ** negritas, ni ## titulos).
+                FORMATO: [{{'title':'T','content':['Punto 1 (Breve)','Punto 2 (Breve)']}}]
+                IMPORTANTE: Responde SOLO el JSON.
                 """
                 try:
                     genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
                     res = mod.generate_content(prompt)
                     
-                    # --- LIMPIEZA QUIRÚRGICA DE JSON ---
                     clean_text = res.text.replace("```json","").replace("```","").strip()
-                    # Buscar el primer corchete '[' y el último ']'
                     start = clean_text.find("[")
                     end = clean_text.rfind("]") + 1
-                    if start != -1 and end != -1:
-                        clean_text = clean_text[start:end]
+                    if start != -1 and end != -1: clean_text = clean_text[start:end]
                     
                     tpl = uploaded_template if uploaded_template else None
                     st.session_state.generated_pptx = generate_pptx_from_data(json.loads(clean_text), tpl)
                     st.success("¡Listo!")
-                except Exception as e: 
-                    st.error(f"Error Detallado: {e}") # Ahora sí muestra el error real
+                except Exception as e: st.error(f"Error: {e}")
                     
         if st.session_state.generated_pptx: 
             st.download_button("📥 Descargar", st.session_state.generated_pptx, "presentacion.pptx", use_container_width=True)
@@ -307,12 +334,10 @@ with st.sidebar:
                 try:
                     genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
                     res = mod.generate_content(prompt)
-                    
                     clean_text = res.text.replace("```json","").replace("```","").strip()
                     start = clean_text.find("{")
                     end = clean_text.rfind("}") + 1
                     if start != -1 and end != -1: clean_text = clean_text[start:end]
-
                     st.session_state.generated_excel = generate_excel_from_data(json.loads(clean_text))
                     st.success("¡Listo!")
                 except Exception as e: st.error(f"Error Excel: {e}")
@@ -405,7 +430,7 @@ with st.sidebar:
 # ==========================================
 # CHAT
 # ==========================================
-st.title(f"🤖 Agente V19.1: {rol}")
+st.title(f"🤖 Agente V20: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
