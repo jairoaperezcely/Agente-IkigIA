@@ -2,8 +2,10 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 import docx
-from docx.shared import Pt, RGBColor, Cm
+from docx.shared import Pt, RGBColor, Cm, Inches as DocInches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import nsdecls
+from docx.oxml import parse_xml
 from bs4 import BeautifulSoup
 import requests
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -15,9 +17,11 @@ import json
 from datetime import date
 import re 
 
-# --- LIBRERÍAS DE OFICINA, GRÁFICOS Y ESTILOS ---
+# --- LIBRERÍAS DE OFICINA Y GRÁFICOS ---
 from pptx import Presentation
-from pptx.util import Pt as PtxPt
+from pptx.util import Pt as PtxPt, Inches as PtxInches # Alias para evitar conflicto
+from pptx.dml.color import RGBColor as PtxRGB
+from pptx.enum.text import PP_ALIGN
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit.components.v1 as components 
@@ -31,7 +35,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V24.1", page_icon="💎", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V26", page_icon="👔", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -93,16 +97,15 @@ def get_pptx_text(pptx_file):
     except Exception as e: return f"Error PPTX: {e}"
 
 # ==========================================
-# FUNCIONES DE GENERACIÓN (OUTPUT DE LUJO)
+# FUNCIONES DE GENERACIÓN (OUTPUT DE LUJO V26)
 # ==========================================
 
-# 1. WORD ACTA (LIMPIEZA MEJORADA)
+# 1. WORD ACTA
 def create_chat_docx(messages):
     doc = docx.Document()
     for section in doc.sections:
         section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
-        section.left_margin = Cm(2.54); section.right_margin = Cm(2.54)
-
+    
     header = doc.sections[0].header
     p = header.paragraphs[0]
     p.text = f"CONFIDENCIAL | {date.today()}"
@@ -112,12 +115,7 @@ def create_chat_docx(messages):
     t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph("_" * 40).alignment = WD_ALIGN_PARAGRAPH.CENTER
     
-    # Función local para limpiar basura Markdown del chat
-    def clean_chat_text(txt):
-        # Elimina **, __, y también los ### del inicio de linea
-        txt = re.sub(r'^#+\s*', '', txt, flags=re.MULTILINE) # Quita encabezados
-        txt = txt.replace("**", "").replace("__", "").replace("`", "")
-        return txt.strip()
+    def clean_chat(txt): return re.sub(r'^#+\s*', '', txt, flags=re.MULTILINE).replace("**","").strip()
 
     for msg in messages:
         role = "USUARIO" if msg["role"] == "user" else "ASISTENTE"
@@ -125,92 +123,93 @@ def create_chat_docx(messages):
         run = p_head.add_run(f"[{role}]")
         run.bold = True
         run.font.color.rgb = RGBColor(0, 51, 102) if role == "ASISTENTE" else RGBColor(80, 80, 80)
-        
-        clean_content = clean_chat_text(msg["content"])
-        p_msg = doc.add_paragraph(clean_content)
+        p_msg = doc.add_paragraph(clean_chat(msg["content"]))
         p_msg.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         doc.add_paragraph("")
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO PRO (DETECCIÓN INTELIGENTE)
+# 2. WORD DOCUMENTO PRO (TABLAS ELEGANTES)
 def create_clean_docx(text_content):
     doc = docx.Document()
     style = doc.styles['Normal']
     style.font.name = 'Arial'; style.font.size = Pt(11)
+    
     for section in doc.sections:
         section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
-        section.left_margin = Cm(2.54); section.right_margin = Cm(2.54)
 
+    # Portada
     for _ in range(3): doc.add_paragraph("")
     title = doc.add_paragraph("INFORME EJECUTIVO")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run_title = title.runs[0]
     run_title.bold = True; run_title.font.size = Pt(24); run_title.font.color.rgb = RGBColor(0, 51, 102)
     doc.add_paragraph("__________________________________________________").alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    meta = doc.add_paragraph(f"\nFecha de Emisión: {date.today().strftime('%d de %B de %Y')}")
-    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER; meta.runs[0].italic = True
+    doc.add_paragraph(f"\nFecha: {date.today().strftime('%d/%m/%Y')}").alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_page_break()
 
-    # --- FUNCIÓN DE LIMPIEZA INTERNA ---
-    def clean_markdown_marks(text):
-        # Quita negritas y códigos
-        return text.replace("**", "").replace("__", "").replace("`", "").strip()
+    def clean_md(text): return text.replace("**", "").replace("__", "").replace("`", "").strip()
 
-    clean_text = text_content.replace("```markdown", "").replace("```", "")
-    lines = clean_text.split('\n')
-    
+    # --- MOTOR DE TABLAS WORD V26 (AZUL CORPORATIVO) ---
+    def build_word_table(rows_data):
+        if not rows_data: return
+        table = doc.add_table(rows=len(rows_data), cols=len(rows_data[0]))
+        table.style = 'Table Grid'
+        
+        for i, row in enumerate(rows_data):
+            for j, cell_text in enumerate(row):
+                if j < len(table.columns):
+                    cell = table.cell(i, j)
+                    cell.text = clean_md(cell_text)
+                    # ESTILO CABECERA
+                    if i == 0:
+                        # Relleno Azul Oscuro (Navy)
+                        shading = parse_xml(r'<w:shd {} w:fill="003366"/>'.format(nsdecls('w')))
+                        cell._tc.get_or_add_tcPr().append(shading)
+                        # Texto Blanco y Negrita
+                        for p in cell.paragraphs:
+                            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                            for r in p.runs:
+                                r.font.color.rgb = RGBColor(255, 255, 255)
+                                r.bold = True
+
+    lines = text_content.split('\n')
+    table_buffer = []; in_table = False
+
     for line in lines:
-        line = line.strip()
-        if not line: continue
-        
-        # --- DETECCIÓN CON REGEX (MÁS POTENTE) ---
-        # Detecta #, ##, ###, #### con o sin espacio
-        header_match = re.match(r'^(#+)\s*(.*)', line)
-        
-        if header_match:
-            hashes, raw_text = header_match.groups()
-            level = len(hashes)
-            clean_txt = clean_markdown_marks(raw_text)
-            
-            if level == 1:
-                h = doc.add_heading(clean_txt, level=1)
-                h.runs[0].font.color.rgb = RGBColor(0, 51, 102); h.runs[0].font.size = Pt(16)
-            elif level == 2:
-                h = doc.add_heading(clean_txt, level=2)
-                h.runs[0].font.color.rgb = RGBColor(50, 50, 50); h.runs[0].font.size = Pt(14)
-            elif level == 3:
-                doc.add_heading(clean_txt, level=3)
-            else:
-                # Niveles > 3 se convierten en negrita
-                p = doc.add_paragraph(clean_txt)
-                p.runs[0].bold = True
-                
-        # Listas
-        elif line.startswith('- ') or line.startswith('* '):
-            raw_text = line[2:]
-            p = doc.add_paragraph(clean_markdown_marks(raw_text), style='List Bullet')
-            p.paragraph_format.space_after = Pt(2)
-        elif line[0].isdigit() and line[1] == '.':
-            parts = line.split('.', 1)
-            if len(parts) > 1: 
-                p = doc.add_paragraph(clean_markdown_marks(parts[1]), style='List Number')
-                p.paragraph_format.space_after = Pt(2)
-            else: 
-                doc.add_paragraph(clean_markdown_marks(line))
-        
-        # Párrafos normales
+        stripped = line.strip()
+        if stripped.startswith('|') and stripped.endswith('|'):
+            if "---" in stripped: continue 
+            row_cells = [c.strip() for c in stripped[1:-1].split('|')]
+            table_buffer.append(row_cells)
+            in_table = True
         else:
-            # Aseguramos que no queden # sueltos
-            final_text = clean_markdown_marks(line).lstrip('#').strip()
-            p = doc.add_paragraph(final_text)
-            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY; p.paragraph_format.space_after = Pt(8)
+            if in_table:
+                build_word_table(table_buffer)
+                table_buffer = []; in_table = False
+                doc.add_paragraph("")
 
+            if not stripped: continue
+
+            # Formato de texto
+            if stripped.startswith('# '): 
+                h = doc.add_heading(clean_md(stripped[2:]), level=1)
+                h.runs[0].font.color.rgb = RGBColor(0, 51, 102); h.runs[0].font.size = Pt(16)
+            elif stripped.startswith('## '):
+                h = doc.add_heading(clean_md(stripped[3:]), level=2)
+                h.runs[0].font.color.rgb = RGBColor(50, 50, 50); h.runs[0].font.size = Pt(14)
+            elif stripped.startswith('- ') or stripped.startswith('* '):
+                doc.add_paragraph(clean_md(stripped[2:]), style='List Bullet')
+            else:
+                p = doc.add_paragraph(clean_md(stripped))
+                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY; p.paragraph_format.space_after = Pt(6)
+
+    if in_table and table_buffer: build_word_table(table_buffer)
+    
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (LIMPIEZA)
+# 3. PPTX PRO (TABLAS NATIVAS V26)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -218,30 +217,67 @@ def generate_pptx_from_data(slide_data, template_file=None):
     
     def clean_text(txt): return re.sub(r'\*\*(.*?)\*\*', r'\1', txt).strip()
 
+    # Portada
     try:
         slide = prs.slides.add_slide(prs.slide_layouts[0])
         if slide.shapes.title: slide.shapes.title.text = clean_text(slide_data[0].get("title", "Presentación"))
-        if len(slide.placeholders) > 1: slide.placeholders[1].text = f"Generado el: {date.today()}"
     except: slide = prs.slides.add_slide(prs.slide_layouts[0])
 
     for info in slide_data[1:]:
-        layout_index = 1 if len(prs.slide_layouts) > 1 else 0
-        slide = prs.slides.add_slide(prs.slide_layouts[layout_index])
-        if slide.shapes.title: slide.shapes.title.text = clean_text(info.get("title", "Info"))
-        content_list = info.get("content", [])
-        total_chars = sum(len(point) for point in content_list)
-        font_size = 24 
-        if total_chars > 600: font_size = 14
-        elif total_chars > 400: font_size = 18
-        elif total_chars > 200: font_size = 20
+        # Detectar si es tabla o lista
+        content = info.get("content", [])
         
-        for shape in slide.placeholders:
-            if shape.placeholder_format.idx == 1: 
-                tf = shape.text_frame; tf.clear() 
-                for point in content_list:
-                    cleaned_point = clean_text(point)
-                    p = tf.add_paragraph(); p.text = cleaned_point
-                    p.font.size = PtxPt(font_size); p.level = 0; p.space_after = PtxPt(6) 
+        # SI ES TABLA (detectamos lista de listas o estructura tabular)
+        is_table = False
+        if isinstance(content, list) and len(content) > 0 and isinstance(content[0], list):
+            is_table = True
+        
+        # Usar Layout 
+        layout_index = 5 if is_table else 1 # Layout 5 suele ser Title Only (bueno para tablas)
+        if len(prs.slide_layouts) < 6: layout_index = 1
+        
+        slide = prs.slides.add_slide(prs.slide_layouts[layout_index])
+        if slide.shapes.title: slide.shapes.title.text = clean_text(info.get("title", "Detalle"))
+
+        if is_table:
+            # DIBUJAR TABLA REAL
+            rows = len(content)
+            cols = len(content[0])
+            left = PtxInches(1); top = PtxInches(2)
+            width = PtxInches(8); height = PtxInches(0.8 * rows)
+            
+            table = slide.shapes.add_table(rows, cols, left, top, width, height).table
+            
+            for i, row in enumerate(content):
+                for j, val in enumerate(row):
+                    cell = table.cell(i, j)
+                    cell.text = str(val)
+                    # Estilo Texto
+                    p = cell.text_frame.paragraphs[0]
+                    p.font.size = PtxPt(12)
+                    p.font.name = 'Arial'
+                    
+                    # Estilo Cabecera (Fondo Azul)
+                    if i == 0:
+                        cell.fill.solid()
+                        cell.fill.fore_color.rgb = PtxRGB(0, 51, 102)
+                        p.font.color.rgb = PtxRGB(255, 255, 255)
+                        p.font.bold = True
+                        p.alignment = PP_ALIGN.CENTER
+        else:
+            # TEXTO NORMAL (Smart Sizing)
+            font_size = 24 
+            total_chars = sum(len(str(p)) for p in content)
+            if total_chars > 500: font_size = 14
+            elif total_chars > 300: font_size = 18
+            
+            for shape in slide.placeholders:
+                if shape.placeholder_format.idx == 1: 
+                    tf = shape.text_frame; tf.clear() 
+                    for point in content:
+                        p = tf.add_paragraph()
+                        p.text = clean_text(str(point))
+                        p.font.size = PtxPt(font_size); p.level = 0 
 
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
     return buffer
@@ -254,30 +290,52 @@ def generate_excel_from_data(excel_data):
             df = pd.DataFrame(data)
             df.to_excel(writer, index=False, sheet_name=sheet_name[:30])
             worksheet = writer.sheets[sheet_name[:30]]
+            # Estilos Excel
             header_font = Font(bold=True, color="FFFFFF")
-            header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
-            border_style = Side(border_style="thin", color="000000")
-            border = Border(left=border_style, right=border_style, top=border_style, bottom=border_style)
+            header_fill = PatternFill(start_color="003366", end_color="003366", fill_type="solid") # Azul Corp
+            border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+            
             for col_idx, column_cells in enumerate(worksheet.columns, 1):
-                column_letter = get_column_letter(col_idx)
-                worksheet.column_dimensions[column_letter].width = 20
-                header_cell = worksheet[f"{column_letter}1"]
-                header_cell.font = header_font; header_cell.fill = header_fill
-                header_cell.alignment = Alignment(horizontal="center")
+                col_letter = get_column_letter(col_idx)
+                worksheet.column_dimensions[col_letter].width = 22
+                worksheet[f"{col_letter}1"].font = header_font
+                worksheet[f"{col_letter}1"].fill = header_fill
                 for cell in column_cells: cell.border = border
     output.seek(0)
     return output
 
-# 5. GRÁFICO PRO
+# 5. GRÁFICO PRO (ESTILO FINANCIAL TIMES)
 def generate_advanced_chart(chart_data):
+    # Estilo Minimalista y Elegante
+    plt.style.use('seaborn-v0_8-whitegrid') 
     fig, ax = plt.subplots(figsize=(10, 5))
-    plt.style.use('seaborn-v0_8-darkgrid')
+    
+    # Paleta Corporativa (Azul, Gris, Plata)
+    colors = ['#003366', '#708090', '#A9A9A9', '#4682B4']
+    
     labels = chart_data.get("labels", [])
-    for ds in chart_data.get("datasets", []):
+    datasets = chart_data.get("datasets", [])
+    
+    for i, ds in enumerate(datasets):
+        color = colors[i % len(colors)]
         if len(ds["values"]) == len(labels):
-            if ds.get("type") == "line": ax.plot(labels, ds["values"], label=ds["label"], marker='o')
-            else: ax.bar(labels, ds["values"], label=ds["label"], alpha=0.6)
-    ax.legend(); ax.set_title(chart_data.get("title", "Gráfico")); plt.tight_layout()
+            if ds.get("type") == "line": 
+                ax.plot(labels, ds["values"], label=ds["label"], marker='o', color=color, linewidth=2.5)
+            else: 
+                bars = ax.bar(labels, ds["values"], label=ds["label"], color=color, alpha=0.9)
+                # Etiquetas de valor sobre barras
+                ax.bar_label(bars, padding=3, fmt='%.1f')
+
+    ax.legend(frameon=False)
+    ax.set_title(chart_data.get("title", "Análisis"), fontsize=14, fontweight='bold', color='#333333')
+    
+    # Limpiar bordes innecesarios (Spines)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.grid(axis='y', linestyle='--', alpha=0.5) # Solo grid horizontal suave
+    
+    plt.tight_layout()
     return fig
 
 # FUNCIONES WEB/YT
@@ -293,7 +351,7 @@ def get_web_text(url):
     except: return "Error Web"
 
 # ==========================================
-# ESTADO DE SESIÓN
+# ESTADO
 # ==========================================
 if "messages" not in st.session_state: st.session_state.messages = []
 if "contexto_texto" not in st.session_state: st.session_state.contexto_texto = ""
@@ -313,7 +371,6 @@ with st.sidebar:
     temp_val = st.slider("Creatividad", 0.0, 1.0, 0.2)
     st.divider()
     
-    # ROL (CON NUEVO ESTRATEGA)
     rol = st.radio("Rol:", [
         "Socio Estratégico (Innovación)", 
         "Vicedecano Académico",
@@ -329,24 +386,22 @@ with st.sidebar:
         "Socio Estratégico (Innovación)": """
             Eres un Consultor Senior en Estrategia y Transformación (estilo McKinsey/IDEO).
             TU MISIÓN: No solo obedezcas la instrucción; RETALA y MEJÓRALA.
-            1. Aplica marcos mentales: Océano Azul, Design Thinking, Kotter (Gestión del Cambio).
-            2. Busca la escalabilidad y la diferenciación radical.
-            3. Si el usuario pide algo básico, entrégalo, pero añade una sección de "Visión Disruptiva".
+            1. Aplica marcos mentales: Océano Azul, Design Thinking, Kotter.
+            2. Busca la escalabilidad y diferenciación.
             ACTITUD: Proactiva, visionaria y analítica.
         """,
-        "Vicedecano Académico": "Eres Vicedecano. Tu tono es institucional, riguroso, normativo y formal. Citas reglamentos y buscas la excelencia académica.",
-        "Director de UCI": "Eres Médico Intensivista. Prioriza la vida, las guías clínicas, la seguridad del paciente y la toma de decisiones basada en evidencia.",
-        "Consultor Telesalud": "Eres experto en Salud Digital, Leyes (Colombia) y Tecnología. Conoces la normativa de habilitación y protección de datos.",
-        "Profesor Universitario": "Eres docente. Explica con pedagogía, paciencia y ejemplos claros. Tu objetivo es que el estudiante entienda los fundamentos.",
-        "Investigador Científico": "Eres metodólogo. Prioriza datos, referencias bibliográficas (Vancouver/APA) y el rigor del método científico.",
-        "Mentor de Trading": "Eres Trader Institucional. Analiza estructura de mercado, liquidez y gestión de riesgo. No das consejos financieros, enseñas a leer el mercado.",
-        "Asistente Personal": "Eres un asistente ejecutivo eficiente, conciso y organizado. Vas directo al grano."
+        "Vicedecano Académico": "Eres Vicedecano. Tu tono es institucional, riguroso, normativo y formal.",
+        "Director de UCI": "Eres Médico Intensivista. Prioriza guías clínicas y evidencia.",
+        "Consultor Telesalud": "Eres experto en Salud Digital y Normativa Colombiana.",
+        "Profesor Universitario": "Eres docente. Explica con pedagogía y claridad.",
+        "Investigador Científico": "Eres metodólogo. Prioriza datos y referencias Vancouver.",
+        "Mentor de Trading": "Eres Trader Institucional. Analiza liquidez y estructura.",
+        "Asistente Personal": "Eres un asistente ejecutivo eficiente."
     }
     
     st.markdown("---")
     modo_voz = st.toggle("🎙️ Modo Voz (Experimental)")
-    if modo_voz:
-        st.info("Presiona el micrófono en el chat para hablar.")
+    if modo_voz: st.info("Presiona el micrófono en el chat.")
     
     st.markdown("---")
     st.subheader("🏭 Centro de Producción")
@@ -355,25 +410,28 @@ with st.sidebar:
 
     # 1. OFICINA
     with tab_office:
-        st.markdown("##### 📄 Informes Ejecutivos")
+        st.markdown("##### 📄 Informes")
         if st.button("Generar Word (Elegante)", use_container_width=True):
             if st.session_state.messages:
                 last_msg = st.session_state.messages[-1]["content"]
                 st.session_state.generated_word_clean = create_clean_docx(last_msg)
                 st.success("¡Listo!")
         if st.session_state.generated_word_clean: 
-            st.download_button("📥 Descargar Informe", st.session_state.generated_word_clean, "informe_ejecutivo.docx", use_container_width=True)
+            st.download_button("📥 Bajar Informe", st.session_state.generated_word_clean, "informe_ejecutivo.docx", use_container_width=True)
         
         st.divider()
         st.markdown("##### 🗣️ Presentaciones")
-        uploaded_template = st.file_uploader("Plantilla PPTX (Opcional)", type=['pptx'])
+        uploaded_template = st.file_uploader("Plantilla PPTX", type=['pptx'])
+        
+        # PPTX CON TABLAS
         if st.button("Generar PPTX", use_container_width=True):
             with st.spinner("Diseñando..."):
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
                 prompt = f"""
                 Analiza: {hist}. Genera JSON PPTX.
-                REGLAS: Máximo 5 puntos por slide. Texto resumido.
-                FORMATO: [{{'title':'T','content':['A','B']}}]
+                Si hay datos comparativos, usa una MATRIZ DE LISTAS (Tabla).
+                FORMATO JSON: [{{'title':'T','content':['A','B']}}]
+                O PARA TABLAS: [{{'title':'Comparativa','content':[['Header1','Header2'],['Row1Col1','Row1Col2']]}}]
                 IMPORTANTE: Responde SOLO el JSON.
                 """
                 try:
@@ -387,11 +445,11 @@ with st.sidebar:
                     st.success("¡Listo!")
                 except Exception as e: st.error(f"Error: {e}")
         if st.session_state.generated_pptx: 
-            st.download_button("📥 Descargar PPTX", st.session_state.generated_pptx, "presentacion.pptx", use_container_width=True)
+            st.download_button("📥 Bajar PPTX", st.session_state.generated_pptx, "presentacion.pptx", use_container_width=True)
 
     # 2. ANALÍTICA
     with tab_data:
-        st.markdown("##### 📗 Hojas de Cálculo")
+        st.markdown("##### 📗 Excel")
         if st.button("Generar Excel (Pro)", use_container_width=True):
             with st.spinner("Calculando..."):
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
@@ -406,7 +464,7 @@ with st.sidebar:
                     st.success("¡Listo!")
                 except: st.error("Error Excel.")
         if st.session_state.generated_excel: 
-            st.download_button("📥 Descargar Excel", st.session_state.generated_excel, "datos_pro.xlsx", use_container_width=True)
+            st.download_button("📥 Bajar Excel", st.session_state.generated_excel, "datos_pro.xlsx", use_container_width=True)
             
         st.divider()
         st.markdown("##### 📈 Gráficos")
@@ -494,7 +552,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V24.1: {rol}")
+st.title(f"🤖 Agente V26: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 # 1. VISUALIZADOR MERMAID
@@ -522,7 +580,7 @@ if modo_voz:
     with col2:
         if audio:
             st.audio(audio['bytes'])
-            with st.spinner("Escuchando y pensando..."):
+            with st.spinner("Escuchando..."):
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tf:
                     tf.write(audio['bytes']); tpath = tf.name
                 
@@ -530,8 +588,8 @@ if modo_voz:
                 while mfile.state.name == "PROCESSING": time.sleep(0.5); mfile = genai.get_file(mfile.name)
                 
                 ctx = st.session_state.contexto_texto
-                instruccion_rol = prompts_roles[rol]
-                prompt_text = f"Rol: {rol}. INSTRUCCIONES ROL: {instruccion_rol}. Responde brevemente (para audio). Contexto: {ctx[:50000]}"
+                instruccion_rol = prompts_roles.get(rol, "Experto")
+                prompt_text = f"Rol: {rol}. INSTRUCCIONES: {instruccion_rol}. Responde brevemente (audio). Contexto: {ctx[:50000]}"
                 
                 res = model.generate_content([prompt_text, mfile])
                 
@@ -552,18 +610,15 @@ else:
         with st.chat_message("assistant"):
             with st.spinner("Pensando..."):
                 ctx = st.session_state.contexto_texto
-                instruccion_rol = prompts_roles[rol]
-                prompt = f"Rol: {rol}. PERFIL DE COMPORTAMIENTO: {instruccion_rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
-                
+                instruccion_rol = prompts_roles.get(rol, "Experto")
+                prompt = f"Rol: {rol}. PERFIL: {instruccion_rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
                 if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
                 con = [prompt]
                 if st.session_state.archivo_multimodal: 
-                    con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo multimedia).")
-                
+                    con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo).")
                 try:
                     res = model.generate_content(con)
                     st.markdown(res.text)
                     st.session_state.messages.append({"role": "assistant", "content": res.text})
                     st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {e}")
+                except Exception as e: st.error(f"Error: {e}")
