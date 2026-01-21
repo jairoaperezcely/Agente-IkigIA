@@ -16,7 +16,7 @@ from datetime import date
 from pptx import Presentation
 import matplotlib.pyplot as plt
 import pandas as pd
-import streamlit.components.v1 as components # <--- COMPONENTE NATIVO (MÁS ESTABLE)
+import streamlit.components.v1 as components # <--- COMPONENTE NATIVO
 
 # ==========================================
 # CONFIGURACIÓN GLOBAL
@@ -27,12 +27,12 @@ MODELO_USADO = 'gemini-2.5-flash'
 # Si falla, use 'gemini-2.0-flash-exp'
 
 # ==========================================
-# FUNCIÓN DE VISUALIZACIÓN MERMAID (CORREGIDA)
+# FUNCIÓN VISUALIZADORA (ARREGLA PANTALLA NEGRA)
 # ==========================================
 def plot_mermaid(code):
     """
-    Renderiza diagramas Mermaid usando HTML/JS directo para evitar pantallas negras.
-    Fuerza el tema oscuro para que resalte.
+    Renderiza diagramas Mermaid usando HTML/JS directo.
+    Fuerza theme='dark' para evitar textos invisibles.
     """
     html_code = f"""
     <!DOCTYPE html>
@@ -42,7 +42,7 @@ def plot_mermaid(code):
             import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
             mermaid.initialize({{ 
                 startOnLoad: true, 
-                theme: 'dark',  // <--- ESTO ARREGLA LA PANTALLA NEGRA
+                theme: 'dark', 
                 securityLevel: 'loose',
             }});
         </script>
@@ -58,7 +58,6 @@ def plot_mermaid(code):
     </body>
     </html>
     """
-    # Renderizamos el HTML con altura suficiente y scroll
     components.html(html_code, height=600, scrolling=True)
 
 # ==========================================
@@ -195,12 +194,12 @@ with st.sidebar:
     
     prompts_roles = {
         "Vicedecano Académico": "Eres Vicedecano. Estrategico, riguroso, normativo y formal.",
-        "Director de UCI": "Eres Médico Intensivista. Prioriza guías clínicas, la evidencia cientifica y la seguridad del paciente.",
-        "Consultor Telesalud": "Eres experto e innovador en Salud Digital, telemedicina, mejores estandares internacionales y normatividad.",
+        "Director de UCI": "Eres Médico Intensivista. Prioriza evidencia cientifica, guías clínicas y seguridad.",
+        "Consultor Telesalud": "Eres experto en Salud Digital, telemedicina y Leyes.",
         "Profesor Universitario": "Eres docente. Explica con pedagogía.",
-        "Investigador Científico": "Eres metodólogo. Prioriza datos y referencias. Escribe articulos cientificos",
+        "Investigador Científico": "Eres metodólogo. Prioriza datos y referencias.",
         "Mentor de Trading": "Eres Trader Institucional. Analiza estructura y liquidez.",
-        "Asistente Personal": "Eres asistente ejecutivo eficiente."
+        "Asistente Personal": "Eres asistente ejecutivo eficiente e innovador."
     }
 
     st.subheader("🛠️ GENERADOR")
@@ -250,23 +249,30 @@ with st.sidebar:
                 st.success("✅ Gráfico Listo")
             except: st.error("No hay datos")
 
-    # 5. VISUALIZADOR (MERMAID)
+    # 5. VISUALIZADOR (MERMAID) - BLINDADO
     if st.button("🎨 Generar Esquema Visual"):
         if len(st.session_state.messages) < 1: st.error("Necesito tema.")
         else:
             with st.spinner("Diseñando diagrama..."):
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
+                # PROMPT ANTI-ERRORES SINTAXIS
                 prompt_mermaid = f"""
-                Analiza: {hist}. Crea CÓDIGO MERMAID.JS.
-                IMPORTANTE: NO USES PARENTESIS REDONDOS () DENTRO DE LOS NODOS, USA CORCHETES [].
-                Tipos: 'graph TD' (Proceso), 'mindmap' (Mapa Mental).
+                Analiza: {hist}. 
+                Crea CÓDIGO MERMAID.JS válido.
+                
+                REGLAS DE ORO (CRÍTICAS):
+                1. NO uses paréntesis redondos () dentro del texto de los nodos. Usa corchetes [] o comillas "".
+                2. Ejemplo prohibido: Nodo A (Info) --> Nodo B
+                3. Ejemplo correcto: Nodo A ["Info"] --> Nodo B
+                
+                Tipos: 'graph TD' (Proceso), 'mindmap' (Ideas).
                 SALIDA: Solo el código dentro de bloques ```mermaid ... ```
                 """
                 try:
                     genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
                     res = mod.generate_content(prompt_mermaid)
                     st.session_state.generated_mermaid = res.text
-                    st.success("✅ Visualización Lista (Ver Arriba)")
+                    st.success("✅ Esquema Listo (Ver Arriba)")
                 except Exception as e: st.error(f"Error Visual: {e}")
 
     st.divider()
@@ -320,44 +326,14 @@ with st.sidebar:
 st.title(f"🤖 Agente V15.5: {rol}")
 if not api_key: st.warning("⚠️ API Key requerida"); st.stop()
 
-# 1. VISUALIZADOR MERMAID (HTML PURO - SIN PANTALLA NEGRA)
+# 1. VISUALIZADOR MERMAID (HTML PURO)
 if st.session_state.generated_mermaid:
     st.subheader("🎨 Esquema Visual")
     codigo = st.session_state.generated_mermaid.replace("```mermaid", "").replace("```", "").strip()
     try:
-        plot_mermaid(codigo) # <--- AQUI SE DIBUJA CON LA FUNCION CORREGIDA
+        plot_mermaid(codigo) # <--- FUNCION CORREGIDA
     except Exception as e:
         st.error("Error mostrando esquema.")
         st.code(codigo)
     
-    if st.button("Cerrar Esquema"):
-        st.session_state.generated_mermaid = None
-        st.rerun()
-
-# 2. GRÁFICOS
-if st.session_state.generated_chart: 
-    st.pyplot(st.session_state.generated_chart)
-    st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
-
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel(MODELO_USADO, generation_config={"temperature": temp_val})
-
-for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
-
-if p := st.chat_input("Instrucción..."):
-    st.session_state.messages.append({"role": "user", "content": p})
-    st.chat_message("user").markdown(p)
-    with st.chat_message("assistant"):
-        with st.spinner("..."):
-            ctx = st.session_state.contexto_texto
-            prompt = f"Rol: {rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
-            if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
-            if st.session_state.archivo_multimodal: prompt += " (Analiza el archivo multimedia adjunto)."
-            
-            con = [prompt]
-            if st.session_state.archivo_multimodal: con.insert(0, st.session_state.archivo_multimodal)
-            
-            res = model.generate_content(con)
-            st.markdown(res.text)
-            st.session_state.messages.append({"role": "assistant", "content": res.text})
-            st.rerun()
+    if st.button("C
