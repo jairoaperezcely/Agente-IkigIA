@@ -9,3 +9,5 @@ matplotlib
 python-pptx
 pandas
 openpyxl
+gTTS
+streamlit-mic-recorder
