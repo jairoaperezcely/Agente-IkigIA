@@ -9,3 +9,4 @@ matplotlib
 python-pptx
 pandas
 openpyxl
+pip install streamlit-mermaid
