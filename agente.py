@@ -21,7 +21,7 @@ import re
 from pptx import Presentation
 from pptx.util import Pt as PtxPt, Inches as PtxInches
 from pptx.dml.color import RGBColor as PtxRGB
-from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -36,7 +36,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V28", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V29", page_icon="🧬", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -101,7 +101,7 @@ def get_pptx_text(pptx_file):
 # FUNCIONES DE GENERACIÓN (OUTPUT DE LUJO)
 # ==========================================
 
-# 1. WORD ACTA
+# 1. WORD ACTA (LIMPIEZA REFORZADA)
 def create_chat_docx(messages):
     doc = docx.Document()
     for section in doc.sections:
@@ -132,7 +132,7 @@ def create_chat_docx(messages):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO PRO
+# 2. WORD DOCUMENTO PRO (TABLAS REALES & LIMPIEZA)
 def create_clean_docx(text_content):
     doc = docx.Document()
     style = doc.styles['Normal']
@@ -141,6 +141,7 @@ def create_clean_docx(text_content):
     for section in doc.sections:
         section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
 
+    # Portada
     for _ in range(3): doc.add_paragraph("")
     title = doc.add_paragraph("INFORME EJECUTIVO")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -187,18 +188,21 @@ def create_clean_docx(text_content):
 
             if not stripped: continue
 
+            # Detectar encabezados (Regex mejorado)
             header_match = re.match(r'^(#+)\s*(.*)', stripped)
             if header_match:
                 hashes, raw_text = header_match.groups()
                 level = len(hashes)
                 clean_title = clean_md(raw_text)
+                
                 if level == 1:
                     h = doc.add_heading(clean_title, level=1)
                     h.runs[0].font.color.rgb = RGBColor(0, 51, 102); h.runs[0].font.size = Pt(16)
                 elif level == 2:
                     h = doc.add_heading(clean_title, level=2)
                     h.runs[0].font.color.rgb = RGBColor(50, 50, 50); h.runs[0].font.size = Pt(14)
-                else: doc.add_heading(clean_title, level=3)
+                else:
+                    doc.add_heading(clean_title, level=3)
             elif stripped.startswith('- ') or stripped.startswith('* '):
                 doc.add_paragraph(clean_md(stripped[2:]), style='List Bullet')
             elif re.match(r'^\d+\.', stripped):
@@ -213,7 +217,7 @@ def create_clean_docx(text_content):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (MULTIMEDIA V28)
+# 3. PPTX PRO (MULTIMEDIA & DESIGN STUDIO)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -224,7 +228,7 @@ def generate_pptx_from_data(slide_data, template_file=None):
     
     def clean_text(txt): return re.sub(r'\*\*(.*?)\*\*', r'\1', txt).strip()
 
-    # --- DISEÑO BASE ---
+    # --- DISEÑO BASE (SI NO HAY PLANTILLA) ---
     def apply_design(slide, title_shape=None):
         if using_template: return
         # Banda lateral
@@ -245,14 +249,12 @@ def generate_pptx_from_data(slide_data, template_file=None):
 
     # --- HELPER DE GRÁFICOS ---
     def create_chart_image(data_dict):
-        # Genera un gráfico en memoria y devuelve el stream BytesIO
         plt.style.use('seaborn-v0_8-whitegrid')
         fig, ax = plt.subplots(figsize=(6, 4))
         
         labels = data_dict.get('labels', [])
         values = data_dict.get('values', [])
         label = data_dict.get('label', 'Datos')
-        
         colors = ['#003366', '#708090', '#4682B4', '#A9A9A9']
         
         if len(labels) == len(values):
@@ -283,7 +285,7 @@ def generate_pptx_from_data(slide_data, template_file=None):
 
     # CONTENIDO
     for info in slide_data[1:]:
-        slide_type = info.get("type", "text") # text, table, chart
+        slide_type = info.get("type", "text") 
         content = info.get("content", [])
         
         # Seleccionar layout
@@ -318,7 +320,7 @@ def generate_pptx_from_data(slide_data, template_file=None):
         
         # --- CASO 2: GRÁFICO (IMAGEN) ---
         elif slide_type == "chart":
-            chart_data = info.get("chart_data", {}) # Espera dict: {labels:[], values:[], label:''}
+            chart_data = info.get("chart_data", {}) 
             if chart_data:
                 img_stream = create_chart_image(chart_data)
                 slide.shapes.add_picture(img_stream, PtxInches(1.5), PtxInches(2), width=PtxInches(6))
@@ -420,7 +422,14 @@ if "generated_mermaid" not in st.session_state: st.session_state.generated_merma
 # ==========================================
 with st.sidebar:
     st.header("⚙️ Configuración")
-    api_key = st.text_input("🔑 API Key:", type="password")
+    
+    # --- AUTO-LOGIN (CLOUD/MOBILE) ---
+    if "GOOGLE_API_KEY" in st.secrets:
+        api_key = st.secrets["GOOGLE_API_KEY"]
+        st.success("✅ Login Automático")
+    else:
+        api_key = st.text_input("🔑 API Key:", type="password")
+        
     temp_val = st.slider("Creatividad", 0.0, 1.0, 0.2)
     st.divider()
     
@@ -453,8 +462,8 @@ with st.sidebar:
     }
     
     st.markdown("---")
-    modo_voz = st.toggle("🎙️ Modo Voz (Experimental)")
-    if modo_voz: st.info("Presiona el micrófono en el chat.")
+    modo_voz = st.toggle("🎙️ Modo Voz")
+    if modo_voz: st.info("Usa el micrófono del chat.")
     
     st.markdown("---")
     st.subheader("🏭 Centro de Producción")
@@ -611,7 +620,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V28: {rol}")
+st.title(f"🤖 Agente V29: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 # 1. VISUALIZADOR MERMAID
@@ -630,7 +639,7 @@ if st.session_state.generated_chart:
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel(MODELO_USADO, generation_config={"temperature": temp_val})
 
-# --- MODO CHAT NORMAL VS MODO VOZ ---
+# --- CHAT ---
 if modo_voz:
     col1, col2 = st.columns([1, 4])
     with col1:
