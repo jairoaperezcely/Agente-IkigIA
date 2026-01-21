@@ -36,7 +36,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V34", page_icon="📐", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V35", page_icon="📐", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -226,7 +226,7 @@ def create_clean_docx(text_content):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (CENTER FIX V34)
+# 3. PPTX PRO (CENTERING ALGORITHM V35)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -301,40 +301,51 @@ def generate_pptx_from_data(slide_data, template_file=None):
                 slide.shapes.title.text_frame.word_wrap = True
                 slide.shapes.title.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
-        # --- MOTOR DE POSICIONAMIENTO V34 ---
+        # --- MOTOR DE POSICIONAMIENTO V35 (STRICT GEOMETRY) ---
         if slide_type == "table":
             rows = len(content); cols = len(content[0]) if rows > 0 else 1
             
-            # 1. Definir ancho deseado (90% del slide)
-            table_width = SLIDE_WIDTH * 0.9
-            table_left = (SLIDE_WIDTH - table_width) / 2
+            # Ancho Objetivo (90%)
+            target_width = SLIDE_WIDTH * 0.9
             
-            row_height = PtxInches(0.4) 
-            table_height = row_height * rows
-            table_top = PtxInches(2.0)
+            # Crear tabla
+            left = (SLIDE_WIDTH - target_width) / 2
+            top = PtxInches(2.0)
+            height = PtxInches(rows * 0.4) # Estimado inicial
             
-            graphic_frame = slide.shapes.add_table(rows, cols, table_left, table_top, table_width, table_height)
+            graphic_frame = slide.shapes.add_table(rows, cols, left, top, target_width, height)
             table = graphic_frame.table
             
-            # --- FIX: FORZAR ANCHO DE COLUMNAS PARA QUE SE EXPANDA ---
-            # Si no hacemos esto, PPTX usa anchos por defecto y no centra
-            col_width = int(table_width / cols)
+            # --- FORZAR ANCHO DE COLUMNAS (TRUCO DE FUERZA BRUTA) ---
+            # Dividimos el ancho objetivo exactamente entre el numero de columnas
+            single_col_width = int(target_width / cols)
             for col in table.columns:
-                col.width = col_width
+                col.width = single_col_width
 
             for i, row in enumerate(content):
                 for j, val in enumerate(row):
                     if j < cols:
                         cell = table.cell(i, j); cell.text = str(val)
-                        # Centrar verticalmente
                         cell.vertical_anchor = MSO_ANCHOR.MIDDLE
                         
+                        # --- REDUCTOR DE FUENTE INTELIGENTE ---
+                        # Si el texto es largo, achicamos la letra para que no deforme la celda
+                        txt_len = len(str(val))
+                        font_size = 14
+                        if txt_len > 50: font_size = 10
+                        elif txt_len > 20: font_size = 12
+                        
                         p = cell.text_frame.paragraphs[0]
-                        p.font.size = PtxPt(14); p.font.name = 'Arial'
+                        p.font.size = PtxPt(font_size); p.font.name = 'Arial'
+                        
                         if i == 0:
                             cell.fill.solid(); cell.fill.fore_color.rgb = PtxRGB(0, 51, 102)
                             p.font.color.rgb = PtxRGB(255, 255, 255); p.font.bold = True; p.alignment = PP_ALIGN.CENTER
-        
+            
+            # --- RE-CENTRADO FINAL (SEGURO DE VIDA) ---
+            # A veces PPTX ignora el 'left' inicial al crear. Lo forzamos al final.
+            graphic_frame.left = int((SLIDE_WIDTH - graphic_frame.width) / 2)
+
         elif slide_type == "chart":
             chart_data = info.get("chart_data", {}) 
             if chart_data:
@@ -631,7 +642,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V34: {rol}")
+st.title(f"🤖 Agente V35: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
