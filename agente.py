@@ -42,7 +42,7 @@ def plot_mermaid(code):
             import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
             mermaid.initialize({{ 
                 startOnLoad: true, 
-                theme: 'default',  // Tema estándar (letras negras, líneas grises)
+                theme: 'default',  
                 securityLevel: 'loose',
             }});
         </script>
@@ -194,13 +194,13 @@ with st.sidebar:
     rol = st.radio("Rol:", ["Vicedecano Académico", "Director de UCI", "Consultor Telesalud", "Profesor Universitario", "Investigador Científico", "Mentor de Trading", "Asistente Personal"])
     
     prompts_roles = {
-        "Vicedecano Académico": "Eres Vicedecano. Estrategico, riguroso, normativo y formal.",
+        "Vicedecano Académico": "Eres Vicedecano. Riguroso, normativo y formal.",
         "Director de UCI": "Eres Médico Intensivista. Prioriza guías clínicas y seguridad.",
-        "Consultor Telesalud": "Eres experto en Salud Digital, telemedicina y Leyes.",
+        "Consultor Telesalud": "Eres experto en Salud Digital y Leyes.",
         "Profesor Universitario": "Eres docente. Explica con pedagogía.",
         "Investigador Científico": "Eres metodólogo. Prioriza datos y referencias.",
         "Mentor de Trading": "Eres Trader Institucional. Analiza estructura y liquidez.",
-        "Asistente Personal": "Eres asistente ejecutivo eficiente e innovador."
+        "Asistente Personal": "Eres asistente ejecutivo eficiente."
     }
 
     st.subheader("🛠️ GENERADOR")
@@ -231,47 +231,4 @@ with st.sidebar:
             hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
             prompt = f"Analiza: {hist}. JSON Excel: {{'Hoja1': [{{'ColA':'Val1'}}]}}"
             try:
-                genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
-                res = mod.generate_content(prompt)
-                st.session_state.generated_excel = generate_excel_from_data(json.loads(res.text.replace("```json","").replace("```","").strip()))
-                st.success("✅ Excel Listo")
-            except Exception as e: st.error(f"Error Excel: {e}")
-    if st.session_state.generated_excel: st.download_button("📥 Bajar Excel", st.session_state.generated_excel, "data.xlsx")
-
-    # 4. GRÁFICO
-    if st.button("📊 Gráfico Datos"):
-        with st.spinner("Graficando..."):
-            hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
-            prompt = f"Datos de: {hist}. JSON: {{'title':'T','labels':['A'],'datasets':[{{'label':'L','values':[1],'type':'bar'}}]}}"
-            try:
-                genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
-                res = mod.generate_content(prompt)
-                st.session_state.generated_chart = generate_advanced_chart(json.loads(res.text.replace("```json","").replace("```","").strip()))
-                st.success("✅ Gráfico Listo")
-            except: st.error("No hay datos")
-
-    # 5. VISUALIZADOR (MERMAID) - BLINDADO CONTRA ERRORES
-    if st.button("🎨 Generar Esquema Visual"):
-        if len(st.session_state.messages) < 1: st.error("Necesito tema.")
-        else:
-            with st.spinner("Diseñando diagrama..."):
-                hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
-                # PROMPT ANTI-ERRORES DE SINTAXIS
-                prompt_mermaid = f"""
-                Analiza: {hist}. 
-                Crea CÓDIGO MERMAID.JS válido.
-                
-                REGLAS DE ORO (CRÍTICAS):
-                1. NO uses paréntesis redondos () dentro del texto de los nodos. Usa corchetes [] o comillas "".
-                2. Ejemplo prohibido: Nodo A (Info) --> Nodo B
-                3. Ejemplo correcto: Nodo A ["Info"] --> Nodo B
-                4. NO pongas la palabra "mermaid" al inicio del código, solo dentro del bloque markdown.
-                
-                Tipos: 'graph TD' (Proceso), 'mindmap' (Ideas).
-                SALIDA: Solo el código dentro de bloques ```mermaid ... ```
-                """
-                try:
-                    genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
-                    res = mod.generate_content(prompt_mermaid)
-                    st.session_state.generated_mermaid = res.text
-                    st.success("✅ Esqu
+                genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO
