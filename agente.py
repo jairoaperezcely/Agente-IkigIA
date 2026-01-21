@@ -31,7 +31,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V24", page_icon="💎", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V24.1", page_icon="💎", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -96,7 +96,7 @@ def get_pptx_text(pptx_file):
 # FUNCIONES DE GENERACIÓN (OUTPUT DE LUJO)
 # ==========================================
 
-# 1. WORD ACTA
+# 1. WORD ACTA (LIMPIEZA MEJORADA)
 def create_chat_docx(messages):
     doc = docx.Document()
     for section in doc.sections:
@@ -112,9 +112,12 @@ def create_chat_docx(messages):
     t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph("_" * 40).alignment = WD_ALIGN_PARAGRAPH.CENTER
     
-    # Función local para limpiar asteriscos del chat
+    # Función local para limpiar basura Markdown del chat
     def clean_chat_text(txt):
-        return txt.replace("**", "").replace("__", "")
+        # Elimina **, __, y también los ### del inicio de linea
+        txt = re.sub(r'^#+\s*', '', txt, flags=re.MULTILINE) # Quita encabezados
+        txt = txt.replace("**", "").replace("__", "").replace("`", "")
+        return txt.strip()
 
     for msg in messages:
         role = "USUARIO" if msg["role"] == "user" else "ASISTENTE"
@@ -123,7 +126,6 @@ def create_chat_docx(messages):
         run.bold = True
         run.font.color.rgb = RGBColor(0, 51, 102) if role == "ASISTENTE" else RGBColor(80, 80, 80)
         
-        # Limpiamos el contenido del mensaje antes de escribirlo
         clean_content = clean_chat_text(msg["content"])
         p_msg = doc.add_paragraph(clean_content)
         p_msg.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -131,7 +133,7 @@ def create_chat_docx(messages):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO PRO (LIMPIEZA PROFUNDA)
+# 2. WORD DOCUMENTO PRO (DETECCIÓN INTELIGENTE)
 def create_clean_docx(text_content):
     doc = docx.Document()
     style = doc.styles['Normal']
@@ -151,11 +153,10 @@ def create_clean_docx(text_content):
     meta.alignment = WD_ALIGN_PARAGRAPH.CENTER; meta.runs[0].italic = True
     doc.add_page_break()
 
-    # --- FUNCIÓN DE LIMPIEZA MAESTRA ---
+    # --- FUNCIÓN DE LIMPIEZA INTERNA ---
     def clean_markdown_marks(text):
-        # Quita **, __, y comillas raras
-        text = text.replace("**", "").replace("__", "").replace("`", "")
-        return text.strip()
+        # Quita negritas y códigos
+        return text.replace("**", "").replace("__", "").replace("`", "").strip()
 
     clean_text = text_content.replace("```markdown", "").replace("```", "")
     lines = clean_text.split('\n')
@@ -164,20 +165,29 @@ def create_clean_docx(text_content):
         line = line.strip()
         if not line: continue
         
-        # Detectar encabezados, limpiarlos y crearlos
-        if line.startswith('# '): 
-            raw_text = line.replace('# ','')
-            h1 = doc.add_heading(clean_markdown_marks(raw_text), level=1)
-            h1.runs[0].font.color.rgb = RGBColor(0, 51, 102); h1.runs[0].font.size = Pt(16)
-        elif line.startswith('## '):
-            raw_text = line.replace('## ','')
-            h2 = doc.add_heading(clean_markdown_marks(raw_text), level=2)
-            h2.runs[0].font.color.rgb = RGBColor(50, 50, 50); h2.runs[0].font.size = Pt(14)
-        elif line.startswith('### '): 
-            raw_text = line.replace('### ','')
-            doc.add_heading(clean_markdown_marks(raw_text), level=3)
+        # --- DETECCIÓN CON REGEX (MÁS POTENTE) ---
+        # Detecta #, ##, ###, #### con o sin espacio
+        header_match = re.match(r'^(#+)\s*(.*)', line)
+        
+        if header_match:
+            hashes, raw_text = header_match.groups()
+            level = len(hashes)
+            clean_txt = clean_markdown_marks(raw_text)
             
-        # Listas (Limpiando el contenido)
+            if level == 1:
+                h = doc.add_heading(clean_txt, level=1)
+                h.runs[0].font.color.rgb = RGBColor(0, 51, 102); h.runs[0].font.size = Pt(16)
+            elif level == 2:
+                h = doc.add_heading(clean_txt, level=2)
+                h.runs[0].font.color.rgb = RGBColor(50, 50, 50); h.runs[0].font.size = Pt(14)
+            elif level == 3:
+                doc.add_heading(clean_txt, level=3)
+            else:
+                # Niveles > 3 se convierten en negrita
+                p = doc.add_paragraph(clean_txt)
+                p.runs[0].bold = True
+                
+        # Listas
         elif line.startswith('- ') or line.startswith('* '):
             raw_text = line[2:]
             p = doc.add_paragraph(clean_markdown_marks(raw_text), style='List Bullet')
@@ -190,9 +200,10 @@ def create_clean_docx(text_content):
             else: 
                 doc.add_paragraph(clean_markdown_marks(line))
         
-        # Párrafos normales (Limpieza total)
+        # Párrafos normales
         else:
-            final_text = clean_markdown_marks(line)
+            # Aseguramos que no queden # sueltos
+            final_text = clean_markdown_marks(line).lstrip('#').strip()
             p = doc.add_paragraph(final_text)
             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY; p.paragraph_format.space_after = Pt(8)
 
@@ -323,10 +334,10 @@ with st.sidebar:
             3. Si el usuario pide algo básico, entrégalo, pero añade una sección de "Visión Disruptiva".
             ACTITUD: Proactiva, visionaria y analítica.
         """,
-        "Vicedecano Académico": "Eres Vicedecano con visión estratégica. Tu tono es institucional, riguroso, normativo y formal. Citas reglamentos y buscas la excelencia académica.",
+        "Vicedecano Académico": "Eres Vicedecano. Tu tono es institucional, riguroso, normativo y formal. Citas reglamentos y buscas la excelencia académica.",
         "Director de UCI": "Eres Médico Intensivista. Prioriza la vida, las guías clínicas, la seguridad del paciente y la toma de decisiones basada en evidencia.",
-        "Consultor Telesalud": "Eres experto e innovador en Salud Digital y telemedicina, Leyes (Colombia) y Tecnología. Conoces la normativa de habilitación y protección de datos.",
-        "Profesor Universitario": "Eres docente. Explica con estrategias pedagogicas innovadoras, paciencia y ejemplos claros. Tu objetivo es que el estudiante entienda los fundamentos.",
+        "Consultor Telesalud": "Eres experto en Salud Digital, Leyes (Colombia) y Tecnología. Conoces la normativa de habilitación y protección de datos.",
+        "Profesor Universitario": "Eres docente. Explica con pedagogía, paciencia y ejemplos claros. Tu objetivo es que el estudiante entienda los fundamentos.",
         "Investigador Científico": "Eres metodólogo. Prioriza datos, referencias bibliográficas (Vancouver/APA) y el rigor del método científico.",
         "Mentor de Trading": "Eres Trader Institucional. Analiza estructura de mercado, liquidez y gestión de riesgo. No das consejos financieros, enseñas a leer el mercado.",
         "Asistente Personal": "Eres un asistente ejecutivo eficiente, conciso y organizado. Vas directo al grano."
@@ -483,7 +494,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V24: {rol}")
+st.title(f"🤖 Agente V24.1: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 # 1. VISUALIZADOR MERMAID
