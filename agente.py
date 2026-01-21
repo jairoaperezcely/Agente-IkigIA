@@ -36,7 +36,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V33", page_icon="📐", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V34", page_icon="📐", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -226,7 +226,7 @@ def create_clean_docx(text_content):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (SMART LAYOUT V33)
+# 3. PPTX PRO (CENTER FIX V34)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -235,7 +235,6 @@ def generate_pptx_from_data(slide_data, template_file=None):
         prs = Presentation()
         using_template = False
     
-    # --- DIMENSIONES DE LA PRESENTACIÓN ---
     SLIDE_WIDTH = prs.slide_width
     SLIDE_HEIGHT = prs.slide_height
     
@@ -254,11 +253,11 @@ def generate_pptx_from_data(slide_data, template_file=None):
             title_shape.text_frame.paragraphs[0].font.bold = True
             title_shape.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
             title_shape.top = PtxInches(0.5); title_shape.left = PtxInches(0.8)
-            title_shape.width = SLIDE_WIDTH - PtxInches(1.5) # Ancho dinámico
+            title_shape.width = SLIDE_WIDTH - PtxInches(1.5)
 
     def create_chart_image(data_dict):
         plt.style.use('seaborn-v0_8-whitegrid')
-        fig, ax = plt.subplots(figsize=(8, 5)) # Más resolución
+        fig, ax = plt.subplots(figsize=(8, 5))
         labels = data_dict.get('labels', []); values = data_dict.get('values', [])
         label = data_dict.get('label', 'Datos')
         colors = ['#003366', '#708090', '#4682B4', '#A9A9A9']
@@ -271,7 +270,6 @@ def generate_pptx_from_data(slide_data, template_file=None):
         img_stream = BytesIO(); plt.savefig(img_stream, format='png', dpi=150); img_stream.seek(0)
         plt.close(fig); return img_stream
 
-    # PORTADA
     try:
         slide = prs.slides.add_slide(prs.slide_layouts[0])
         if slide.shapes.title: 
@@ -284,7 +282,6 @@ def generate_pptx_from_data(slide_data, template_file=None):
         if len(slide.placeholders) > 1: slide.placeholders[1].text = f"{date.today()}"
     except: slide = prs.slides.add_slide(prs.slide_layouts[6])
 
-    # CONTENIDO
     for info in slide_data[1:]:
         slide_type = info.get("type", "text") 
         content = info.get("content", [])
@@ -304,49 +301,51 @@ def generate_pptx_from_data(slide_data, template_file=None):
                 slide.shapes.title.text_frame.word_wrap = True
                 slide.shapes.title.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
-        # --- MOTOR DE POSICIONAMIENTO V33 ---
-        # 1. TABLAS (Centradas y ajustadas)
+        # --- MOTOR DE POSICIONAMIENTO V34 ---
         if slide_type == "table":
             rows = len(content); cols = len(content[0]) if rows > 0 else 1
             
-            # Ancho calculado: 80% del slide
-            table_width = SLIDE_WIDTH * 0.85
+            # 1. Definir ancho deseado (90% del slide)
+            table_width = SLIDE_WIDTH * 0.9
             table_left = (SLIDE_WIDTH - table_width) / 2
             
-            # Altura fila controlada (0.4 pulgadas en vez de 0.8)
             row_height = PtxInches(0.4) 
             table_height = row_height * rows
             table_top = PtxInches(2.0)
             
-            table = slide.shapes.add_table(rows, cols, table_left, table_top, table_width, table_height).table
+            graphic_frame = slide.shapes.add_table(rows, cols, table_left, table_top, table_width, table_height)
+            table = graphic_frame.table
             
+            # --- FIX: FORZAR ANCHO DE COLUMNAS PARA QUE SE EXPANDA ---
+            # Si no hacemos esto, PPTX usa anchos por defecto y no centra
+            col_width = int(table_width / cols)
+            for col in table.columns:
+                col.width = col_width
+
             for i, row in enumerate(content):
                 for j, val in enumerate(row):
                     if j < cols:
                         cell = table.cell(i, j); cell.text = str(val)
+                        # Centrar verticalmente
+                        cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+                        
                         p = cell.text_frame.paragraphs[0]
-                        p.font.size = PtxPt(14); p.font.name = 'Arial' # Fuente más pequeña para que quepa
+                        p.font.size = PtxPt(14); p.font.name = 'Arial'
                         if i == 0:
                             cell.fill.solid(); cell.fill.fore_color.rgb = PtxRGB(0, 51, 102)
                             p.font.color.rgb = PtxRGB(255, 255, 255); p.font.bold = True; p.alignment = PP_ALIGN.CENTER
         
-        # 2. GRÁFICOS (Centrados y balanceados)
         elif slide_type == "chart":
             chart_data = info.get("chart_data", {}) 
             if chart_data:
                 img_stream = create_chart_image(chart_data)
-                
-                # Tamaño imagen: 60% ancho, aspecto 4:3 aprox
                 pic_width = SLIDE_WIDTH * 0.65
                 pic_left = (SLIDE_WIDTH - pic_width) / 2
                 pic_top = PtxInches(2.2)
-                
                 slide.shapes.add_picture(img_stream, pic_left, pic_top, width=pic_width)
 
-        # 3. TEXTO (Ajustado a la caja)
         else:
             if not using_template:
-                # Caja de texto ocupa 85% del ancho
                 box_width = SLIDE_WIDTH * 0.85
                 box_left = (SLIDE_WIDTH - box_width) / 2
                 body_shape = slide.shapes.add_textbox(box_left, PtxInches(1.8), box_width, PtxInches(5))
@@ -360,13 +359,11 @@ def generate_pptx_from_data(slide_data, template_file=None):
                 p = tf.add_paragraph()
                 p.text = clean_text(str(point))
                 p.font.name = 'Arial'
-                p.font.color.rgb = PtxRGB(60, 60, 60); p.space_after = PtxPt(12) # Más aire entre bullets
+                p.font.color.rgb = PtxRGB(60, 60, 60); p.space_after = PtxPt(12)
 
-        # --- PIE DE PÁGINA (APA) ---
         if ref_text and ref_text != "N/A":
-            left = PtxInches(0.5); top = SLIDE_HEIGHT - PtxInches(0.6) # Siempre al fondo
-            width = SLIDE_WIDTH - PtxInches(1.0)
-            height = PtxInches(0.4)
+            left = PtxInches(0.5); top = SLIDE_HEIGHT - PtxInches(0.6)
+            width = SLIDE_WIDTH - PtxInches(1.0); height = PtxInches(0.4)
             txBox = slide.shapes.add_textbox(left, top, width, height)
             p = txBox.text_frame.paragraphs[0]
             p.text = f"Fuente: {ref_text}"
@@ -634,7 +631,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V33: {rol}")
+st.title(f"🤖 Agente V34: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
