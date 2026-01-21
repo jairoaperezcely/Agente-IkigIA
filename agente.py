@@ -2,7 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 import docx
-from docx.shared import Pt, RGBColor, Inches, Cm
+from docx.shared import Pt, RGBColor, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from bs4 import BeautifulSoup
 import requests
@@ -24,10 +24,14 @@ import streamlit.components.v1 as components
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side 
 from openpyxl.utils import get_column_letter
 
+# --- LIBRERÍAS DE VOZ (NUEVAS V22) ---
+from gtts import gTTS
+from streamlit_mic_recorder import mic_recorder
+
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V21", page_icon="👔", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V22", page_icon="🎙️", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -92,24 +96,18 @@ def get_pptx_text(pptx_file):
 # FUNCIONES DE GENERACIÓN (OUTPUT DE LUJO)
 # ==========================================
 
-# 1. WORD ACTA (MEMORANDO)
+# 1. WORD ACTA
 def create_chat_docx(messages):
     doc = docx.Document()
-    # Márgenes Estándar
-    sections = doc.sections
-    for section in sections:
-        section.top_margin = Cm(2.54)
-        section.bottom_margin = Cm(2.54)
-        section.left_margin = Cm(2.54)
-        section.right_margin = Cm(2.54)
+    for section in doc.sections:
+        section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
+        section.left_margin = Cm(2.54); section.right_margin = Cm(2.54)
 
-    # Encabezado
     header = doc.sections[0].header
     p = header.paragraphs[0]
     p.text = f"CONFIDENCIAL | {date.today()}"
     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     
-    # Título
     t = doc.add_heading('BITÁCORA DE SESIÓN', 0)
     t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph("_" * 40).alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -123,146 +121,74 @@ def create_chat_docx(messages):
         p_msg = doc.add_paragraph(msg["content"])
         p_msg.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         doc.add_paragraph("")
-        
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO PRO (NUEVO DISEÑO ELEGANTE)
+# 2. WORD DOCUMENTO PRO
 def create_clean_docx(text_content):
     doc = docx.Document()
-    
-    # --- CONFIGURACIÓN DE ESTILOS GLOBALES ---
     style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Arial' # Fuente limpia y profesional
-    font.size = Pt(11)
-    
-    # Márgenes Profesionales (2.54 cm / 1 inch)
-    sections = doc.sections
-    for section in sections:
-        section.top_margin = Cm(2.54)
-        section.bottom_margin = Cm(2.54)
-        section.left_margin = Cm(2.54)
-        section.right_margin = Cm(2.54)
+    style.font.name = 'Arial'; style.font.size = Pt(11)
+    for section in doc.sections:
+        section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
+        section.left_margin = Cm(2.54); section.right_margin = Cm(2.54)
 
-    # --- PORTADA ELEGANTE ---
-    # Espacio inicial
     for _ in range(3): doc.add_paragraph("")
-    
-    # Título Principal
     title = doc.add_paragraph("INFORME EJECUTIVO")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run_title = title.runs[0]
-    run_title.bold = True
-    run_title.font.size = Pt(24)
-    run_title.font.color.rgb = RGBColor(0, 51, 102) # Azul Marino
-    
-    # Línea divisoria
+    run_title.bold = True; run_title.font.size = Pt(24); run_title.font.color.rgb = RGBColor(0, 51, 102)
     doc.add_paragraph("__________________________________________________").alignment = WD_ALIGN_PARAGRAPH.CENTER
     
-    # Fecha y Autor
     meta = doc.add_paragraph(f"\nFecha de Emisión: {date.today().strftime('%d de %B de %Y')}")
-    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    meta.runs[0].italic = True
-    
-    # Salto de página para empezar el contenido limpio
+    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER; meta.runs[0].italic = True
     doc.add_page_break()
 
-    # --- CONTENIDO INTERPRETADO ---
     clean_text = text_content.replace("```markdown", "").replace("```", "")
     lines = clean_text.split('\n')
     
     for line in lines:
         line = line.strip()
         if not line: continue
-        
-        # Título 1 (H1)
         if line.startswith('# '): 
-            text_h1 = line.replace('# ','')
-            h1 = doc.add_heading(text_h1, level=1)
-            h1_run = h1.runs[0]
-            h1_run.font.color.rgb = RGBColor(0, 51, 102) # Azul Corporativo
-            h1_run.font.size = Pt(16)
-            h1.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            
-        # Título 2 (H2)
+            h1 = doc.add_heading(line.replace('# ',''), level=1)
+            h1.runs[0].font.color.rgb = RGBColor(0, 51, 102); h1.runs[0].font.size = Pt(16)
         elif line.startswith('## '):
-            text_h2 = line.replace('## ','')
-            h2 = doc.add_heading(text_h2, level=2)
-            h2_run = h2.runs[0]
-            h2_run.font.color.rgb = RGBColor(50, 50, 50) # Gris oscuro
-            h2_run.font.size = Pt(14)
-            
-        # Título 3 (H3)
-        elif line.startswith('### '):
-            text_h3 = line.replace('### ','')
-            h3 = doc.add_heading(text_h3, level=3)
-            h3.runs[0].font.color.rgb = RGBColor(80, 80, 80) # Gris medio
-            
-        # Viñetas
+            h2 = doc.add_heading(line.replace('## ',''), level=2)
+            h2.runs[0].font.color.rgb = RGBColor(50, 50, 50); h2.runs[0].font.size = Pt(14)
+        elif line.startswith('### '): doc.add_heading(line.replace('### ',''), level=3)
         elif line.startswith('- ') or line.startswith('* '):
             p = doc.add_paragraph(line[2:], style='List Bullet')
-            p.paragraph_format.space_after = Pt(2) # Espacio fino entre items
-            
-        # Listas Numeradas
+            p.paragraph_format.space_after = Pt(2)
         elif line[0].isdigit() and line[1] == '.':
-            # Intentar separar numero del texto
             parts = line.split('.', 1)
-            if len(parts) > 1:
-                p = doc.add_paragraph(parts[1].strip(), style='List Number')
-                p.paragraph_format.space_after = Pt(2)
-            else:
-                doc.add_paragraph(line)
-                
-        # Párrafos Normales
+            if len(parts) > 1: doc.add_paragraph(parts[1].strip(), style='List Number')
+            else: doc.add_paragraph(line)
         else:
-            # Eliminar negritas de markdown (**texto**) para limpieza (opcional, aquí lo dejamos simple)
-            clean_line = line.replace("**", "") 
-            p = doc.add_paragraph(clean_line)
-            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY # Justificado elegante
-            p.paragraph_format.space_after = Pt(8) # Aire entre párrafos
-            p.paragraph_format.line_spacing = 1.15 # Espaciado cómodo
+            p = doc.add_paragraph(line.replace("**", ""))
+            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY; p.paragraph_format.space_after = Pt(8)
 
-    # Pie de página en todas las secciones
-    for section in doc.sections:
-        footer = section.footer
-        p_foot = footer.paragraphs[0]
-        p_foot.text = "Documento generado con Inteligencia Artificial - Uso Interno"
-        p_foot.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p_foot.style.font.size = Pt(8)
-        p_foot.style.font.color.rgb = RGBColor(150, 150, 150)
-    
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
 # 3. PPTX PRO (MOTOR INTELIGENTE)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
-        template_file.seek(0)
-        prs = Presentation(template_file)
-    else: 
-        prs = Presentation()
+        template_file.seek(0); prs = Presentation(template_file)
+    else: prs = Presentation()
     
-    def clean_text(txt):
-        txt = re.sub(r'\*\*(.*?)\*\*', r'\1', txt) 
-        return txt.strip()
+    def clean_text(txt): return re.sub(r'\*\*(.*?)\*\*', r'\1', txt).strip()
 
     try:
         slide = prs.slides.add_slide(prs.slide_layouts[0])
-        if slide.shapes.title: 
-            slide.shapes.title.text = clean_text(slide_data[0].get("title", "Presentación"))
-        if len(slide.placeholders) > 1: 
-            slide.placeholders[1].text = f"Generado el: {date.today()}"
-    except:
-        slide = prs.slides.add_slide(prs.slide_layouts[0])
+        if slide.shapes.title: slide.shapes.title.text = clean_text(slide_data[0].get("title", "Presentación"))
+        if len(slide.placeholders) > 1: slide.placeholders[1].text = f"Generado el: {date.today()}"
+    except: slide = prs.slides.add_slide(prs.slide_layouts[0])
 
     for info in slide_data[1:]:
         layout_index = 1 if len(prs.slide_layouts) > 1 else 0
         slide = prs.slides.add_slide(prs.slide_layouts[layout_index])
-        
-        if slide.shapes.title: 
-            slide.shapes.title.text = clean_text(info.get("title", "Info"))
-        
+        if slide.shapes.title: slide.shapes.title.text = clean_text(info.get("title", "Info"))
         content_list = info.get("content", [])
         total_chars = sum(len(point) for point in content_list)
         font_size = 24 
@@ -275,11 +201,8 @@ def generate_pptx_from_data(slide_data, template_file=None):
                 tf = shape.text_frame; tf.clear() 
                 for point in content_list:
                     cleaned_point = clean_text(point)
-                    p = tf.add_paragraph()
-                    p.text = cleaned_point
-                    p.font.size = PtxPt(font_size) 
-                    p.level = 0 
-                    p.space_after = PtxPt(6) 
+                    p = tf.add_paragraph(); p.text = cleaned_point
+                    p.font.size = PtxPt(font_size); p.level = 0; p.space_after = PtxPt(6) 
 
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
     return buffer
@@ -352,6 +275,12 @@ with st.sidebar:
     st.divider()
     rol = st.radio("Rol:", ["Vicedecano Académico", "Director de UCI", "Consultor Telesalud", "Profesor Universitario", "Investigador Científico", "Mentor de Trading", "Asistente Personal"])
     
+    # --- MODO VOZ ---
+    st.markdown("---")
+    modo_voz = st.toggle("🎙️ Modo Voz (Experimental)")
+    if modo_voz:
+        st.info("Presiona el micrófono en el chat para hablar.")
+    
     st.markdown("---")
     st.subheader("🏭 Centro de Producción")
     
@@ -375,8 +304,7 @@ with st.sidebar:
             with st.spinner("Diseñando..."):
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
                 prompt = f"""
-                Analiza: {hist}. 
-                Genera JSON para PPTX.
+                Analiza: {hist}. Genera JSON PPTX.
                 REGLAS: Máximo 5 puntos por slide. Texto resumido.
                 FORMATO: [{{'title':'T','content':['A','B']}}]
                 IMPORTANTE: Responde SOLO el JSON.
@@ -497,11 +425,12 @@ with st.sidebar:
     if st.button("🗑️ Borrar Todo", use_container_width=True): st.session_state.clear(); st.rerun()
 
 # ==========================================
-# CHAT
+# CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V21: {rol}")
+st.title(f"🤖 Agente V22: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
+# 1. VISUALIZADOR MERMAID
 if st.session_state.generated_mermaid:
     st.subheader("🎨 Esquema Visual")
     code = st.session_state.generated_mermaid.replace("```mermaid","").replace("```","").strip()
@@ -509,6 +438,7 @@ if st.session_state.generated_mermaid:
     except: st.code(code)
     if st.button("Cerrar Esquema"): st.session_state.generated_mermaid=None; st.rerun()
 
+# 2. GRÁFICOS
 if st.session_state.generated_chart: 
     st.pyplot(st.session_state.generated_chart)
     st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
@@ -516,24 +446,63 @@ if st.session_state.generated_chart:
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel(MODELO_USADO, generation_config={"temperature": temp_val})
 
-for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
-
-if p := st.chat_input("Escriba su instrucción..."):
-    st.session_state.messages.append({"role": "user", "content": p})
-    st.chat_message("user").markdown(p)
-    with st.chat_message("assistant"):
-        with st.spinner("Pensando..."):
-            ctx = st.session_state.contexto_texto
-            prompt = f"Rol: {rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
-            if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
-            con = [prompt]
-            if st.session_state.archivo_multimodal: 
-                con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo multimedia).")
-            
-            try:
-                res = model.generate_content(con)
-                st.markdown(res.text)
+# --- MODO CHAT NORMAL VS MODO VOZ ---
+if modo_voz:
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        st.markdown("### 🎙️ Hablar")
+        audio = mic_recorder(start_prompt="🔴 Grabar", stop_prompt="⏹️ Parar", key='recorder')
+    with col2:
+        if audio:
+            st.audio(audio['bytes'])
+            # Procesar Audio con Gemini
+            with st.spinner("Escuchando y pensando..."):
+                # Guardar audio temporal
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tf:
+                    tf.write(audio['bytes']); tpath = tf.name
+                
+                # Subir a Gemini como archivo
+                mfile = genai.upload_file(path=tpath)
+                while mfile.state.name == "PROCESSING": time.sleep(0.5); mfile = genai.get_file(mfile.name)
+                
+                # Prompt multimodal
+                ctx = st.session_state.contexto_texto
+                prompt_text = f"Rol: {rol}. Responde brevemente. Contexto: {ctx[:50000]}"
+                res = model.generate_content([prompt_text, mfile])
+                
+                # Mostrar respuesta
+                st.chat_message("assistant").markdown(res.text)
+                st.session_state.messages.append({"role": "user", "content": "Audio enviado"})
                 st.session_state.messages.append({"role": "assistant", "content": res.text})
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error: {e}")
+                
+                # Generar Voz de Respuesta (TTS)
+                tts = gTTS(text=res.text, lang='es')
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as fp:
+                    tts.save(fp.name)
+                    st.audio(fp.name)
+                
+                os.remove(tpath)
+
+else:
+    # CHAT DE TEXTO NORMAL
+    for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
+    if p := st.chat_input("Escriba su instrucción..."):
+        st.session_state.messages.append({"role": "user", "content": p})
+        st.chat_message("user").markdown(p)
+        with st.chat_message("assistant"):
+            with st.spinner("Pensando..."):
+                ctx = st.session_state.contexto_texto
+                prompt = f"Rol: {rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
+                if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
+                con = [prompt]
+                if st.session_state.archivo_multimodal: 
+                    con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo multimedia).")
+                
+                try:
+                    res = model.generate_content(con)
+                    st.markdown(res.text)
+                    st.session_state.messages.append({"role": "assistant", "content": res.text})
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error: {e}")
+                 
