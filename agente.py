@@ -16,15 +16,15 @@ from datetime import date
 from pptx import Presentation
 import matplotlib.pyplot as plt
 import pandas as pd
-from streamlit_mermaid import st_mermaid  # <--- NUEVA LIBRERÍA VISUAL
+from streamlit_mermaid import st_mermaid  # <--- LIBRERÍA VISUAL
 
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V15", page_icon="👁️", layout="wide")
+st.set_page_config(page_title="Agente V15 (Visualizador)", page_icon="👁️", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
-# Si el 2.5 falla, use 'gemini-2.0-flash-exp' o 'gemini-1.5-flash'
+# Si falla, usa 'gemini-2.0-flash-exp'
 
 # ==========================================
 # FUNCIONES DE LECTURA (INPUT)
@@ -248,5 +248,82 @@ with st.sidebar:
                     if doc.type == "application/pdf": text_acc += f"\n--- PDF: {doc.name} ---\n{get_pdf_text(doc)}"
                     elif "word" in doc.type: text_acc += f"\n--- WORD: {doc.name} ---\n{get_docx_text(doc)}"
                     elif "sheet" in doc.type: text_acc += f"\n--- EXCEL: {doc.name} ---\n{get_excel_text(doc)}"
-                    elif "presentation" in
+                    elif "presentation" in doc.type: text_acc += f"\n--- PPTX: {doc.name} ---\n{get_pptx_text(doc)}"
+                except: st.error(f"Error en {doc.name}")
+                prog.progress((i+1)/len(uploaded_docs))
+            st.session_state.contexto_texto = text_acc
+            st.session_state.info_archivos = f"{len(uploaded_docs)} archivos."
+            st.success("✅ Biblioteca Cargada")
+    
+    with tab2:
+        uploaded_media = st.file_uploader("Media", type=['mp4','mp3','png','jpg'])
+        if uploaded_media and api_key and st.button("Subir Media"):
+            genai.configure(api_key=api_key)
+            with st.spinner("Procesando..."):
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.'+uploaded_media.name.split('.')[-1]) as tf:
+                    tf.write(uploaded_media.read()); tpath = tf.name
+                mfile = genai.upload_file(path=tpath)
+                while mfile.state.name == "PROCESSING": time.sleep(1); mfile = genai.get_file(mfile.name)
+                st.session_state.archivo_multimodal = mfile
+                st.success("✅ Media Lista"); os.remove(tpath)
+    with tab3:
+        if st.button("YT") and (u:=st.text_input("Link YT")): st.session_state.contexto_texto=get_youtube_text(u);st.success("✅ YT")
+    with tab4:
+        if st.button("Web") and (w:=st.text_input("Link Web")): st.session_state.contexto_texto=get_web_text(w);st.success("✅ Web")
 
+    st.divider()
+    if st.session_state.messages:
+        st.download_button("💾 Guardar Chat", create_chat_docx(st.session_state.messages), "chat.docx")
+        st.download_button("🧠 Backup JSON", json.dumps(st.session_state.messages), "memoria.json")
+    if st.file_uploader("Cargar Backup", type=['json']) and st.button("Restaurar"): st.session_state.messages = json.load(uploaded_memory); st.rerun()
+    if st.button("🗑️ Borrar"): st.session_state.clear(); st.rerun()
+
+# ==========================================
+# CHAT Y VISUALIZADOR
+# ==========================================
+st.title(f"🤖 Agente V15: {rol}")
+if not api_key: st.warning("⚠️ API Key requerida"); st.stop()
+
+# 1. VISUALIZADOR NATIVO (MERMAID)
+if st.session_state.generated_mermaid:
+    st.subheader("🎨 Esquema Visual Generado")
+    # Limpieza del código
+    codigo_limpio = st.session_state.generated_mermaid.replace("```mermaid", "").replace("```", "").strip()
+    try:
+        # AQUÍ SE DIBUJA EL DIAGRAMA
+        st_mermaid(codigo_limpio, height=500)
+    except Exception as e:
+        st.error("No se pudo renderizar. Aquí está el código:")
+        st.code(codigo_limpio)
+        
+    if st.button("Cerrar Esquema"):
+        st.session_state.generated_mermaid = None
+        st.rerun()
+
+# 2. GRÁFICOS ESTADÍSTICOS
+if st.session_state.generated_chart: 
+    st.pyplot(st.session_state.generated_chart)
+    st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
+
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel(MODELO_USADO, generation_config={"temperature": temp_val})
+
+for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
+
+if p := st.chat_input("Instrucción..."):
+    st.session_state.messages.append({"role": "user", "content": p})
+    st.chat_message("user").markdown(p)
+    with st.chat_message("assistant"):
+        with st.spinner("..."):
+            ctx = st.session_state.contexto_texto
+            prompt = f"Rol: {rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
+            if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
+            if st.session_state.archivo_multimodal: prompt += " (Analiza el archivo multimedia adjunto)."
+            
+            con = [prompt]
+            if st.session_state.archivo_multimodal: con.insert(0, st.session_state.archivo_multimodal)
+            
+            res = model.generate_content(con)
+            st.markdown(res.text)
+            st.session_state.messages.append({"role": "assistant", "content": res.text})
+            st.rerun()
