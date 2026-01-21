@@ -21,7 +21,7 @@ import re
 from pptx import Presentation
 from pptx.util import Pt as PtxPt, Inches as PtxInches
 from pptx.dml.color import RGBColor as PtxRGB
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR, MSO_AUTO_SIZE
 from pptx.enum.shapes import MSO_SHAPE 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -36,7 +36,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V30.1", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V32.1", page_icon="🎓", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -136,7 +136,7 @@ def create_chat_docx(messages):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO PRO
+# 2. WORD DOCUMENTO PRO (FORMATO APA REAL)
 def create_clean_docx(text_content):
     doc = docx.Document()
     style = doc.styles['Normal']
@@ -145,6 +145,7 @@ def create_clean_docx(text_content):
     for section in doc.sections:
         section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
 
+    # Portada
     for _ in range(3): doc.add_paragraph("")
     title = doc.add_paragraph("INFORME EJECUTIVO")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -174,7 +175,9 @@ def create_clean_docx(text_content):
                                 r.font.color.rgb = RGBColor(255, 255, 255); r.bold = True
 
     lines = text_content.split('\n')
-    table_buffer = []; in_table = False
+    table_buffer = [] 
+    in_table = False
+    is_biblio = False # <--- BANDERA DE BIBLIOGRAFÍA APA
 
     for line in lines:
         stripped = line.strip()
@@ -191,11 +194,19 @@ def create_clean_docx(text_content):
 
             if not stripped: continue
 
+            # Detectar encabezados y activar modo Bibliografía
             header_match = re.match(r'^(#+)\s*(.*)', stripped)
             if header_match:
                 hashes, raw_text = header_match.groups()
                 level = len(hashes)
                 clean_title = clean_md(raw_text)
+                
+                # Detectar si entramos a la sección de referencias
+                if "referencia" in clean_title.lower() or "bibliografía" in clean_title.lower():
+                    is_biblio = True
+                else:
+                    is_biblio = False # Salimos si empieza otro titulo
+
                 if level == 1:
                     h = doc.add_heading(clean_title, level=1)
                     h.runs[0].font.color.rgb = RGBColor(0, 51, 102); h.runs[0].font.size = Pt(16)
@@ -203,21 +214,34 @@ def create_clean_docx(text_content):
                     h = doc.add_heading(clean_title, level=2)
                     h.runs[0].font.color.rgb = RGBColor(50, 50, 50); h.runs[0].font.size = Pt(14)
                 else: doc.add_heading(clean_title, level=3)
+            
             elif stripped.startswith('- ') or stripped.startswith('* '):
                 doc.add_paragraph(clean_md(stripped[2:]), style='List Bullet')
+            
             elif re.match(r'^\d+\.', stripped):
                 parts = stripped.split('.', 1)
                 doc.add_paragraph(clean_md(parts[1]) if len(parts)>1 else clean_md(stripped), style='List Number')
+            
             else:
+                # Párrafo normal
                 p = doc.add_paragraph(clean_md(stripped))
-                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                
+                # --- APLICAR SANGRÍA FRANCESA SI ES BIBLIOGRAFÍA ---
+                if is_biblio:
+                    p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                    # Truco para Sangría Francesa: Izquierda positiva, Primera linea negativa
+                    p.paragraph_format.left_indent = Cm(1.27) 
+                    p.paragraph_format.first_line_indent = Cm(-1.27)
+                else:
+                    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                
                 p.paragraph_format.space_after = Pt(6)
 
     if in_table and table_buffer: build_word_table(table_buffer)
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (MULTIMEDIA & DESIGN)
+# 3. PPTX PRO (PIE DE PÁGINA APA V32)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -235,8 +259,9 @@ def generate_pptx_from_data(slide_data, template_file=None):
         if title_shape:
             line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0.8), PtxInches(1.4), PtxInches(8), PtxInches(0.05))
             line.fill.solid(); line.fill.fore_color.rgb = PtxRGB(0, 150, 200); line.line.fill.background()
+            title_shape.text_frame.word_wrap = True 
+            title_shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
             title_shape.text_frame.paragraphs[0].font.name = 'Arial'
-            title_shape.text_frame.paragraphs[0].font.size = PtxPt(36)
             title_shape.text_frame.paragraphs[0].font.bold = True
             title_shape.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
             title_shape.top = PtxInches(0.5); title_shape.left = PtxInches(0.8)
@@ -256,20 +281,25 @@ def generate_pptx_from_data(slide_data, template_file=None):
         img_stream = BytesIO(); plt.savefig(img_stream, format='png', dpi=150); img_stream.seek(0)
         plt.close(fig); return img_stream
 
+    # PORTADA
     try:
         slide = prs.slides.add_slide(prs.slide_layouts[0])
         if slide.shapes.title: 
             slide.shapes.title.text = clean_text(slide_data[0].get("title", "Presentación"))
+            slide.shapes.title.text_frame.word_wrap = True
+            slide.shapes.title.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
             if not using_template:
                 slide.shapes.title.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
                 slide.shapes.title.text_frame.paragraphs[0].font.bold = True
         if len(slide.placeholders) > 1: slide.placeholders[1].text = f"{date.today()}"
-    except: 
-        slide = prs.slides.add_slide(prs.slide_layouts[6])
+    except: slide = prs.slides.add_slide(prs.slide_layouts[6])
 
+    # CONTENIDO
     for info in slide_data[1:]:
         slide_type = info.get("type", "text") 
         content = info.get("content", [])
+        ref_text = info.get("references", "") # <--- REFERENCIA APA
+        
         layout_idx = 1 if using_template else 6
         if len(prs.slide_layouts) < 2: layout_idx = 0
         slide = prs.slides.add_slide(prs.slide_layouts[layout_idx])
@@ -279,7 +309,10 @@ def generate_pptx_from_data(slide_data, template_file=None):
             title_shape.text = clean_text(info.get("title", "Detalle"))
             apply_design(slide, title_shape)
         else:
-            if slide.shapes.title: slide.shapes.title.text = clean_text(info.get("title", "Detalle"))
+            if slide.shapes.title: 
+                slide.shapes.title.text = clean_text(info.get("title", "Detalle"))
+                slide.shapes.title.text_frame.word_wrap = True
+                slide.shapes.title.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
         if slide_type == "table":
             rows = len(content); cols = len(content[0]) if rows > 0 else 1
@@ -309,16 +342,23 @@ def generate_pptx_from_data(slide_data, template_file=None):
             else:
                 for shape in slide.placeholders:
                     if shape.placeholder_format.idx == 1: tf = shape.text_frame; tf.clear(); break
-            font_size = 24 
-            total_chars = sum(len(str(p)) for p in content)
-            if total_chars > 500: font_size = 14
-            elif total_chars > 300: font_size = 18
-            tf.word_wrap = True
+            
+            tf.word_wrap = True; tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
             for point in content:
                 p = tf.add_paragraph()
                 p.text = clean_text(str(point))
-                p.font.size = PtxPt(font_size); p.font.name = 'Arial'
+                p.font.name = 'Arial'
                 p.font.color.rgb = PtxRGB(60, 60, 60); p.space_after = PtxPt(10)
+
+        # --- PIE DE PÁGINA (APA) ---
+        if ref_text and ref_text != "N/A":
+            left = PtxInches(0.5); top = PtxInches(6.8)
+            width = PtxInches(9); height = PtxInches(0.5)
+            txBox = slide.shapes.add_textbox(left, top, width, height)
+            p = txBox.text_frame.paragraphs[0]
+            p.text = f"Fuente: {ref_text}"
+            p.font.size = PtxPt(10); p.font.italic = True
+            p.font.color.rgb = PtxRGB(120, 120, 120)
 
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
     return buffer
@@ -420,6 +460,7 @@ with st.sidebar:
             1. Aplica marcos mentales: Océano Azul, Design Thinking, Kotter (Gestión del Cambio).
             2. Busca la escalabilidad y la diferenciación radical.
             3. Si el usuario pide algo básico, entrégalo, pero añade una sección de "Visión Disruptiva".
+            4. CITAS APA: Siempre que des datos, usa formato APA (Autor, Año). Incluye una sección de 'Referencias Bibliográficas' al final.
             ACTITUD: Proactiva, visionaria y analítica.
         """,
         "Vicedecano Académico": "Eres Vicedecano. Tu tono es institucional, riguroso, normativo y formal. Citas reglamentos y buscas la excelencia académica.",
@@ -463,10 +504,12 @@ with st.sidebar:
                 2. 'table': Si hay datos comparativos (Matriz de listas).
                 3. 'chart': Si hay estadísticas (Bar Chart).
                 
+                CAMPO 'references': Si usas datos, agrega la cita APA breve (ej: 'Minsalud, 2024') en este campo. Si no, pon 'N/A'.
+                
                 FORMATOS:
-                - TEXT: {{'type':'text', 'title':'T', 'content':['A','B']}}
-                - TABLE: {{'type':'table', 'title':'T', 'content':[['Head1','Head2'],['Val1','Val2']]}}
-                - CHART: {{'type':'chart', 'title':'T', 'chart_data': {{'labels':['A','B'], 'values':[10,20], 'label':'Ventas'}} }}
+                - TEXT: {{'type':'text', 'title':'T', 'content':['A','B'], 'references':'Autor (Año)'}}
+                - TABLE: {{'type':'table', 'title':'T', 'content':[['Head1','Head2'],['Val1','Val2']], 'references':'Autor (Año)'}}
+                - CHART: {{'type':'chart', 'title':'T', 'chart_data': {{'labels':['A','B'], 'values':[10,20], 'label':'Ventas'}}, 'references':'Autor (Año)'}}
                 
                 IMPORTANTE: Responde SOLO el JSON.
                 """
@@ -578,7 +621,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V30.1: {rol}")
+st.title(f"🤖 Agente V32.1: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
@@ -645,4 +688,3 @@ else:
                 full_response = st.write_stream(stream_parser)
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
             except Exception as e: st.error(f"Error: {e}")
-
