@@ -21,7 +21,7 @@ from streamlit_mermaid import st_mermaid  # <--- NUEVA LIBRERÍA VISUAL
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente V15 (Visualizador Nativo)", page_icon="👁️", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V15", page_icon="👁️", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 # Si el 2.5 falla, use 'gemini-2.0-flash-exp' o 'gemini-1.5-flash'
@@ -249,3 +249,4 @@ with st.sidebar:
                     elif "word" in doc.type: text_acc += f"\n--- WORD: {doc.name} ---\n{get_docx_text(doc)}"
                     elif "sheet" in doc.type: text_acc += f"\n--- EXCEL: {doc.name} ---\n{get_excel_text(doc)}"
                     elif "presentation" in
+
