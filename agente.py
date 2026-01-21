@@ -24,14 +24,14 @@ import streamlit.components.v1 as components
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side 
 from openpyxl.utils import get_column_letter
 
-# --- LIBRERÍAS DE VOZ (NUEVAS V22) ---
+# --- LIBRERÍAS DE VOZ ---
 from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V22", page_icon="🎙️", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V23", page_icon="🧬", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -273,7 +273,37 @@ with st.sidebar:
     api_key = st.text_input("🔑 API Key:", type="password")
     temp_val = st.slider("Creatividad", 0.0, 1.0, 0.2)
     st.divider()
-    rol = st.radio("Rol:", ["Vicedecano Académico", "Director de UCI", "Consultor Telesalud", "Profesor Universitario", "Investigador Científico", "Mentor de Trading", "Asistente Personal"])
+    
+    # --- ROL SELECCIONADO (CON EL NUEVO SOCIO ESTRATÉGICO) ---
+    rol = st.radio("Rol:", [
+        "Socio Estratégico (Innovación)", # <--- NUEVO
+        "Vicedecano Académico",
+        "Director de UCI",
+        "Consultor Telesalud",
+        "Profesor Universitario",
+        "Investigador Científico",
+        "Mentor de Trading",
+        "Asistente Personal"
+    ])
+
+    # --- DESCRIPCIONES DE ROL (PERSONALIDAD) ---
+    prompts_roles = {
+        "Socio Estratégico (Innovación)": """
+            Eres un Consultor Senior en Estrategia y Transformación (estilo McKinsey/IDEO).
+            TU MISIÓN: No solo obedezcas la instrucción; RETALA y MEJÓRALA.
+            1. Aplica marcos mentales: Océano Azul, Design Thinking, Kotter (Gestión del Cambio).
+            2. Busca la escalabilidad y la diferenciación radical.
+            3. Si el usuario pide algo básico, entrégalo, pero añade una sección de "Visión Disruptiva".
+            ACTITUD: Proactiva, visionaria y analítica.
+        """,
+        "Vicedecano Académico": "Eres Vicedecano. Tu tono es institucional, estratégico, riguroso, normativo y formal. Citas reglamentos y buscas la excelencia académica.",
+        "Director de UCI": "Eres Médico Intensivista. Prioriza la vida, las guías clínicas, la seguridad del paciente y la toma de decisiones basada en evidencia.",
+        "Consultor Telesalud": "Eres experto en Salud Digital, telemedicina e innovación, Leyes (Colombia) y Tecnología. Conoces la normativa de habilitación y protección de datos.",
+        "Profesor Universitario": "Eres docente. Explica con las mejores estrategias pedagogicas, paciencia y ejemplos claros. Tu objetivo es que el estudiante entienda los fundamentos.",
+        "Investigador Científico": "Eres metodólogo. Prioriza datos, referencias bibliográficas (Vancouver/APA) y el rigor del método científico.",
+        "Mentor de Trading": "Eres Trader Institucional. Analiza estructura de mercado, liquidez y gestión de riesgo. No das consejos financieros, enseñas a leer el mercado.",
+        "Asistente Personal": "Eres un asistente ejecutivo eficiente, conciso y organizado. Vas directo al grano."
+    }
     
     # --- MODO VOZ ---
     st.markdown("---")
@@ -427,7 +457,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V22: {rol}")
+st.title(f"🤖 Agente V23: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 # 1. VISUALIZADOR MERMAID
@@ -455,36 +485,30 @@ if modo_voz:
     with col2:
         if audio:
             st.audio(audio['bytes'])
-            # Procesar Audio con Gemini
             with st.spinner("Escuchando y pensando..."):
-                # Guardar audio temporal
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tf:
                     tf.write(audio['bytes']); tpath = tf.name
                 
-                # Subir a Gemini como archivo
                 mfile = genai.upload_file(path=tpath)
                 while mfile.state.name == "PROCESSING": time.sleep(0.5); mfile = genai.get_file(mfile.name)
                 
-                # Prompt multimodal
                 ctx = st.session_state.contexto_texto
-                prompt_text = f"Rol: {rol}. Responde brevemente. Contexto: {ctx[:50000]}"
+                # --- INYECCIÓN DE ROL ESTRATÉGICO EN VOZ ---
+                instruccion_rol = prompts_roles[rol] # <--- CLAVE: Recuperamos la descripción
+                prompt_text = f"Rol: {rol}. INSTRUCCIONES ROL: {instruccion_rol}. Responde brevemente (para audio). Contexto: {ctx[:50000]}"
+                
                 res = model.generate_content([prompt_text, mfile])
                 
-                # Mostrar respuesta
                 st.chat_message("assistant").markdown(res.text)
                 st.session_state.messages.append({"role": "user", "content": "Audio enviado"})
                 st.session_state.messages.append({"role": "assistant", "content": res.text})
                 
-                # Generar Voz de Respuesta (TTS)
                 tts = gTTS(text=res.text, lang='es')
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as fp:
-                    tts.save(fp.name)
-                    st.audio(fp.name)
-                
+                    tts.save(fp.name); st.audio(fp.name)
                 os.remove(tpath)
 
 else:
-    # CHAT DE TEXTO NORMAL
     for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
     if p := st.chat_input("Escriba su instrucción..."):
         st.session_state.messages.append({"role": "user", "content": p})
@@ -492,7 +516,10 @@ else:
         with st.chat_message("assistant"):
             with st.spinner("Pensando..."):
                 ctx = st.session_state.contexto_texto
-                prompt = f"Rol: {rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
+                # --- INYECCIÓN DE ROL ESTRATÉGICO EN TEXTO ---
+                instruccion_rol = prompts_roles[rol] # <--- CLAVE: Recuperamos la descripción
+                prompt = f"Rol: {rol}. PERFIL DE COMPORTAMIENTO: {instruccion_rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
+                
                 if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
                 con = [prompt]
                 if st.session_state.archivo_multimodal: 
@@ -505,4 +532,3 @@ else:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
-                 
