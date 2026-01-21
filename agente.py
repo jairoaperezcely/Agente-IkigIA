@@ -36,7 +36,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V32.1", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V33", page_icon="📐", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -136,7 +136,7 @@ def create_chat_docx(messages):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO PRO (FORMATO APA REAL)
+# 2. WORD DOCUMENTO PRO
 def create_clean_docx(text_content):
     doc = docx.Document()
     style = doc.styles['Normal']
@@ -145,7 +145,6 @@ def create_clean_docx(text_content):
     for section in doc.sections:
         section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
 
-    # Portada
     for _ in range(3): doc.add_paragraph("")
     title = doc.add_paragraph("INFORME EJECUTIVO")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -175,9 +174,7 @@ def create_clean_docx(text_content):
                                 r.font.color.rgb = RGBColor(255, 255, 255); r.bold = True
 
     lines = text_content.split('\n')
-    table_buffer = [] 
-    in_table = False
-    is_biblio = False # <--- BANDERA DE BIBLIOGRAFÍA APA
+    table_buffer = []; in_table = False; is_biblio = False
 
     for line in lines:
         stripped = line.strip()
@@ -194,18 +191,15 @@ def create_clean_docx(text_content):
 
             if not stripped: continue
 
-            # Detectar encabezados y activar modo Bibliografía
             header_match = re.match(r'^(#+)\s*(.*)', stripped)
             if header_match:
                 hashes, raw_text = header_match.groups()
                 level = len(hashes)
                 clean_title = clean_md(raw_text)
                 
-                # Detectar si entramos a la sección de referencias
                 if "referencia" in clean_title.lower() or "bibliografía" in clean_title.lower():
                     is_biblio = True
-                else:
-                    is_biblio = False # Salimos si empieza otro titulo
+                else: is_biblio = False
 
                 if level == 1:
                     h = doc.add_heading(clean_title, level=1)
@@ -214,34 +208,25 @@ def create_clean_docx(text_content):
                     h = doc.add_heading(clean_title, level=2)
                     h.runs[0].font.color.rgb = RGBColor(50, 50, 50); h.runs[0].font.size = Pt(14)
                 else: doc.add_heading(clean_title, level=3)
-            
             elif stripped.startswith('- ') or stripped.startswith('* '):
                 doc.add_paragraph(clean_md(stripped[2:]), style='List Bullet')
-            
             elif re.match(r'^\d+\.', stripped):
                 parts = stripped.split('.', 1)
                 doc.add_paragraph(clean_md(parts[1]) if len(parts)>1 else clean_md(stripped), style='List Number')
-            
             else:
-                # Párrafo normal
                 p = doc.add_paragraph(clean_md(stripped))
-                
-                # --- APLICAR SANGRÍA FRANCESA SI ES BIBLIOGRAFÍA ---
                 if is_biblio:
                     p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                    # Truco para Sangría Francesa: Izquierda positiva, Primera linea negativa
                     p.paragraph_format.left_indent = Cm(1.27) 
                     p.paragraph_format.first_line_indent = Cm(-1.27)
-                else:
-                    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                
+                else: p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 p.paragraph_format.space_after = Pt(6)
 
     if in_table and table_buffer: build_word_table(table_buffer)
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (PIE DE PÁGINA APA V32)
+# 3. PPTX PRO (SMART LAYOUT V33)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -250,14 +235,18 @@ def generate_pptx_from_data(slide_data, template_file=None):
         prs = Presentation()
         using_template = False
     
+    # --- DIMENSIONES DE LA PRESENTACIÓN ---
+    SLIDE_WIDTH = prs.slide_width
+    SLIDE_HEIGHT = prs.slide_height
+    
     def clean_text(txt): return re.sub(r'\*\*(.*?)\*\*', r'\1', txt).strip()
 
     def apply_design(slide, title_shape=None):
         if using_template: return
-        shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0), PtxInches(0), PtxInches(0.4), PtxInches(7.5))
+        shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0), PtxInches(0), PtxInches(0.4), SLIDE_HEIGHT)
         shape.fill.solid(); shape.fill.fore_color.rgb = PtxRGB(0, 51, 102); shape.line.fill.background()
         if title_shape:
-            line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0.8), PtxInches(1.4), PtxInches(8), PtxInches(0.05))
+            line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0.8), PtxInches(1.4), SLIDE_WIDTH - PtxInches(1.5), PtxInches(0.05))
             line.fill.solid(); line.fill.fore_color.rgb = PtxRGB(0, 150, 200); line.line.fill.background()
             title_shape.text_frame.word_wrap = True 
             title_shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
@@ -265,17 +254,18 @@ def generate_pptx_from_data(slide_data, template_file=None):
             title_shape.text_frame.paragraphs[0].font.bold = True
             title_shape.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
             title_shape.top = PtxInches(0.5); title_shape.left = PtxInches(0.8)
+            title_shape.width = SLIDE_WIDTH - PtxInches(1.5) # Ancho dinámico
 
     def create_chart_image(data_dict):
         plt.style.use('seaborn-v0_8-whitegrid')
-        fig, ax = plt.subplots(figsize=(6, 4))
+        fig, ax = plt.subplots(figsize=(8, 5)) # Más resolución
         labels = data_dict.get('labels', []); values = data_dict.get('values', [])
         label = data_dict.get('label', 'Datos')
         colors = ['#003366', '#708090', '#4682B4', '#A9A9A9']
         if len(labels) == len(values):
             bars = ax.bar(labels, values, color=colors[:len(labels)], alpha=0.9)
             ax.bar_label(bars, fmt='%.1f')
-        ax.set_title(label, fontsize=12, fontweight='bold', color='#333333')
+        ax.set_title(label, fontsize=14, fontweight='bold', color='#333333')
         ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
         plt.tight_layout()
         img_stream = BytesIO(); plt.savefig(img_stream, format='png', dpi=150); img_stream.seek(0)
@@ -298,7 +288,7 @@ def generate_pptx_from_data(slide_data, template_file=None):
     for info in slide_data[1:]:
         slide_type = info.get("type", "text") 
         content = info.get("content", [])
-        ref_text = info.get("references", "") # <--- REFERENCIA APA
+        ref_text = info.get("references", "")
         
         layout_idx = 1 if using_template else 6
         if len(prs.slide_layouts) < 2: layout_idx = 0
@@ -314,30 +304,52 @@ def generate_pptx_from_data(slide_data, template_file=None):
                 slide.shapes.title.text_frame.word_wrap = True
                 slide.shapes.title.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
+        # --- MOTOR DE POSICIONAMIENTO V33 ---
+        # 1. TABLAS (Centradas y ajustadas)
         if slide_type == "table":
             rows = len(content); cols = len(content[0]) if rows > 0 else 1
-            left = PtxInches(1); top = PtxInches(2)
-            width = PtxInches(8); height = PtxInches(0.8 * rows)
-            table = slide.shapes.add_table(rows, cols, left, top, width, height).table
+            
+            # Ancho calculado: 80% del slide
+            table_width = SLIDE_WIDTH * 0.85
+            table_left = (SLIDE_WIDTH - table_width) / 2
+            
+            # Altura fila controlada (0.4 pulgadas en vez de 0.8)
+            row_height = PtxInches(0.4) 
+            table_height = row_height * rows
+            table_top = PtxInches(2.0)
+            
+            table = slide.shapes.add_table(rows, cols, table_left, table_top, table_width, table_height).table
+            
             for i, row in enumerate(content):
                 for j, val in enumerate(row):
                     if j < cols:
                         cell = table.cell(i, j); cell.text = str(val)
                         p = cell.text_frame.paragraphs[0]
-                        p.font.size = PtxPt(12); p.font.name = 'Arial'
+                        p.font.size = PtxPt(14); p.font.name = 'Arial' # Fuente más pequeña para que quepa
                         if i == 0:
                             cell.fill.solid(); cell.fill.fore_color.rgb = PtxRGB(0, 51, 102)
                             p.font.color.rgb = PtxRGB(255, 255, 255); p.font.bold = True; p.alignment = PP_ALIGN.CENTER
         
+        # 2. GRÁFICOS (Centrados y balanceados)
         elif slide_type == "chart":
             chart_data = info.get("chart_data", {}) 
             if chart_data:
                 img_stream = create_chart_image(chart_data)
-                slide.shapes.add_picture(img_stream, PtxInches(1.5), PtxInches(2), width=PtxInches(6))
+                
+                # Tamaño imagen: 60% ancho, aspecto 4:3 aprox
+                pic_width = SLIDE_WIDTH * 0.65
+                pic_left = (SLIDE_WIDTH - pic_width) / 2
+                pic_top = PtxInches(2.2)
+                
+                slide.shapes.add_picture(img_stream, pic_left, pic_top, width=pic_width)
 
+        # 3. TEXTO (Ajustado a la caja)
         else:
             if not using_template:
-                body_shape = slide.shapes.add_textbox(PtxInches(0.8), PtxInches(1.8), PtxInches(8.5), PtxInches(5))
+                # Caja de texto ocupa 85% del ancho
+                box_width = SLIDE_WIDTH * 0.85
+                box_left = (SLIDE_WIDTH - box_width) / 2
+                body_shape = slide.shapes.add_textbox(box_left, PtxInches(1.8), box_width, PtxInches(5))
                 tf = body_shape.text_frame
             else:
                 for shape in slide.placeholders:
@@ -348,12 +360,13 @@ def generate_pptx_from_data(slide_data, template_file=None):
                 p = tf.add_paragraph()
                 p.text = clean_text(str(point))
                 p.font.name = 'Arial'
-                p.font.color.rgb = PtxRGB(60, 60, 60); p.space_after = PtxPt(10)
+                p.font.color.rgb = PtxRGB(60, 60, 60); p.space_after = PtxPt(12) # Más aire entre bullets
 
         # --- PIE DE PÁGINA (APA) ---
         if ref_text and ref_text != "N/A":
-            left = PtxInches(0.5); top = PtxInches(6.8)
-            width = PtxInches(9); height = PtxInches(0.5)
+            left = PtxInches(0.5); top = SLIDE_HEIGHT - PtxInches(0.6) # Siempre al fondo
+            width = SLIDE_WIDTH - PtxInches(1.0)
+            height = PtxInches(0.4)
             txBox = slide.shapes.add_textbox(left, top, width, height)
             p = txBox.text_frame.paragraphs[0]
             p.text = f"Fuente: {ref_text}"
@@ -508,7 +521,7 @@ with st.sidebar:
                 
                 FORMATOS:
                 - TEXT: {{'type':'text', 'title':'T', 'content':['A','B'], 'references':'Autor (Año)'}}
-                - TABLE: {{'type':'table', 'title':'T', 'content':[['Head1','Head2'],['Val1','Val2']], 'references':'Autor (Año)'}}
+                - TABLE: {{'type':'table', 'title':'T', 'content':[['H1','H2'],['V1','V2']], 'references':'Autor (Año)'}}
                 - CHART: {{'type':'chart', 'title':'T', 'chart_data': {{'labels':['A','B'], 'values':[10,20], 'label':'Ventas'}}, 'references':'Autor (Año)'}}
                 
                 IMPORTANTE: Responde SOLO el JSON.
@@ -621,7 +634,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V32.1: {rol}")
+st.title(f"🤖 Agente V33: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
