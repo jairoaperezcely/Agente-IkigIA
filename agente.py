@@ -12,19 +12,54 @@ from io import BytesIO
 import json
 from datetime import date
 
-# --- LIBRERÍAS DE OFICINA, GRÁFICOS Y VISUALIZACIÓN ---
+# --- LIBRERÍAS DE OFICINA Y GRÁFICOS ---
 from pptx import Presentation
 import matplotlib.pyplot as plt
 import pandas as pd
-from streamlit_mermaid import st_mermaid  # <--- LIBRERÍA VISUAL
+import streamlit.components.v1 as components # <--- COMPONENTE NATIVO (MÁS ESTABLE)
 
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V15", page_icon="👁️", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V15.5", page_icon="👁️", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
-# Si falla, usa 'gemini-2.0-flash-exp'
+# Si falla, use 'gemini-2.0-flash-exp'
+
+# ==========================================
+# FUNCIÓN DE VISUALIZACIÓN MERMAID (CORREGIDA)
+# ==========================================
+def plot_mermaid(code):
+    """
+    Renderiza diagramas Mermaid usando HTML/JS directo para evitar pantallas negras.
+    Fuerza el tema oscuro para que resalte.
+    """
+    html_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script type="module">
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+            mermaid.initialize({{ 
+                startOnLoad: true, 
+                theme: 'dark',  // <--- ESTO ARREGLA LA PANTALLA NEGRA
+                securityLevel: 'loose',
+            }});
+        </script>
+        <style>
+            body {{ background-color: transparent; color: white; font-family: sans-serif; }}
+            .mermaid {{ display: flex; justify-content: center; }}
+        </style>
+    </head>
+    <body>
+        <div class="mermaid">
+            {code}
+        </div>
+    </body>
+    </html>
+    """
+    # Renderizamos el HTML con altura suficiente y scroll
+    components.html(html_code, height=600, scrolling=True)
 
 # ==========================================
 # FUNCIONES DE LECTURA (INPUT)
@@ -159,11 +194,11 @@ with st.sidebar:
     rol = st.radio("Rol:", ["Vicedecano Académico", "Director de UCI", "Consultor Telesalud", "Profesor Universitario", "Investigador Científico", "Mentor de Trading", "Asistente Personal"])
     
     prompts_roles = {
-        "Vicedecano Académico": "Eres Vicedecano. Riguroso, normativo y formal.",
-        "Director de UCI": "Eres Médico Intensivista. Prioriza guías clínicas y seguridad.",
-        "Consultor Telesalud": "Eres experto en Salud Digital y Leyes.",
+        "Vicedecano Académico": "Eres Vicedecano. Estrategico, riguroso, normativo y formal.",
+        "Director de UCI": "Eres Médico Intensivista. Prioriza guías clínicas, la evidencia cientifica y la seguridad del paciente.",
+        "Consultor Telesalud": "Eres experto e innovador en Salud Digital, telemedicina, mejores estandares internacionales y normatividad.",
         "Profesor Universitario": "Eres docente. Explica con pedagogía.",
-        "Investigador Científico": "Eres metodólogo. Prioriza datos y referencias.",
+        "Investigador Científico": "Eres metodólogo. Prioriza datos y referencias. Escribe articulos cientificos",
         "Mentor de Trading": "Eres Trader Institucional. Analiza estructura y liquidez.",
         "Asistente Personal": "Eres asistente ejecutivo eficiente."
     }
@@ -215,7 +250,7 @@ with st.sidebar:
                 st.success("✅ Gráfico Listo")
             except: st.error("No hay datos")
 
-    # 5. VISUALIZADOR (MERMAID) - NUEVO
+    # 5. VISUALIZADOR (MERMAID)
     if st.button("🎨 Generar Esquema Visual"):
         if len(st.session_state.messages) < 1: st.error("Necesito tema.")
         else:
@@ -223,7 +258,8 @@ with st.sidebar:
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
                 prompt_mermaid = f"""
                 Analiza: {hist}. Crea CÓDIGO MERMAID.JS.
-                Tipos: 'graph TD' (Proceso), 'mindmap' (Mapa Mental), 'timeline' (Historia).
+                IMPORTANTE: NO USES PARENTESIS REDONDOS () DENTRO DE LOS NODOS, USA CORCHETES [].
+                Tipos: 'graph TD' (Proceso), 'mindmap' (Mapa Mental).
                 SALIDA: Solo el código dentro de bloques ```mermaid ... ```
                 """
                 try:
@@ -281,26 +317,24 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADOR
 # ==========================================
-st.title(f"🤖 Agente V15: {rol}")
+st.title(f"🤖 Agente V15.5: {rol}")
 if not api_key: st.warning("⚠️ API Key requerida"); st.stop()
 
-# 1. VISUALIZADOR NATIVO (MERMAID)
+# 1. VISUALIZADOR MERMAID (HTML PURO - SIN PANTALLA NEGRA)
 if st.session_state.generated_mermaid:
-    st.subheader("🎨 Esquema Visual Generado")
-    # Limpieza del código
-    codigo_limpio = st.session_state.generated_mermaid.replace("```mermaid", "").replace("```", "").strip()
+    st.subheader("🎨 Esquema Visual")
+    codigo = st.session_state.generated_mermaid.replace("```mermaid", "").replace("```", "").strip()
     try:
-        # AQUÍ SE DIBUJA EL DIAGRAMA
-        st_mermaid(codigo_limpio, height=500)
+        plot_mermaid(codigo) # <--- AQUI SE DIBUJA CON LA FUNCION CORREGIDA
     except Exception as e:
-        st.error("No se pudo renderizar. Aquí está el código:")
-        st.code(codigo_limpio)
-        
+        st.error("Error mostrando esquema.")
+        st.code(codigo)
+    
     if st.button("Cerrar Esquema"):
         st.session_state.generated_mermaid = None
         st.rerun()
 
-# 2. GRÁFICOS ESTADÍSTICOS
+# 2. GRÁFICOS
 if st.session_state.generated_chart: 
     st.pyplot(st.session_state.generated_chart)
     st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
@@ -327,4 +361,3 @@ if p := st.chat_input("Instrucción..."):
             st.markdown(res.text)
             st.session_state.messages.append({"role": "assistant", "content": res.text})
             st.rerun()
-
