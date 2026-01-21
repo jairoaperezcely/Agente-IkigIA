@@ -36,7 +36,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente V30.1 (Full)", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V30.1", page_icon="🧬", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -645,3 +645,4 @@ else:
                 full_response = st.write_stream(stream_parser)
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
             except Exception as e: st.error(f"Error: {e}")
+
