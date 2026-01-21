@@ -36,7 +36,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V29", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente V30.1 (Full)", page_icon="🧬", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -65,18 +65,21 @@ def plot_mermaid(code):
     components.html(html_code, height=600, scrolling=True)
 
 # ==========================================
-# FUNCIONES DE LECTURA (INPUT)
+# FUNCIONES DE LECTURA (CON CACHÉ)
 # ==========================================
+@st.cache_data
 def get_pdf_text(pdf_file):
     reader = PdfReader(pdf_file)
     text = ""
     for page in reader.pages: text += page.extract_text()
     return text
 
+@st.cache_data
 def get_docx_text(docx_file):
     doc = docx.Document(docx_file)
     return "\n".join([para.text for para in doc.paragraphs])
 
+@st.cache_data
 def get_excel_text(excel_file):
     try:
         all_sheets = pd.read_excel(excel_file, sheet_name=None)
@@ -86,6 +89,7 @@ def get_excel_text(excel_file):
         return text
     except Exception as e: return f"Error Excel: {e}"
 
+@st.cache_data
 def get_pptx_text(pptx_file):
     try:
         prs = Presentation(pptx_file)
@@ -98,10 +102,10 @@ def get_pptx_text(pptx_file):
     except Exception as e: return f"Error PPTX: {e}"
 
 # ==========================================
-# FUNCIONES DE GENERACIÓN (OUTPUT DE LUJO)
+# FUNCIONES DE GENERACIÓN (OUTPUT)
 # ==========================================
 
-# 1. WORD ACTA (LIMPIEZA REFORZADA)
+# 1. WORD ACTA
 def create_chat_docx(messages):
     doc = docx.Document()
     for section in doc.sections:
@@ -132,7 +136,7 @@ def create_chat_docx(messages):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO PRO (TABLAS REALES & LIMPIEZA)
+# 2. WORD DOCUMENTO PRO
 def create_clean_docx(text_content):
     doc = docx.Document()
     style = doc.styles['Normal']
@@ -141,7 +145,6 @@ def create_clean_docx(text_content):
     for section in doc.sections:
         section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
 
-    # Portada
     for _ in range(3): doc.add_paragraph("")
     title = doc.add_paragraph("INFORME EJECUTIVO")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -188,21 +191,18 @@ def create_clean_docx(text_content):
 
             if not stripped: continue
 
-            # Detectar encabezados (Regex mejorado)
             header_match = re.match(r'^(#+)\s*(.*)', stripped)
             if header_match:
                 hashes, raw_text = header_match.groups()
                 level = len(hashes)
                 clean_title = clean_md(raw_text)
-                
                 if level == 1:
                     h = doc.add_heading(clean_title, level=1)
                     h.runs[0].font.color.rgb = RGBColor(0, 51, 102); h.runs[0].font.size = Pt(16)
                 elif level == 2:
                     h = doc.add_heading(clean_title, level=2)
                     h.runs[0].font.color.rgb = RGBColor(50, 50, 50); h.runs[0].font.size = Pt(14)
-                else:
-                    doc.add_heading(clean_title, level=3)
+                else: doc.add_heading(clean_title, level=3)
             elif stripped.startswith('- ') or stripped.startswith('* '):
                 doc.add_paragraph(clean_md(stripped[2:]), style='List Bullet')
             elif re.match(r'^\d+\.', stripped):
@@ -217,7 +217,7 @@ def create_clean_docx(text_content):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (MULTIMEDIA & DESIGN STUDIO)
+# 3. PPTX PRO (MULTIMEDIA & DESIGN)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -228,50 +228,34 @@ def generate_pptx_from_data(slide_data, template_file=None):
     
     def clean_text(txt): return re.sub(r'\*\*(.*?)\*\*', r'\1', txt).strip()
 
-    # --- DISEÑO BASE (SI NO HAY PLANTILLA) ---
     def apply_design(slide, title_shape=None):
         if using_template: return
-        # Banda lateral
         shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0), PtxInches(0), PtxInches(0.4), PtxInches(7.5))
         shape.fill.solid(); shape.fill.fore_color.rgb = PtxRGB(0, 51, 102); shape.line.fill.background()
-        
-        # Estilo Título
         if title_shape:
-            # Linea acento
             line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0.8), PtxInches(1.4), PtxInches(8), PtxInches(0.05))
             line.fill.solid(); line.fill.fore_color.rgb = PtxRGB(0, 150, 200); line.line.fill.background()
-            
             title_shape.text_frame.paragraphs[0].font.name = 'Arial'
             title_shape.text_frame.paragraphs[0].font.size = PtxPt(36)
             title_shape.text_frame.paragraphs[0].font.bold = True
             title_shape.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
             title_shape.top = PtxInches(0.5); title_shape.left = PtxInches(0.8)
 
-    # --- HELPER DE GRÁFICOS ---
     def create_chart_image(data_dict):
         plt.style.use('seaborn-v0_8-whitegrid')
         fig, ax = plt.subplots(figsize=(6, 4))
-        
-        labels = data_dict.get('labels', [])
-        values = data_dict.get('values', [])
+        labels = data_dict.get('labels', []); values = data_dict.get('values', [])
         label = data_dict.get('label', 'Datos')
         colors = ['#003366', '#708090', '#4682B4', '#A9A9A9']
-        
         if len(labels) == len(values):
             bars = ax.bar(labels, values, color=colors[:len(labels)], alpha=0.9)
             ax.bar_label(bars, fmt='%.1f')
-        
         ax.set_title(label, fontsize=12, fontweight='bold', color='#333333')
         ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
         plt.tight_layout()
-        
-        img_stream = BytesIO()
-        plt.savefig(img_stream, format='png', dpi=150)
-        img_stream.seek(0)
-        plt.close(fig)
-        return img_stream
+        img_stream = BytesIO(); plt.savefig(img_stream, format='png', dpi=150); img_stream.seek(0)
+        plt.close(fig); return img_stream
 
-    # PORTADA
     try:
         slide = prs.slides.add_slide(prs.slide_layouts[0])
         if slide.shapes.title: 
@@ -283,17 +267,13 @@ def generate_pptx_from_data(slide_data, template_file=None):
     except: 
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
-    # CONTENIDO
     for info in slide_data[1:]:
         slide_type = info.get("type", "text") 
         content = info.get("content", [])
-        
-        # Seleccionar layout
         layout_idx = 1 if using_template else 6
         if len(prs.slide_layouts) < 2: layout_idx = 0
         slide = prs.slides.add_slide(prs.slide_layouts[layout_idx])
         
-        # Título
         if not using_template:
             title_shape = slide.shapes.add_textbox(PtxInches(0.8), PtxInches(0.5), PtxInches(8), PtxInches(1))
             title_shape.text = clean_text(info.get("title", "Detalle"))
@@ -301,13 +281,11 @@ def generate_pptx_from_data(slide_data, template_file=None):
         else:
             if slide.shapes.title: slide.shapes.title.text = clean_text(info.get("title", "Detalle"))
 
-        # --- CASO 1: TABLA ---
         if slide_type == "table":
             rows = len(content); cols = len(content[0]) if rows > 0 else 1
             left = PtxInches(1); top = PtxInches(2)
             width = PtxInches(8); height = PtxInches(0.8 * rows)
             table = slide.shapes.add_table(rows, cols, left, top, width, height).table
-            
             for i, row in enumerate(content):
                 for j, val in enumerate(row):
                     if j < cols:
@@ -318,14 +296,12 @@ def generate_pptx_from_data(slide_data, template_file=None):
                             cell.fill.solid(); cell.fill.fore_color.rgb = PtxRGB(0, 51, 102)
                             p.font.color.rgb = PtxRGB(255, 255, 255); p.font.bold = True; p.alignment = PP_ALIGN.CENTER
         
-        # --- CASO 2: GRÁFICO (IMAGEN) ---
         elif slide_type == "chart":
             chart_data = info.get("chart_data", {}) 
             if chart_data:
                 img_stream = create_chart_image(chart_data)
                 slide.shapes.add_picture(img_stream, PtxInches(1.5), PtxInches(2), width=PtxInches(6))
 
-        # --- CASO 3: TEXTO / LISTA ---
         else:
             if not using_template:
                 body_shape = slide.shapes.add_textbox(PtxInches(0.8), PtxInches(1.8), PtxInches(8.5), PtxInches(5))
@@ -333,19 +309,16 @@ def generate_pptx_from_data(slide_data, template_file=None):
             else:
                 for shape in slide.placeholders:
                     if shape.placeholder_format.idx == 1: tf = shape.text_frame; tf.clear(); break
-            
             font_size = 24 
             total_chars = sum(len(str(p)) for p in content)
             if total_chars > 500: font_size = 14
             elif total_chars > 300: font_size = 18
-            
             tf.word_wrap = True
             for point in content:
                 p = tf.add_paragraph()
                 p.text = clean_text(str(point))
                 p.font.size = PtxPt(font_size); p.font.name = 'Arial'
-                p.font.color.rgb = PtxRGB(60, 60, 60)
-                p.space_after = PtxPt(10)
+                p.font.color.rgb = PtxRGB(60, 60, 60); p.space_after = PtxPt(10)
 
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
     return buffer
@@ -377,7 +350,6 @@ def generate_advanced_chart(chart_data):
     colors = ['#003366', '#708090', '#A9A9A9', '#4682B4']
     labels = chart_data.get("labels", [])
     datasets = chart_data.get("datasets", [])
-    
     for i, ds in enumerate(datasets):
         color = colors[i % len(colors)]
         if len(ds["values"]) == len(labels):
@@ -385,7 +357,6 @@ def generate_advanced_chart(chart_data):
             else: 
                 bars = ax.bar(labels, ds["values"], label=ds["label"], color=color, alpha=0.9)
                 ax.bar_label(bars, padding=3, fmt='%.1f')
-
     ax.legend(frameon=False)
     ax.set_title(chart_data.get("title", "Análisis"), fontsize=14, fontweight='bold', color='#333333')
     ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False); ax.spines['left'].set_visible(False)
@@ -422,14 +393,12 @@ if "generated_mermaid" not in st.session_state: st.session_state.generated_merma
 # ==========================================
 with st.sidebar:
     st.header("⚙️ Configuración")
-    
-    # --- AUTO-LOGIN (CLOUD/MOBILE) ---
     if "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]
         st.success("✅ Login Automático")
     else:
         api_key = st.text_input("🔑 API Key:", type="password")
-        
+    
     temp_val = st.slider("Creatividad", 0.0, 1.0, 0.2)
     st.divider()
     
@@ -448,17 +417,18 @@ with st.sidebar:
         "Socio Estratégico (Innovación)": """
             Eres un Consultor Senior en Estrategia y Transformación (estilo McKinsey/IDEO).
             TU MISIÓN: No solo obedezcas la instrucción; RETALA y MEJÓRALA.
-            1. Aplica marcos mentales: Océano Azul, Design Thinking, Kotter.
-            2. Busca la escalabilidad y diferenciación.
+            1. Aplica marcos mentales: Océano Azul, Design Thinking, Kotter (Gestión del Cambio).
+            2. Busca la escalabilidad y la diferenciación radical.
+            3. Si el usuario pide algo básico, entrégalo, pero añade una sección de "Visión Disruptiva".
             ACTITUD: Proactiva, visionaria y analítica.
         """,
-        "Vicedecano Académico": "Eres Vicedecano. Tu tono es institucional, riguroso, normativo y formal.",
-        "Director de UCI": "Eres Médico Intensivista. Prioriza guías clínicas y evidencia.",
-        "Consultor Telesalud": "Eres experto en Salud Digital y Normativa Colombiana.",
-        "Profesor Universitario": "Eres docente. Explica con pedagogía y claridad.",
-        "Investigador Científico": "Eres metodólogo. Prioriza datos y referencias Vancouver.",
-        "Mentor de Trading": "Eres Trader Institucional. Analiza liquidez y estructura.",
-        "Asistente Personal": "Eres un asistente ejecutivo eficiente."
+        "Vicedecano Académico": "Eres Vicedecano. Tu tono es institucional, riguroso, normativo y formal. Citas reglamentos y buscas la excelencia académica.",
+        "Director de UCI": "Eres Médico Intensivista. Prioriza la vida, las guías clínicas, la seguridad del paciente y la toma de decisiones basada en evidencia.",
+        "Consultor Telesalud": "Eres experto en Salud Digital, Leyes (Colombia) y Tecnología. Conoces la normativa de habilitación y protección de datos.",
+        "Profesor Universitario": "Eres docente. Explica con pedagogía, paciencia y ejemplos claros. Tu objetivo es que el estudiante entienda los fundamentos.",
+        "Investigador Científico": "Eres metodólogo. Prioriza datos, referencias bibliográficas (Vancouver/APA) y el rigor del método científico.",
+        "Mentor de Trading": "Eres Trader Institucional. Analiza estructura de mercado, liquidez y gestión de riesgo. No das consejos financieros, enseñas a leer el mercado.",
+        "Asistente Personal": "Eres un asistente ejecutivo eficiente, conciso y organizado. Vas directo al grano."
     }
     
     st.markdown("---")
@@ -470,7 +440,6 @@ with st.sidebar:
     
     tab_office, tab_data, tab_visual = st.tabs(["📝 Oficina", "📊 Analítica", "🎨 Diseño"])
 
-    # 1. OFICINA
     with tab_office:
         st.markdown("##### 📄 Informes")
         if st.button("Generar Word (Elegante)", use_container_width=True):
@@ -484,7 +453,6 @@ with st.sidebar:
         st.divider()
         st.markdown("##### 🗣️ Presentaciones")
         uploaded_template = st.file_uploader("Plantilla PPTX", type=['pptx'])
-        
         if st.button("Generar PPTX (Multimedia)", use_container_width=True):
             with st.spinner("Diseñando..."):
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
@@ -515,7 +483,6 @@ with st.sidebar:
         if st.session_state.generated_pptx: 
             st.download_button("📥 Bajar PPTX", st.session_state.generated_pptx, "presentacion.pptx", use_container_width=True)
 
-    # 2. ANALÍTICA
     with tab_data:
         st.markdown("##### 📗 Excel")
         if st.button("Generar Excel (Pro)", use_container_width=True):
@@ -548,7 +515,6 @@ with st.sidebar:
                     st.success("¡Listo!")
                 except: st.error("Sin datos.")
 
-    # 3. DISEÑO
     with tab_visual:
         st.markdown("##### 🎨 Diagramas")
         if st.button("Crear Esquema Visual", use_container_width=True):
@@ -572,7 +538,6 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("📥 Fuentes")
     tab1, tab2, tab3 = st.tabs(["📂 Docs", "👁️ Media", "🌐 Web"])
-    
     with tab1:
         uploaded_docs = st.file_uploader("Archivos", type=['pdf', 'docx', 'xlsx', 'pptx'], accept_multiple_files=True)
         if uploaded_docs and st.button(f"Leer {len(uploaded_docs)} Docs", use_container_width=True):
@@ -586,7 +551,6 @@ with st.sidebar:
                 except: pass
             st.session_state.contexto_texto = text_acc
             st.success("Cargado")
-    
     with tab2:
         up_media = st.file_uploader("Media", type=['mp4','mp3','png','jpg'])
         if up_media and api_key and st.button("Subir Media", use_container_width=True):
@@ -598,32 +562,25 @@ with st.sidebar:
                 while mfile.state.name == "PROCESSING": time.sleep(1); mfile = genai.get_file(mfile.name)
                 st.session_state.archivo_multimodal = mfile
                 st.success("Listo"); os.remove(tpath)
-    
     with tab3:
-        if st.button("Leer YT", use_container_width=True) and (u:=st.text_input("Link YT")): 
-            st.session_state.contexto_texto=get_youtube_text(u);st.success("OK")
-        if st.button("Leer Web", use_container_width=True) and (w:=st.text_input("Link Web")): 
-            st.session_state.contexto_texto=get_web_text(w);st.success("OK")
+        if st.button("Leer YT", use_container_width=True) and (u:=st.text_input("Link YT")): st.session_state.contexto_texto=get_youtube_text(u);st.success("OK")
+        if st.button("Leer Web", use_container_width=True) and (w:=st.text_input("Link Web")): st.session_state.contexto_texto=get_web_text(w);st.success("OK")
 
     st.markdown("---")
     if st.session_state.messages:
         c1, c2 = st.columns(2)
         c1.download_button("💾 Chat", create_chat_docx(st.session_state.messages), "acta.docx", use_container_width=True)
         c2.download_button("🧠 Backup", json.dumps(st.session_state.messages), "mem.json", use_container_width=True)
-    
     uploaded_memory = st.file_uploader("Cargar Backup", type=['json'])
-    if uploaded_memory and st.button("Restaurar", use_container_width=True): 
-        st.session_state.messages = json.load(uploaded_memory); st.rerun()
-        
+    if uploaded_memory and st.button("Restaurar", use_container_width=True): st.session_state.messages = json.load(uploaded_memory); st.rerun()
     if st.button("🗑️ Borrar Todo", use_container_width=True): st.session_state.clear(); st.rerun()
 
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V29: {rol}")
+st.title(f"🤖 Agente V30.1: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
-# 1. VISUALIZADOR MERMAID
 if st.session_state.generated_mermaid:
     st.subheader("🎨 Esquema Visual")
     code = st.session_state.generated_mermaid.replace("```mermaid","").replace("```","").strip()
@@ -631,7 +588,6 @@ if st.session_state.generated_mermaid:
     except: st.code(code)
     if st.button("Cerrar Esquema"): st.session_state.generated_mermaid=None; st.rerun()
 
-# 2. GRÁFICOS
 if st.session_state.generated_chart: 
     st.pyplot(st.session_state.generated_chart)
     st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
@@ -639,7 +595,7 @@ if st.session_state.generated_chart:
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel(MODELO_USADO, generation_config={"temperature": temp_val})
 
-# --- CHAT ---
+# --- INTERFAZ DE CHAT (STREAMING EN TEXTO) ---
 if modo_voz:
     col1, col2 = st.columns([1, 4])
     with col1:
@@ -648,19 +604,17 @@ if modo_voz:
     with col2:
         if audio:
             st.audio(audio['bytes'])
-            with st.spinner("Escuchando..."):
+            with st.spinner("Procesando audio..."):
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tf:
                     tf.write(audio['bytes']); tpath = tf.name
-                
                 mfile = genai.upload_file(path=tpath)
                 while mfile.state.name == "PROCESSING": time.sleep(0.5); mfile = genai.get_file(mfile.name)
                 
                 ctx = st.session_state.contexto_texto
-                instruccion_rol = prompts_roles.get(rol, "Experto")
-                prompt_text = f"Rol: {rol}. INSTRUCCIONES: {instruccion_rol}. Responde brevemente (audio). Contexto: {ctx[:50000]}"
+                instruccion = prompts_roles.get(rol, "Experto")
+                prompt = f"Rol: {rol}. INSTRUCCIONES: {instruccion}. Responde BREVE (audio). Contexto: {ctx[:50000]}"
                 
-                res = model.generate_content([prompt_text, mfile])
-                
+                res = model.generate_content([prompt, mfile])
                 st.chat_message("assistant").markdown(res.text)
                 st.session_state.messages.append({"role": "user", "content": "Audio enviado"})
                 st.session_state.messages.append({"role": "assistant", "content": res.text})
@@ -669,24 +623,25 @@ if modo_voz:
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as fp:
                     tts.save(fp.name); st.audio(fp.name)
                 os.remove(tpath)
-
 else:
     for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
-    if p := st.chat_input("Escriba su instrucción..."):
+    if p := st.chat_input("Instrucción..."):
         st.session_state.messages.append({"role": "user", "content": p})
         st.chat_message("user").markdown(p)
         with st.chat_message("assistant"):
-            with st.spinner("Pensando..."):
-                ctx = st.session_state.contexto_texto
-                instruccion_rol = prompts_roles.get(rol, "Experto")
-                prompt = f"Rol: {rol}. PERFIL: {instruccion_rol}. {('Usa SOLO adjuntos.' if ctx else 'Usa conocimiento general.')} Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
-                if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
-                con = [prompt]
-                if st.session_state.archivo_multimodal: 
-                    con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo).")
-                try:
-                    res = model.generate_content(con)
-                    st.markdown(res.text)
-                    st.session_state.messages.append({"role": "assistant", "content": res.text})
-                    st.rerun()
-                except Exception as e: st.error(f"Error: {e}")
+            ctx = st.session_state.contexto_texto
+            instruccion = prompts_roles.get(rol, "Experto")
+            prompt = f"Rol: {rol}. PERFIL: {instruccion}. Historial: {st.session_state.messages[-5:]}. Consulta: {p}"
+            if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
+            con = [prompt]
+            if st.session_state.archivo_multimodal: 
+                con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo).")
+            
+            try:
+                # --- STREAMING ACTIVADO (EFECTO EN VIVO) ---
+                response = model.generate_content(con, stream=True)
+                def stream_parser():
+                    for chunk in response: yield chunk.text
+                full_response = st.write_stream(stream_parser)
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+            except Exception as e: st.error(f"Error: {e}")
