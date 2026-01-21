@@ -20,7 +20,7 @@ import pandas as pd
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente V14 (Omnívoro)", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente V14.5 (Visualizador)", page_icon="🎨", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -38,31 +38,26 @@ def get_docx_text(docx_file):
     doc = docx.Document(docx_file)
     return "\n".join([para.text for para in doc.paragraphs])
 
-# NUEVO: LEER EXCEL
 def get_excel_text(excel_file):
     try:
-        # Lee todas las hojas del Excel
         all_sheets = pd.read_excel(excel_file, sheet_name=None)
         text = ""
         for sheet_name, df in all_sheets.items():
             text += f"\n--- HOJA: {sheet_name} ---\n"
-            text += df.to_string() # Convierte la tabla a texto legible
+            text += df.to_string()
         return text
-    except Exception as e: return f"Error leyendo Excel: {e}"
+    except Exception as e: return f"Error Excel: {e}"
 
-# NUEVO: LEER POWERPOINT
 def get_pptx_text(pptx_file):
     try:
         prs = Presentation(pptx_file)
         text = ""
         for i, slide in enumerate(prs.slides):
-            text += f"\n--- DIAPOSITIVA {i+1} ---\n"
-            # Extraer texto de todas las formas (títulos, cuadros de texto)
+            text += f"\n--- SLIDE {i+1} ---\n"
             for shape in slide.shapes:
-                if hasattr(shape, "text"):
-                    text += shape.text + "\n"
+                if hasattr(shape, "text"): text += shape.text + "\n"
         return text
-    except Exception as e: return f"Error leyendo PPTX: {e}"
+    except Exception as e: return f"Error PPTX: {e}"
 
 # ==========================================
 # FUNCIONES DE GENERACIÓN (OUTPUT)
@@ -113,7 +108,7 @@ def generate_excel_from_data(excel_data):
     output.seek(0)
     return output
 
-# 5. GRÁFICO
+# 5. GRÁFICO MATPLOTLIB
 def generate_advanced_chart(chart_data):
     fig, ax = plt.subplots(figsize=(10, 5))
     plt.style.use('seaborn-v0_8-darkgrid')
@@ -149,6 +144,7 @@ if "generated_pptx" not in st.session_state: st.session_state.generated_pptx = N
 if "generated_chart" not in st.session_state: st.session_state.generated_chart = None
 if "generated_excel" not in st.session_state: st.session_state.generated_excel = None
 if "generated_word_clean" not in st.session_state: st.session_state.generated_word_clean = None
+if "generated_mermaid" not in st.session_state: st.session_state.generated_mermaid = None # Nuevo estado visual
 
 # ==========================================
 # BARRA LATERAL
@@ -171,6 +167,7 @@ with st.sidebar:
     }
 
     st.subheader("🛠️ GENERADOR")
+    
     # 1. WORD
     if st.button("📄 Word (Doc)"):
         if st.session_state.messages:
@@ -204,8 +201,8 @@ with st.sidebar:
             except Exception as e: st.error(f"Error Excel: {e}")
     if st.session_state.generated_excel: st.download_button("📥 Bajar Excel", st.session_state.generated_excel, "data.xlsx")
 
-    # 4. GRÁFICO
-    if st.button("📊 Gráfico"):
+    # 4. GRÁFICO (BARRAS/LINEAS)
+    if st.button("📊 Gráfico Datos"):
         with st.spinner("Graficando..."):
             hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
             prompt = f"Datos de: {hist}. JSON: {{'title':'T','labels':['A'],'datasets':[{{'label':'L','values':[1],'type':'bar'}}]}}"
@@ -216,13 +213,36 @@ with st.sidebar:
                 st.success("✅ Gráfico Listo")
             except: st.error("No hay datos")
 
+    # 5. NUEVO: DIAGRAMA VISUAL (MERMAID)
+    if st.button("🎨 Generar Esquema Visual"):
+        if len(st.session_state.messages) < 1: st.error("Necesito tema.")
+        else:
+            with st.spinner("Diseñando diagrama..."):
+                hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
+                prompt_mermaid = f"""
+                Analiza el historial reciente: {hist}.
+                Crea un CÓDIGO MERMAID.JS para visualizar esto.
+                
+                Opciones (Elige la mejor):
+                1. 'graph TD' (Diagrama de Flujo) -> Para procesos.
+                2. 'mindmap' (Mapa Mental) -> Para ideas o ramas.
+                3. 'timeline' (Cronología) -> Para historias o fechas.
+                
+                TU RESPUESTA DEBE SER SOLO EL CÓDIGO dentro de bloques ```mermaid ... ```
+                """
+                try:
+                    genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
+                    res = mod.generate_content(prompt_mermaid)
+                    st.session_state.generated_mermaid = res.text # Guardamos el código markdown
+                    st.success("✅ Esquema Visual Generado (Ver Arriba)")
+                except Exception as e: st.error(f"Error Visual: {e}")
+
     st.divider()
     # GESTIÓN Y CARGA MASIVA
     st.subheader("📥 FUENTES UNIVERSALES")
     tab1, tab2, tab3, tab4 = st.tabs(["📂 Docs", "👁️ Media", "🔴 YT", "🌐 Web"])
     
     with tab1:
-        # AQUI ESTÁ EL CAMBIO IMPORTANTE: ACEPTA PDF, DOCX, XLSX, PPTX
         uploaded_docs = st.file_uploader("Subir Archivos", type=['pdf', 'docx', 'xlsx', 'pptx'], accept_multiple_files=True)
         if uploaded_docs and st.button(f"Leer {len(uploaded_docs)} Archivos"):
             text_acc = ""
@@ -269,9 +289,19 @@ with st.sidebar:
 # ==========================================
 # CHAT
 # ==========================================
-st.title(f"🤖 Agente V14: {rol}")
+st.title(f"🤖 Agente V14.5: {rol}")
 if not api_key: st.warning("⚠️ API Key requerida"); st.stop()
-if st.session_state.generated_chart: st.pyplot(st.session_state.generated_chart); st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
+
+# ZONA DE VISUALIZACIÓN SUPERIOR
+# 1. Gráficos Estadísticos
+if st.session_state.generated_chart: 
+    st.pyplot(st.session_state.generated_chart)
+    st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
+
+# 2. Esquemas Visuales (Mermaid) - NUEVO
+if st.session_state.generated_mermaid:
+    st.markdown(st.session_state.generated_mermaid) # Esto dibuja el diagrama en pantalla
+    st.button("Cerrar Esquema Visual", on_click=lambda: st.session_state.update(generated_mermaid=None))
 
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel(MODELO_USADO, generation_config={"temperature": temp_val})
@@ -288,7 +318,6 @@ if p := st.chat_input("Instrucción..."):
             if ctx: prompt += f"\nDOCS: {ctx[:500000]}"
             if st.session_state.archivo_multimodal: prompt += " (Analiza el archivo multimedia adjunto)."
             
-            # Manejo de adjuntos multimedia en la llamada
             con = [prompt]
             if st.session_state.archivo_multimodal: con.insert(0, st.session_state.archivo_multimodal)
             
