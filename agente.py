@@ -20,7 +20,7 @@ import pandas as pd
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente V14.5 (Visualizador)", page_icon="🎨", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V14.5", page_icon="🎨", layout="wide")
 
 MODELO_USADO = 'gemini-2.5-flash' 
 
@@ -325,3 +325,4 @@ if p := st.chat_input("Instrucción..."):
             st.markdown(res.text)
             st.session_state.messages.append({"role": "assistant", "content": res.text})
             st.rerun()
+
