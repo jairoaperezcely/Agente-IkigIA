@@ -34,7 +34,7 @@ from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 
 # ==========================================
-# 🧠 MEMORIA MAESTRA (PERFIL V3.0)
+# 🧠 MEMORIA MAESTRA (PERFIL V3.0 - LÍDER)
 # ==========================================
 MEMORIA_MAESTRA = """
 PERFIL DEL USUARIO (QUIÉN SOY):
@@ -66,8 +66,32 @@ INSTRUCCIONES PARA EL ASISTENTE (CÓMO DEBES RESPONDER):
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente V44 (Diagnostic)", page_icon="🩺", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V45", page_icon="🌐", layout="wide")
 MODELO_USADO = 'gemini-2.5-flash' 
+
+# ==========================================
+# FUNCIÓN VISUALIZADORA MERMAID
+# ==========================================
+def plot_mermaid(code):
+    html_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script type="module">
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+            mermaid.initialize({{ startOnLoad: true, theme: 'default', securityLevel: 'loose' }});
+        </script>
+        <style>
+            body {{ background-color: white; margin: 0; padding: 20px; font-family: sans-serif; }}
+            .mermaid {{ display: flex; justify-content: center; }}
+        </style>
+    </head>
+    <body>
+        <div class="mermaid">{code}</div>
+    </body>
+    </html>
+    """
+    components.html(html_code, height=600, scrolling=True)
 
 # ==========================================
 # FUNCIONES DE LECTURA (CON CACHÉ)
@@ -436,7 +460,7 @@ if "generated_word_clean" not in st.session_state: st.session_state.generated_wo
 if "generated_mermaid" not in st.session_state: st.session_state.generated_mermaid = None
 
 # ==========================================
-# BARRA LATERAL (CON DIAGNÓSTICO)
+# BARRA LATERAL
 # ==========================================
 with st.sidebar:
     st.header("⚙️ Configuración")
@@ -448,15 +472,8 @@ with st.sidebar:
     else:
         api_key = st.text_input("🔑 API Key:", type="password")
     
-    # --- DIAGNÓSTICO DE VERSIÓN (EL DETECTOR DE MENTIRAS) ---
-    ver = genai.__version__
-    st.caption(f"🛠️ Librería Google: v{ver}")
-    if ver < "0.7.0":
-        st.error("⚠️ VERSIÓN OBSOLETA DETECTADA")
-        st.warning("El servidor no actualizó. Por eso falla la búsqueda.")
-    
-    # --- GOOGLE SEARCH ---
-    usar_google_search = st.toggle("🌐 Búsqueda Google (En Vivo)", value=True)
+    # --- GOOGLE SEARCH (Super Poder Opcional) ---
+    usar_google_search = st.toggle("🌐 Búsqueda Google (En Vivo)")
     
     temp_val = st.slider("Creatividad", 0.0, 1.0, 0.2)
     st.divider()
@@ -532,19 +549,18 @@ with st.sidebar:
                 IMPORTANTE: Responde SOLO el JSON.
                 """
                 try:
-                    # CONFIGURACIÓN DINÁMICA DE HERRAMIENTAS
-                    tools_config = []
-                    if usar_google_search:
-                        tools_config = [{'google_search': {}}] 
-                    
+                    # CONFIGURACIÓN DINÁMICA DE HERRAMIENTAS (ADAPTADOR V45)
                     genai.configure(api_key=api_key)
-                    
-                    mod = genai.GenerativeModel(
-                        MODELO_USADO, 
-                        tools=tools_config,
-                        system_instruction=MEMORIA_MAESTRA
-                    )
-                    res = mod.generate_content(prompt)
+                    try:
+                        # Intento 1: Sintaxis Nueva
+                        tools_config = [{'google_search': {}}] if usar_google_search else []
+                        mod = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA)
+                        res = mod.generate_content(prompt)
+                    except:
+                        # Intento 2: Sintaxis Clásica (Fallback)
+                        tools_config = [{'google_search_retrieval': {}}] if usar_google_search else []
+                        mod = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA)
+                        res = mod.generate_content(prompt)
                     
                     clean_text = res.text
                     if "```json" in clean_text:
@@ -660,7 +676,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V44: {rol}")
+st.title(f"🤖 Agente V45: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
@@ -696,9 +712,14 @@ if modo_voz:
                 instruccion = prompts_roles.get(rol, "Experto")
                 prompt = f"Rol: {rol}. INSTRUCCIONES: {instruccion}. Responde BREVE (audio). Contexto: {ctx[:50000]}"
                 
-                # SIN RED DE SEGURIDAD PARA VOZ TAMBIEN
-                tools_config = [{'google_search': {}}] if usar_google_search else []
-                res = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
+                # ADAPTADOR PARA VOZ
+                try:
+                    tools_config = [{'google_search': {}}] if usar_google_search else []
+                    res = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
+                except:
+                    # Fallback
+                    tools_config = [{'google_search_retrieval': {}}] if usar_google_search else []
+                    res = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
 
                 st.chat_message("assistant").markdown(res.text)
                 st.session_state.messages.append({"role": "user", "content": "Audio enviado"})
@@ -735,17 +756,31 @@ else:
                 con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo).")
             
             try:
-                # --- SIN RED DE SEGURIDAD (QUEREMOS VER EL ERROR SI FALLA) ---
+                # --- ADAPTADOR UNIVERSAL (INTENTA NUEVO -> INTENTA VIEJO -> SIN INTERNET) ---
                 if usar_google_search:
-                    tools_config = [{'google_search': {}}] 
-                    model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA, generation_config={"temperature": temp_val})
+                    try:
+                        # Intento 1: Moderna
+                        tools_config = [{'google_search': {}}] 
+                        model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA, generation_config={"temperature": temp_val})
+                        response = model.generate_content(con, stream=True)
+                    except:
+                        # Intento 2: Clásica (El salvavidas)
+                        try:
+                            tools_config = [{'google_search_retrieval': {}}] 
+                            model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA, generation_config={"temperature": temp_val})
+                            response = model.generate_content(con, stream=True)
+                        except:
+                            # Intento 3: Sin herramientas (Ultimo recurso)
+                            st.warning("⚠️ Sin conexión a búsqueda. Respondiendo con memoria interna.")
+                            model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA, generation_config={"temperature": temp_val})
+                            response = model.generate_content(con, stream=True)
                 else:
+                    # Usuario apagó el interruptor
                     model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA, generation_config={"temperature": temp_val})
-                
-                response = model.generate_content(con, stream=True)
+                    response = model.generate_content(con, stream=True)
 
                 def stream_parser():
                     for chunk in response: yield chunk.text
                 full_response = st.write_stream(stream_parser)
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
-            except Exception as e: st.error(f"Error Crítico: {e}. (Revise requirements.txt)")
+            except Exception as e: st.error(f"Error Irrecuperable: {e}")
