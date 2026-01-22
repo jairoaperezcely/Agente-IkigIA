@@ -1,20 +1,28 @@
 import os
 import subprocess
 import sys
+import time
 
-# --- BLOQUE DE AUTO-REPARACIÓN (FUERZA BRUTA) ---
+# ==========================================
+# 🚑 ZONA DE AUTO-REPARACIÓN (FUERZA BRUTA)
+# ==========================================
+# Esto obliga al servidor a instalar la versión correcta SÍ o SÍ.
 try:
     import google.generativeai as genai
-    # Si la versión es vieja, forzamos error para reinstalar
+    # Verificamos si la versión es vieja
     if genai.__version__ < "0.8.0":
+        print(f"⚠️ Versión detectada: {genai.__version__}. Iniciando actualización forzada...")
         raise ImportError
 except ImportError:
-    print("⚠️ Detectada librería obsoleta. Iniciando actualización forzada...")
+    # Si no existe o es vieja, instalamos la 0.8.3 a la fuerza
     subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai==0.8.3"])
+    print("✅ Librería actualizada. Reiniciando importación...")
     import google.generativeai as genai
-# ------------------------------------------------
+
+# ==========================================
+# INICIO DEL PROGRAMA NORMAL
+# ==========================================
 import streamlit as st
-import google.generativeai as genai
 from pypdf import PdfReader
 import docx
 from docx.shared import Pt, RGBColor, Cm, Inches as DocInches
@@ -25,8 +33,6 @@ from bs4 import BeautifulSoup
 import requests
 from youtube_transcript_api import YouTubeTranscriptApi
 import tempfile
-import time
-import os
 from io import BytesIO
 import json
 from datetime import date
@@ -49,7 +55,7 @@ from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 
 # ==========================================
-# 🧠 MEMORIA MAESTRA (PERFIL LÍDER HUMANISTA)
+# 🧠 MEMORIA MAESTRA (PERFIL COMPLETO)
 # ==========================================
 MEMORIA_MAESTRA = """
 PERFIL DEL USUARIO (QUIÉN SOY):
@@ -81,7 +87,7 @@ INSTRUCCIONES PARA EL ASISTENTE (CÓMO DEBES RESPONDER):
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V50", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente V51 (Auto-Fix)", page_icon="💉", layout="wide")
 MODELO_USADO = 'gemini-2.5-flash' 
 
 # ==========================================
@@ -156,18 +162,15 @@ def get_pptx_text(pptx_file):
 # 1. WORD ACTA (Versión Completa)
 def create_chat_docx(messages):
     doc = docx.Document()
-    # Márgenes Profesionales
     for section in doc.sections:
         section.top_margin = Cm(2.54)
         section.bottom_margin = Cm(2.54)
     
-    # Encabezado
     header = doc.sections[0].header
     p = header.paragraphs[0]
     p.text = f"CONFIDENCIAL | {date.today()}"
     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     
-    # Título
     t = doc.add_heading('BITÁCORA DE SESIÓN', 0)
     t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph("_" * 40).alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -185,7 +188,7 @@ def create_chat_docx(messages):
         
         p_msg = doc.add_paragraph(clean_chat(msg["content"]))
         p_msg.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        doc.add_paragraph("") # Espacio
+        doc.add_paragraph("")
         
     buffer = BytesIO()
     doc.save(buffer)
@@ -231,7 +234,6 @@ def create_clean_docx(text_content):
                     cell = table.cell(i, j)
                     cell.text = clean_md(cell_text)
                     if i == 0:
-                        # Estilo Header Azul
                         shading = parse_xml(r'<w:shd {} w:fill="003366"/>'.format(nsdecls('w')))
                         cell._tc.get_or_add_tcPr().append(shading)
                         for p in cell.paragraphs:
@@ -315,14 +317,12 @@ def generate_pptx_from_data(slide_data, template_file=None):
     def apply_design(slide, title_shape=None):
         if using_template:
             return
-        # Barra lateral azul oscuro
         shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0), PtxInches(0), PtxInches(0.4), SLIDE_HEIGHT)
         shape.fill.solid()
         shape.fill.fore_color.rgb = PtxRGB(0, 51, 102)
         shape.line.fill.background()
         
         if title_shape:
-            # Línea decorativa bajo el título
             line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0.8), PtxInches(1.4), SLIDE_WIDTH - PtxInches(1.5), PtxInches(0.05))
             line.fill.solid()
             line.fill.fore_color.rgb = PtxRGB(0, 150, 200)
@@ -361,7 +361,6 @@ def generate_pptx_from_data(slide_data, template_file=None):
         return img_stream
 
     try:
-        # Portada
         slide = prs.slides.add_slide(prs.slide_layouts[0])
         if slide.shapes.title: 
             slide.shapes.title.text = clean_text(slide_data[0].get("title", "Presentación"))
@@ -561,12 +560,12 @@ with st.sidebar:
         api_key = st.text_input("🔑 API Key:", type="password")
     
     # --- MONITOR DE CONECTIVIDAD ---
+    # Nota: Como forzamos la instalación arriba, esto debería decir 0.8.3
     ver = genai.__version__
     st.markdown("### 📡 Signos Vitales")
     c1, c2 = st.columns(2)
     c1.metric("Librería", f"v{ver}")
     
-    # Determinar estado
     estado_red = "🔴 OFFLINE"
     if ver >= "0.7.0": estado_red = "🟢 ONLINE"
     c2.metric("Internet", estado_red)
@@ -613,7 +612,7 @@ with st.sidebar:
     st.subheader("🏭 Centro de Producción")
     
     tab_office, tab_data, tab_visual = st.tabs(["📝 Oficina", "📊 Analítica", "🎨 Diseño"])
-    
+
     with tab_office:
         st.markdown("##### 📄 Informes")
         if st.button("Generar Word (Elegante)", use_container_width=True):
@@ -647,8 +646,9 @@ with st.sidebar:
                 IMPORTANTE: Responde SOLO el JSON.
                 """
                 try:
+                    # CONFIGURACIÓN DINÁMICA DE HERRAMIENTAS
                     genai.configure(api_key=api_key)
-                    # LÓGICA HÍBRIDA PARA PPTX TAMBIÉN
+                    
                     try:
                         tools_config = [{'google_search': {}}] if usar_google_search else [] 
                         mod = genai.GenerativeModel(MODELO_USADO, tools=tools_config)
@@ -768,7 +768,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V50: {rol}")
+st.title(f"🤖 Agente V51: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 genai.configure(api_key=api_key)
@@ -803,12 +803,11 @@ if modo_voz:
                 instruccion = prompts_roles.get(rol, "Experto")
                 prompt = f"Rol: {rol}. INSTRUCCIONES: {instruccion}. Responde BREVE (audio). Contexto: {ctx[:50000]}"
                 
-                # SISTEMA BLINDADO V50 (VOZ)
                 try:
                     tools_config = [{'google_search': {}}] if usar_google_search else []
                     res = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
                 except:
-                    # Si falla, intenta sin herramientas para que no muera
+                    # Fallback sin tools
                     res = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
 
                 st.chat_message("assistant").markdown(res.text)
@@ -846,26 +845,24 @@ else:
                 con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo).")
             
             try:
-                # --- SISTEMA BLINDADO V50.0 (ANTI-CRASH) ---
-                try:
-                    if usar_google_search:
-                        # 1. Intento Moderno
+                # --- SISTEMA CON AUTO-REPARACIÓN (V51) ---
+                # Si llegamos aquí, la librería ya debería ser la correcta gracias a la inyección inicial.
+                if usar_google_search:
+                    try:
                         tools_config = [{'google_search': {}}] 
                         model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA)
                         response = model.generate_content(con, stream=True)
-                    else:
-                        model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
-                        response = model.generate_content(con, stream=True)
-                
-                except Exception as e:
-                    # 2. Si falla por error de versión (400/Unknown field), activamos modo emergencia
-                    if "Unknown field" in str(e) or "400" in str(e):
-                        st.caption("⚠️ Error de conexión a búsqueda (Servidor desactualizado). Usando memoria interna.")
-                        model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
-                        response = model.generate_content(con, stream=True)
-                    else:
-                        # Si es otro error (ej: API Key mala), sí lo mostramos
-                        raise e 
+                    except Exception as e:
+                        if "Unknown field" in str(e) or "400" in str(e):
+                            # Si aun con la inyección falla (muy raro), fallback silencioso
+                            st.caption("⚠️ Error residual en búsqueda. Usando memoria.")
+                            model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
+                            response = model.generate_content(con, stream=True)
+                        else:
+                            raise e
+                else:
+                    model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
+                    response = model.generate_content(con, stream=True)
 
                 def stream_parser():
                     for chunk in response: yield chunk.text
@@ -874,4 +871,3 @@ else:
             
             except Exception as e: 
                 st.error(f"Error Técnico: {e}")
-
