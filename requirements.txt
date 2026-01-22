@@ -7,7 +7,8 @@ requests
 youtube-transcript-api
 gtts
 streamlit-mic-recorder
-pptx
+python-pptx
 matplotlib
 pandas
 openpyxl
+watchdog
