@@ -66,7 +66,7 @@ INSTRUCCIONES PARA EL ASISTENTE (CÓMO DEBES RESPONDER):
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V43.1", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V43.2", page_icon="🛡️", layout="wide")
 MODELO_USADO = 'gemini-2.5-flash' 
 
 # ==========================================
@@ -551,16 +551,22 @@ with st.sidebar:
                 try:
                     # CONFIGURACIÓN DINÁMICA DE HERRAMIENTAS
                     tools_config = []
-                    if usar_google_search:
-                        tools_config = [{'google_search': {}}] # <--- FIXED FOR 2026
-                    
                     genai.configure(api_key=api_key)
                     
-                    mod = genai.GenerativeModel(
-                        MODELO_USADO, 
-                        tools=tools_config,
-                        system_instruction=MEMORIA_MAESTRA
-                    )
+                    # LOGICA A PRUEBA DE FALLOS V43.2
+                    try:
+                        if usar_google_search:
+                            # Intento usar herramienta nueva
+                            tools_config = [{'google_search': {}}] 
+                            mod = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA)
+                        else:
+                            # Sin herramientas
+                            mod = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
+                    except Exception:
+                        # Si falla, uso fallback sin herramientas
+                        st.warning("⚠️ Búsqueda desactivada por compatibilidad.")
+                        mod = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
+
                     res = mod.generate_content(prompt)
                     
                     clean_text = res.text
@@ -677,7 +683,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V43.1: {rol}")
+st.title(f"🤖 Agente V43.2: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
@@ -692,19 +698,7 @@ if st.session_state.generated_chart:
     st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
 
 # --- CONFIGURACIÓN DINÁMICA DEL MODELO ---
-tools_config = []
-if usar_google_search:
-    tools_config = [{'google_search': {}}]
-
 genai.configure(api_key=api_key)
-
-# AQUI SE CARGA LA MEMORIA MAESTRA
-model = genai.GenerativeModel(
-    MODELO_USADO, 
-    tools=tools_config, 
-    system_instruction=MEMORIA_MAESTRA, # <--- EL CEREBRO DE SU AGENTE
-    generation_config={"temperature": temp_val}
-)
 
 # --- INTERFAZ DE CHAT (STREAMING EN TEXTO) ---
 if modo_voz:
@@ -725,7 +719,13 @@ if modo_voz:
                 instruccion = prompts_roles.get(rol, "Experto")
                 prompt = f"Rol: {rol}. INSTRUCCIONES: {instruccion}. Responde BREVE (audio). Contexto: {ctx[:50000]}"
                 
-                res = model.generate_content([prompt, mfile])
+                # Rescate para voz también
+                try:
+                    tools_config = [{'google_search': {}}] if usar_google_search else []
+                    res = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
+                except:
+                    res = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
+
                 st.chat_message("assistant").markdown(res.text)
                 st.session_state.messages.append({"role": "user", "content": "Audio enviado"})
                 st.session_state.messages.append({"role": "assistant", "content": res.text})
@@ -749,8 +749,21 @@ else:
                 con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo).")
             
             try:
-                # --- STREAMING ACTIVADO (EFECTO EN VIVO) ---
-                response = model.generate_content(con, stream=True)
+                # --- SISTEMA DE RESCATE (TRY/EXCEPT) ---
+                # Si la herramienta de búsqueda falla por versión, se desactiva sola
+                try:
+                    if usar_google_search:
+                        tools_config = [{'google_search': {}}] 
+                        model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA, generation_config={"temperature": temp_val})
+                    else:
+                        model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA, generation_config={"temperature": temp_val})
+                    
+                    response = model.generate_content(con, stream=True)
+                except Exception:
+                    # Fallback silencioso
+                    model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA, generation_config={"temperature": temp_val})
+                    response = model.generate_content(con, stream=True)
+
                 def stream_parser():
                     for chunk in response: yield chunk.text
                 full_response = st.write_stream(stream_parser)
