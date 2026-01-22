@@ -1,3 +1,18 @@
+import os
+import subprocess
+import sys
+
+# --- BLOQUE DE AUTO-REPARACIÓN (FUERZA BRUTA) ---
+try:
+    import google.generativeai as genai
+    # Si la versión es vieja, forzamos error para reinstalar
+    if genai.__version__ < "0.8.0":
+        raise ImportError
+except ImportError:
+    print("⚠️ Detectada librería obsoleta. Iniciando actualización forzada...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai==0.8.3"])
+    import google.generativeai as genai
+# ------------------------------------------------
 import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
@@ -859,3 +874,4 @@ else:
             
             except Exception as e: 
                 st.error(f"Error Técnico: {e}")
+
