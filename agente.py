@@ -73,7 +73,7 @@ if p := st.chat_input("Ej: Salario mínimo Colombia 2026"):
         try:
             genai.configure(api_key=api_key)
             # Usamos el modelo estándar sin 'tools', así evitamos el error "Unknown field"
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             
             prompt = f"""
             FECHA ACTUAL: {date.today()}
@@ -103,3 +103,4 @@ if p := st.chat_input("Ej: Salario mínimo Colombia 2026"):
             
         except Exception as e:
             st.error(f"Error generando respuesta: {e}")
+
