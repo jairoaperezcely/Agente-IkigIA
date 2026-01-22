@@ -1,13 +1,13 @@
 streamlit
-google-generativeai
+google-generativeai>=0.7.0
 pypdf
 python-docx
 beautifulsoup4
 requests
 youtube-transcript-api
+gtts
+streamlit-mic-recorder
+pptx
 matplotlib
-python-pptx
 pandas
 openpyxl
-gTTS
-streamlit-mic-recorder
