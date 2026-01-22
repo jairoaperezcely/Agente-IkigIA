@@ -36,9 +36,7 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V35", page_icon="📐", layout="wide")
-
-MODELO_USADO = 'gemini-2.5-flash' 
+st.set_page_config(page_title="Agente IkigAI V36", page_icon="🧿", layout="wide")
 
 # ==========================================
 # FUNCIÓN VISUALIZADORA MERMAID
@@ -136,7 +134,7 @@ def create_chat_docx(messages):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO PRO
+# 2. WORD DOCUMENTO PRO (APA)
 def create_clean_docx(text_content):
     doc = docx.Document()
     style = doc.styles['Normal']
@@ -226,7 +224,7 @@ def create_clean_docx(text_content):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (CENTERING ALGORITHM V35)
+# 3. PPTX PRO (STRICT GEOMETRY & AUTO-FIT)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -301,49 +299,30 @@ def generate_pptx_from_data(slide_data, template_file=None):
                 slide.shapes.title.text_frame.word_wrap = True
                 slide.shapes.title.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
-        # --- MOTOR DE POSICIONAMIENTO V35 (STRICT GEOMETRY) ---
         if slide_type == "table":
             rows = len(content); cols = len(content[0]) if rows > 0 else 1
-            
-            # Ancho Objetivo (90%)
             target_width = SLIDE_WIDTH * 0.9
-            
-            # Crear tabla
             left = (SLIDE_WIDTH - target_width) / 2
-            top = PtxInches(2.0)
-            height = PtxInches(rows * 0.4) # Estimado inicial
-            
+            top = PtxInches(2.0); height = PtxInches(rows * 0.4)
             graphic_frame = slide.shapes.add_table(rows, cols, left, top, target_width, height)
             table = graphic_frame.table
-            
-            # --- FORZAR ANCHO DE COLUMNAS (TRUCO DE FUERZA BRUTA) ---
-            # Dividimos el ancho objetivo exactamente entre el numero de columnas
             single_col_width = int(target_width / cols)
-            for col in table.columns:
-                col.width = single_col_width
+            for col in table.columns: col.width = single_col_width
 
             for i, row in enumerate(content):
                 for j, val in enumerate(row):
                     if j < cols:
                         cell = table.cell(i, j); cell.text = str(val)
                         cell.vertical_anchor = MSO_ANCHOR.MIDDLE
-                        
-                        # --- REDUCTOR DE FUENTE INTELIGENTE ---
-                        # Si el texto es largo, achicamos la letra para que no deforme la celda
                         txt_len = len(str(val))
                         font_size = 14
                         if txt_len > 50: font_size = 10
                         elif txt_len > 20: font_size = 12
-                        
                         p = cell.text_frame.paragraphs[0]
                         p.font.size = PtxPt(font_size); p.font.name = 'Arial'
-                        
                         if i == 0:
                             cell.fill.solid(); cell.fill.fore_color.rgb = PtxRGB(0, 51, 102)
                             p.font.color.rgb = PtxRGB(255, 255, 255); p.font.bold = True; p.alignment = PP_ALIGN.CENTER
-            
-            # --- RE-CENTRADO FINAL (SEGURO DE VIDA) ---
-            # A veces PPTX ignora el 'left' inicial al crear. Lo forzamos al final.
             graphic_frame.left = int((SLIDE_WIDTH - graphic_frame.width) / 2)
 
         elif slide_type == "chart":
@@ -450,15 +429,24 @@ if "generated_word_clean" not in st.session_state: st.session_state.generated_wo
 if "generated_mermaid" not in st.session_state: st.session_state.generated_mermaid = None
 
 # ==========================================
-# BARRA LATERAL
+# BARRA LATERAL (V36 MEJORADA)
 # ==========================================
 with st.sidebar:
     st.header("⚙️ Configuración")
+    
+    # --- AUTO LOGIN ---
     if "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]
         st.success("✅ Login Automático")
     else:
         api_key = st.text_input("🔑 API Key:", type="password")
+    
+    # --- SELECTOR DE CEREBRO ---
+    modelo_opcion = st.radio("🧠 Modelo:", ["Flash (Rápido)", "Pro (Razonamiento)"], horizontal=True)
+    MODELO_USADO = 'gemini-1.5-pro' if "Pro" in modelo_opcion else 'gemini-2.5-flash'
+    
+    # --- GOOGLE SEARCH ---
+    usar_google_search = st.toggle("🌐 Búsqueda Google (En Vivo)")
     
     temp_val = st.slider("Creatividad", 0.0, 1.0, 0.2)
     st.divider()
@@ -495,7 +483,6 @@ with st.sidebar:
     
     st.markdown("---")
     modo_voz = st.toggle("🎙️ Modo Voz")
-    if modo_voz: st.info("Usa el micrófono del chat.")
     
     st.markdown("---")
     st.subheader("🏭 Centro de Producción")
@@ -535,11 +522,28 @@ with st.sidebar:
                 IMPORTANTE: Responde SOLO el JSON.
                 """
                 try:
-                    genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
+                    # CONFIGURACIÓN DINÁMICA DE HERRAMIENTAS
+                    tools_config = []
+                    if usar_google_search:
+                        tools_config = [{'google_search_retrieval': {}}]
+                    
+                    genai.configure(api_key=api_key)
+                    # Forzamos modelo estándar si usa herramientas
+                    mod_name = MODELO_USADO
+                    
+                    mod = genai.GenerativeModel(mod_name, tools=tools_config)
                     res = mod.generate_content(prompt)
-                    clean_text = res.text.replace("```json","").replace("```","").strip()
+                    
+                    clean_text = res.text
+                    # Limpieza JSON
+                    if "```json" in clean_text:
+                        clean_text = clean_text.replace("```json", "").replace("```", "").strip()
+                    elif "```" in clean_text:
+                        clean_text = clean_text.replace("```", "").strip()
+                        
                     start = clean_text.find("["); end = clean_text.rfind("]") + 1
                     if start != -1 and end != -1: clean_text = clean_text[start:end]
+                    
                     tpl = uploaded_template if uploaded_template else None
                     st.session_state.generated_pptx = generate_pptx_from_data(json.loads(clean_text), tpl)
                     st.success("¡Listo!")
@@ -642,7 +646,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V35: {rol}")
+st.title(f"🤖 Super Agente V36: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
@@ -656,8 +660,13 @@ if st.session_state.generated_chart:
     st.pyplot(st.session_state.generated_chart)
     st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
 
+# --- CONFIGURACIÓN DINÁMICA DEL MODELO ---
+tools_config = []
+if usar_google_search:
+    tools_config = [{'google_search_retrieval': {}}]
+
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel(MODELO_USADO, generation_config={"temperature": temp_val})
+model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, generation_config={"temperature": temp_val})
 
 # --- INTERFAZ DE CHAT (STREAMING EN TEXTO) ---
 if modo_voz:
