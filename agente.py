@@ -44,7 +44,7 @@ import json
 # CONFIGURACIÓN
 # ==========================================
 st.set_page_config(page_title="Agente V56 (Auto-Fix)", page_icon="💉", layout="wide")
-MODELO_USADO = 'gemini-1.5-flash' # Modelo rápido y compatible
+MODELO_USADO = 'gemini-2.5-flash' # Modelo rápido y compatible
 
 # ==========================================
 # BARRA LATERAL (MONITOR)
@@ -136,3 +136,4 @@ if p := st.chat_input("Pregunta: Salario Mínimo 2026"):
                 
             except Exception as e:
                 st.error(f"Error Final: {e}")
+
