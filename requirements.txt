@@ -6,6 +6,9 @@ python-pptx
 pandas
 openpyxl
 matplotlib
+beautifulsoup4
+requests
+youtube-transcript-api
 gTTS
 streamlit-mic-recorder
 watchdog
