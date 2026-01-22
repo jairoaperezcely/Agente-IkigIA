@@ -6,5 +6,8 @@ python-pptx
 pandas
 openpyxl
 matplotlib
+beautifulsoup4
+gtts
+streamlit-mic-recorder
 watchdog
 packaging
