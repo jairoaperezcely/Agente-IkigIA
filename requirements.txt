@@ -1,8 +1,10 @@
 streamlit
 google-generativeai
-duckduckgo-search
 pypdf
 python-docx
-beautifulsoup4
-requests
+python-pptx
+pandas
+openpyxl
+matplotlib
+watchdog
 packaging
