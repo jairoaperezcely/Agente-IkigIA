@@ -19,99 +19,139 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor as PtxRGB
 from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
+from google.api_core.exceptions import InvalidArgument
 
 # ==========================================
-# CONFIGURACIÓN Y DIAGNÓSTICO
+# CONFIGURACIÓN
 # ==========================================
-st.set_page_config(page_title="Agente V52 (Diagnóstico)", page_icon="🕵️", layout="wide")
+st.set_page_config(page_title="Agente V53 (Políglota)", page_icon="🧬", layout="wide")
 MODELO_USADO = 'gemini-2.5-flash'
 
 # ==========================================
 # 🧠 MEMORIA MAESTRA
 # ==========================================
 MEMORIA_MAESTRA = """
-Eres un Líder Transformador en Salud (Vicedecano, Intensivista, Innovador).
-Responde con visión estratégica, humanista y basada en evidencia.
-Si te preguntan datos actuales (2026), DEBES usar Google Search.
+PERFIL DEL USUARIO (QUIÉN SOY):
+- Soy un Líder Transformador en Salud: Médico Especialista en Anestesiología y Cuidado Crítico (UCI), Epidemiólogo Clínico y Doctorando en Bioética.
+- Roles de Alto Impacto: Vicedecano Académico (UNAL), Coordinador Telemedicina, Director UCI (HUN).
+
+INSTRUCCIONES:
+1. TONO: Estratégico, Empático y Visionario.
+2. FECHA ACTUAL: Estás en 2026. Si preguntan datos actuales (Salario, Dólar, Decretos), DEBES BUSCAR EN GOOGLE.
+3. FORMATO: Estructurado, con tablas y citas si es necesario.
 """
 
 # ==========================================
-# BARRA LATERAL (LA VERDAD TÉCNICA)
+# FUNCIONES AUXILIARES (SIMPLIFICADAS PARA V53)
+# ==========================================
+# ... (Mantenemos la lógica de documentos pero simplificada para asegurar conexión) ...
+def create_docx(text):
+    doc = docx.Document()
+    doc.add_paragraph(text)
+    b = BytesIO(); doc.save(b); b.seek(0); return b
+
+# ==========================================
+# BARRA LATERAL
 # ==========================================
 with st.sidebar:
-    st.header("🕵️ Diagnóstico Forense")
+    st.header("⚙️ Configuración")
     
-    # 1. VERSIÓN REAL INSTALADA
+    # VERIFICACIÓN DE VERSIÓN
     ver = genai.__version__
+    st.caption(f"Librería Instalada: v{ver}")
     
-    if ver >= "0.8.3":
-        st.success(f"✅ Librería: v{ver} (Correcta)")
-        estado_red = "ONLINE"
-    else:
-        st.error(f"❌ Librería: v{ver} (OBSOLETA)")
-        st.warning("El servidor sigue usando caché vieja. Modifica requirements.txt agregando 'simplejson' para forzarlo.")
-        estado_red = "OFFLINE"
-
-    # 2. API KEY
     if "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]
-        st.success("✅ API Key Detectada")
+        st.success("✅ Login Automático")
     else:
         api_key = st.text_input("🔑 API Key:", type="password")
 
-    st.divider()
-    usar_search = st.toggle("🌐 Búsqueda Google", value=(estado_red == "ONLINE"))
-    st.info("Si activas esto y sale error, lee el mensaje rojo.")
+    usar_google = st.toggle("🌐 Búsqueda Google", value=True)
+    rol = st.selectbox("Rol:", ["Socio Estratégico", "Vicedecano", "Director UCI"])
+    
+    if st.button("🗑️ Limpiar Chat"): st.session_state.messages = []; st.rerun()
 
 # ==========================================
-# LÓGICA DE RESPUESTA SIMPLIFICADA (PARA TEST)
+# LÓGICA DE CONEXIÓN "POLÍGLOTA" (LA SOLUCIÓN)
 # ==========================================
-st.title("🤖 Agente V52: Test de Conexión")
+def generar_respuesta(prompt, historial):
+    # Configurar API
+    genai.configure(api_key=api_key)
+    
+    # Preparar el contexto
+    full_prompt = f"FECHA HOY: {date.today()}. HISTORIAL: {historial}. CONSULTA: {prompt}"
+    
+    # ---------------------------------------------------------
+    # INTENTO 1: MÉTODO MODERNO (google_search)
+    # ---------------------------------------------------------
+    if usar_google:
+        try:
+            print("Intento 1: Moderno...")
+            tools = [{'google_search': {}}]
+            model = genai.GenerativeModel(MODELO_USADO, tools=tools, system_instruction=MEMORIA_MAESTRA)
+            return model.generate_content(full_prompt, stream=True)
+        except Exception as e:
+            error_msg = str(e)
+            # Si el servidor rechaza el moderno, probamos el antiguo
+            if "Unknown field" in error_msg or "400" in error_msg:
+                pass # Vamos al Intento 2
+            else:
+                return f"Error Técnico: {e}"
+
+    # ---------------------------------------------------------
+    # INTENTO 2: MÉTODO CLÁSICO (google_search_retrieval)
+    # ---------------------------------------------------------
+    if usar_google:
+        try:
+            print("Intento 2: Clásico...")
+            # Esta es la llave vieja que el servidor sí podría tener
+            tools = [{'google_search_retrieval': {}}]
+            model = genai.GenerativeModel(MODELO_USADO, tools=tools, system_instruction=MEMORIA_MAESTRA)
+            return model.generate_content(full_prompt, stream=True)
+        except Exception as e:
+            # Si ambos fallan, vamos sin herramientas
+            print(f"Fallo Clásico: {e}")
+
+    # ---------------------------------------------------------
+    # INTENTO 3: SIN HERRAMIENTAS (Memoria Pura)
+    # ---------------------------------------------------------
+    print("Intento 3: Memoria...")
+    model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
+    return model.generate_content(full_prompt + " (NOTA: No pude buscar en internet, responde con lo que sepas).", stream=True)
+
+# ==========================================
+# INTERFAZ DE CHAT
+# ==========================================
+st.title(f"🤖 Agente V53: {rol}")
 
 if "messages" not in st.session_state: st.session_state.messages = []
 
 for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
 
-if p := st.chat_input("Pregunta por el salario mínimo 2026..."):
+if p := st.chat_input("Escribe tu instrucción..."):
+    if not api_key: st.warning("Falta API Key"); st.stop()
+    
     st.session_state.messages.append({"role": "user", "content": p})
     st.chat_message("user").markdown(p)
     
     with st.chat_message("assistant"):
-        if not api_key: st.error("Falta API Key"); st.stop()
+        hist_str = str(st.session_state.messages[-5:])
         
-        genai.configure(api_key=api_key)
-        
-        # --- INTENTO DE CONEXIÓN CRUDA ---
+        # Llamamos a la función políglota
         try:
-            tools = []
-            if usar_search:
-                # Intentamos invocar la herramienta moderna
-                tools = [{'google_search': {}}]
+            response_stream = generar_respuesta(p, hist_str)
             
-            model = genai.GenerativeModel(MODELO_USADO, tools=tools, system_instruction=MEMORIA_MAESTRA)
-            
-            # Prompt con fecha para forzar búsqueda
-            full_prompt = f"FECHA HOY: {date.today()}. Consulta: {p}"
-            
-            response = model.generate_content(full_prompt, stream=True)
-            
-            def stream():
-                for chunk in response: yield chunk.text
-            
-            st.write_stream(stream)
-            st.session_state.messages.append({"role": "assistant", "content": "Respuesta generada."})
-            
-        except Exception as e:
-            # AQUÍ VEREMOS EL ERROR REAL
-            st.error(f"💥 ERROR CRÍTICO: {e}")
-            st.markdown("---")
-            st.markdown("**Interpretación del Error:**")
-            err_str = str(e)
-            if "Unknown field" in err_str:
-                st.write("👉 **Culpable:** El servidor. Sigue con la librería vieja v0.5.x o v0.7.x.")
-            elif "403" in err_str or "API key not valid" in err_str:
-                st.write("👉 **Culpable:** La API Key. No tiene permisos o es inválida.")
-            elif "400" in err_str and "google_search" in err_str:
-                 st.write("👉 **Culpable:** Conflicto de versiones. Requiere 'Hard Reset'.")
+            if isinstance(response_stream, str):
+                st.error(response_stream) # Fue un error grave
             else:
-                st.write("👉 Error desconocido. Copia esto y envíaselo a tu ingeniero.")
+                text_placeholder = st.empty()
+                full_text = ""
+                for chunk in response_stream:
+                    if chunk.text:
+                        full_text += chunk.text
+                        text_placeholder.markdown(full_text + "▌")
+                text_placeholder.markdown(full_text)
+                st.session_state.messages.append({"role": "assistant", "content": full_text})
+                
+        except Exception as e:
+            st.error(f"Error inesperado: {e}")
