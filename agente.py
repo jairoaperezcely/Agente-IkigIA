@@ -2,7 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 import docx
-from docx.shared import Pt, RGBColor, Cm, Inches as DocInches
+from docx.shared import Pt, RGBColor, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import nsdecls
 from docx.oxml import parse_xml
@@ -70,27 +70,16 @@ INSTRUCCIONES OPERATIVAS:
 # ==========================================
 def plot_mermaid(code):
     html_code = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <script type="module">
-            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-            mermaid.initialize({{ startOnLoad: true, theme: 'base', securityLevel: 'loose', themeVariables: {{ primaryColor: '#003366', edgeLabelBackground:'#ffffff', tertiaryColor: '#fff0f0' }} }});
-        </script>
-        <style>
-            body {{ background-color: #f9f9f9; margin: 0; padding: 10px; font-family: sans-serif; }}
-            .mermaid {{ display: flex; justify-content: center; width: 100%; }}
-        </style>
-    </head>
-    <body>
-        <div class="mermaid">{code}</div>
-    </body>
-    </html>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({{ startOnLoad: true, theme: 'base', securityLevel: 'loose' }});
+    </script>
+    <div class="mermaid">{code}</div>
     """
-    components.html(html_code, height=600, scrolling=True)
+    components.html(html_code, height=500, scrolling=True)
 
 # ==========================================
-# 📖 MOTOR DE LECTURA (DOCUMENTOS)
+# 📖 MOTOR DE LECTURA
 # ==========================================
 @st.cache_data
 def get_pdf_text(pdf_file):
@@ -180,8 +169,7 @@ def create_chat_docx(messages):
 # --- 2. GENERADOR WORD PRO ---
 def create_clean_docx(text_content):
     doc = docx.Document()
-    style = doc.styles['Normal']
-    style.font.name = 'Arial'; style.font.size = Pt(11)
+    style = doc.styles['Normal']; style.font.name = 'Arial'; style.font.size = Pt(11)
     
     for section in doc.sections:
         section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
@@ -242,7 +230,6 @@ def create_clean_docx(text_content):
                 hashes, raw_text = header_match.groups()
                 level = len(hashes)
                 clean_title = clean_md(raw_text)
-                
                 if level == 1:
                     h = doc.add_heading(clean_title, level=1)
                     h.runs[0].font.color.rgb = RGBColor(0, 51, 102); h.runs[0].font.size = Pt(16)
@@ -264,7 +251,7 @@ def create_clean_docx(text_content):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# --- 3. GENERADOR PPTX AVANZADO ---
+# --- 3. GENERADOR PPTX ---
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -273,18 +260,15 @@ def generate_pptx_from_data(slide_data, template_file=None):
         prs = Presentation()
         using_template = False
     
-    SLIDE_WIDTH = prs.slide_width
-    SLIDE_HEIGHT = prs.slide_height
+    SLIDE_WIDTH = prs.slide_width; SLIDE_HEIGHT = prs.slide_height
     
     def clean_text(txt): return re.sub(r'\*\*(.*?)\*\*', r'\1', txt).strip()
 
     def apply_design(slide, title_shape=None):
         if using_template: return
         shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0), PtxInches(0), PtxInches(0.4), SLIDE_HEIGHT)
-        shape.fill.solid(); shape.fill.fore_color.rgb = PtxRGB(0, 51, 102); shape.line.fill.background()
+        shape.fill.solid(); shape.fill.fore_color.rgb = PtxRGB(0, 51, 102)
         if title_shape:
-            line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0.8), PtxInches(1.4), SLIDE_WIDTH - PtxInches(1.5), PtxInches(0.05))
-            line.fill.solid(); line.fill.fore_color.rgb = PtxRGB(0, 150, 200); line.line.fill.background()
             title_shape.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
             title_shape.top = PtxInches(0.5); title_shape.left = PtxInches(0.8)
             title_shape.width = SLIDE_WIDTH - PtxInches(1.5)
@@ -308,11 +292,6 @@ def generate_pptx_from_data(slide_data, template_file=None):
         slide = prs.slides.add_slide(prs.slide_layouts[0])
         if slide.shapes.title: 
             slide.shapes.title.text = clean_text(slide_data[0].get("title", "Presentación Estratégica"))
-            if not using_template:
-                slide.shapes.title.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
-                slide.shapes.title.text_frame.paragraphs[0].font.bold = True
-        if len(slide.placeholders) > 1: 
-            slide.placeholders[1].text = f"Generado por IA para la Dirección\n{date.today()}"
     except: pass
 
     for info in slide_data[1:]:
@@ -329,8 +308,7 @@ def generate_pptx_from_data(slide_data, template_file=None):
             title_shape.text = clean_text(info.get("title", "Detalle"))
             apply_design(slide, title_shape)
         else:
-            if slide.shapes.title: 
-                slide.shapes.title.text = clean_text(info.get("title", "Detalle"))
+            if slide.shapes.title: slide.shapes.title.text = clean_text(info.get("title", "Detalle"))
 
         if slide_type == "table":
             rows = len(content); cols = len(content[0]) if rows > 0 else 1
@@ -346,28 +324,23 @@ def generate_pptx_from_data(slide_data, template_file=None):
                     if j < cols:
                         cell = table.cell(i, j); cell.text = str(val)
                         cell.vertical_anchor = MSO_ANCHOR.MIDDLE
-                        txt_len = len(str(val))
-                        font_size = 14 if txt_len < 20 else 10
-                        p = cell.text_frame.paragraphs[0]
-                        p.font.size = PtxPt(font_size); p.font.name = 'Arial'
+                        cell.text_frame.paragraphs[0].font.size = PtxPt(12 if len(str(val)) < 20 else 10)
+                        cell.text_frame.paragraphs[0].font.name = 'Arial'
                         if i == 0:
                             cell.fill.solid(); cell.fill.fore_color.rgb = PtxRGB(0, 51, 102)
-                            p.font.color.rgb = PtxRGB(255, 255, 255); p.font.bold = True; p.alignment = PP_ALIGN.CENTER
+                            cell.text_frame.paragraphs[0].font.color.rgb = PtxRGB(255, 255, 255)
             graphic_frame.left = int((SLIDE_WIDTH - graphic_frame.width) / 2)
 
         elif slide_type == "chart":
             chart_data = info.get("chart_data", {}) 
             if chart_data:
                 img_stream = create_chart_image(chart_data)
-                pic_width = SLIDE_WIDTH * 0.7
-                pic_left = (SLIDE_WIDTH - pic_width) / 2
-                pic_top = PtxInches(2.2)
+                pic_width = SLIDE_WIDTH * 0.7; pic_left = (SLIDE_WIDTH - pic_width) / 2; pic_top = PtxInches(2.2)
                 slide.shapes.add_picture(img_stream, pic_left, pic_top, width=pic_width)
 
         else:
             if not using_template:
-                box_width = SLIDE_WIDTH * 0.85
-                box_left = (SLIDE_WIDTH - box_width) / 2
+                box_width = SLIDE_WIDTH * 0.85; box_left = (SLIDE_WIDTH - box_width) / 2
                 body_shape = slide.shapes.add_textbox(box_left, PtxInches(1.8), box_width, PtxInches(5))
                 tf = body_shape.text_frame
             else:
@@ -382,22 +355,19 @@ def generate_pptx_from_data(slide_data, template_file=None):
             for point in content:
                 p = tf.add_paragraph()
                 p.text = clean_text(str(point))
-                p.font.name = 'Arial'
-                p.font.color.rgb = PtxRGB(60, 60, 60); p.space_after = PtxPt(12)
+                p.font.name = 'Arial'; p.font.color.rgb = PtxRGB(60, 60, 60); p.space_after = PtxPt(12)
 
         if ref_text and ref_text != "N/A":
             left = PtxInches(0.5); top = SLIDE_HEIGHT - PtxInches(0.6)
             width = SLIDE_WIDTH - PtxInches(1.0); height = PtxInches(0.4)
             txBox = slide.shapes.add_textbox(left, top, width, height)
             p = txBox.text_frame.paragraphs[0]
-            p.text = f"Fuente: {ref_text}"
-            p.font.size = PtxPt(10); p.font.italic = True
-            p.font.color.rgb = PtxRGB(120, 120, 120)
+            p.text = f"Fuente: {ref_text}"; p.font.size = PtxPt(10); p.font.italic = True; p.font.color.rgb = PtxRGB(120, 120, 120)
 
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
     return buffer
 
-# --- 4. GENERADOR EXCEL PRO ---
+# --- 4. GENERADOR EXCEL ---
 def generate_excel_from_data(excel_data):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -405,28 +375,23 @@ def generate_excel_from_data(excel_data):
             df = pd.DataFrame(data)
             safe_name = re.sub(r'[\\/*?:\[\]]', "", sheet_name)[:30]
             df.to_excel(writer, index=False, sheet_name=safe_name)
-            
             worksheet = writer.sheets[safe_name]
             header_font = Font(bold=True, color="FFFFFF")
             header_fill = PatternFill(start_color="003366", end_color="003366", fill_type="solid")
-            border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-            
             for col_idx, column_cells in enumerate(worksheet.columns, 1):
                 col_letter = get_column_letter(col_idx)
                 worksheet.column_dimensions[col_letter].width = 25
                 worksheet[f"{col_letter}1"].font = header_font
                 worksheet[f"{col_letter}1"].fill = header_fill
-                for cell in column_cells: cell.border = border
     output.seek(0)
     return output
 
-# --- 5. GENERADOR GRÁFICOS AVANZADOS ---
+# --- 5. GENERADOR GRÁFICOS ---
 def generate_advanced_chart(chart_data):
     plt.style.use('seaborn-v0_8-whitegrid') 
     fig, ax = plt.subplots(figsize=(10, 6))
     colors = ['#003366', '#708090', '#A9A9A9', '#4682B4', '#DAA520']
-    labels = chart_data.get("labels", [])
-    datasets = chart_data.get("datasets", [])
+    labels = chart_data.get("labels", []); datasets = chart_data.get("datasets", [])
     
     for i, ds in enumerate(datasets):
         color = colors[i % len(colors)]
@@ -445,10 +410,9 @@ def generate_advanced_chart(chart_data):
     return fig
 
 # ==========================================
-# 💾 GESTIÓN DE ESTADO (SESSION STATE)
+# 💾 ESTADO
 # ==========================================
-keys = ["messages", "contexto_texto", "archivo_multimodal", "generated_pptx", 
-        "generated_chart", "generated_excel", "generated_word_clean", "generated_mermaid"]
+keys = ["messages", "contexto_texto", "archivo_multimodal", "generated_pptx", "generated_chart", "generated_excel", "generated_word_clean", "generated_mermaid"]
 for k in keys:
     if k not in st.session_state: st.session_state[k] = [] if k == "messages" else "" if k == "contexto_texto" else None
 
@@ -459,16 +423,16 @@ with st.sidebar:
     st.markdown("### 🏛️ Panel de Control")
     st.divider()
     
-    # 1. CREDENCIALES (Compacto)
+    # 1. CREDENCIALES
     if "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]
-        st.success("✅ Sistema Autenticado")
+        st.success("✅ Autenticado")
     else:
         api_key = st.text_input("🔑 API Key:", type="password")
 
-    # 2. PERFIL DE USUARIO
-    st.markdown("##### 👤 Rol Activo")
-    rol = st.selectbox("", [ # Etiqueta vacía para ahorrar espacio
+    # 2. PERFIL DE USUARIO (Compacto)
+    st.markdown("##### 👤 Perfil Activo")
+    rol = st.selectbox("", [ 
         "Socio Estratégico (Innovación)", 
         "Vicedecano Académico",
         "Director de UCI",
@@ -479,35 +443,30 @@ with st.sidebar:
         "Asistente Ejecutivo"
     ], label_visibility="collapsed")
 
-    # Prompts Detallados
     prompts_roles = {
-        "Socio Estratégico (Innovación)": "Eres Consultor Senior en Estrategia. Reta la instrucción, aplica marcos mentales (Design Thinking) y busca disrupción.",
+        "Socio Estratégico (Innovación)": "Eres Consultor Senior. Reta la instrucción, aplica marcos mentales y busca disrupción.",
         "Vicedecano Académico": "Eres Vicedecano. Tono institucional, riguroso, normativo y formal.",
-        "Director de UCI": "Eres Intensivista. Prioriza la vida, guías clínicas, seguridad del paciente y eficiencia.",
+        "Director de UCI": "Eres Intensivista. Prioriza la vida, guías clínicas, seguridad y eficiencia.",
         "Consultor Telesalud": "Eres experto en Salud Digital y Normativa (Ley 1419).",
         "Profesor Universitario": "Eres docente. Explica con pedagogía y ejemplos claros.",
-        "Investigador Científico": "Eres metodólogo. Prioriza datos, evidencia y referencias APA.",
-        "Mentor de Trading": "Eres Trader Institucional. Analiza estructura de mercado y riesgo.",
+        "Investigador Científico": "Eres metodólogo. Prioriza datos, evidencia y referencias.",
+        "Mentor de Trading": "Eres Trader Institucional. Analiza estructura de mercado.",
         "Asistente Ejecutivo": "Eres eficiente, conciso y organizado."
     }
     
-    # 3. CONFIGURACIÓN RÁPIDA
+    # 3. AJUSTES
     c1, c2 = st.columns(2)
-    with c1: 
-        modo_voz = st.toggle("🎙️ Voz", value=False)
-    with c2:
-        # Botón pequeño de reset
-        if st.button("🗑️ Reset", use_container_width=True):
-            st.session_state.clear()
-            st.rerun()
+    with c1: modo_voz = st.toggle("🎙️ Voz", value=False)
+    with c2: temp_val = st.slider("Creatividad", 0.0, 1.0, 0.2)
 
-    # 4. HERRAMIENTAS DE PRODUCCIÓN (Ocultables)
-    with st.expander("🛠️ Centro de Producción", expanded=False):
-        st.info("Generadores de Archivos")
+    st.markdown("---")
+
+    # 4. HERRAMIENTAS DE PRODUCCIÓN (OCULTAS POR DEFECTO)
+    with st.expander("🛠️ Herramientas de Producción", expanded=False):
         tab_office, tab_data, tab_visual = st.tabs(["📝 Docs", "📊 Datos", "🎨 Arte"])
 
         with tab_office:
-            if st.button("📄 Generar Informe Word", use_container_width=True):
+            if st.button("📄 Generar Word", use_container_width=True):
                 if st.session_state.messages:
                     with st.spinner("Redactando..."):
                         last_msg = st.session_state.messages[-1]["content"]
@@ -517,38 +476,29 @@ with st.sidebar:
             
             st.markdown("---")
             uploaded_template = st.file_uploader("Plantilla PPTX", type=['pptx'], key="ppt_up")
-            if st.button("📊 Diseñar Presentación", use_container_width=True):
+            if st.button("📊 Generar PPTX", use_container_width=True):
                 with st.spinner("Diseñando..."):
                     hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
-                    prompt = f"""
-                    Analiza: {hist}. Genera JSON para PPTX.
-                    JSON: [
-                        {{ "title": "Portada", "type": "text" }},
-                        {{ "title": "Slide 1", "type": "text", "content": ["Punto 1"], "references": "Ref" }},
-                        {{ "title": "Slide 2", "type": "table", "content": [["H1"], ["D1"]], "references": "Ref" }},
-                        {{ "title": "Slide 3", "type": "chart", "chart_data": {{ "title":"X", "labels":["A"], "values":[10], "label":"S" }} }}
-                    ]
-                    SOLO JSON.
-                    """
+                    prompt = f"Analiza: {hist}. Genera JSON para PPTX. JSON: [{{'title':'T','type':'text','content':['A']}}]. SOLO JSON."
                     try:
                         genai.configure(api_key=api_key)
                         mod = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
                         res = mod.generate_content(prompt)
-                        clean_text = res.text.replace("```json", "").replace("```", "").strip()
-                        start = clean_text.find("["); end = clean_text.rfind("]") + 1
-                        if start != -1 and end != -1: clean_text = clean_text[start:end]
+                        clean = res.text.replace("```json", "").replace("```", "").strip()
+                        start = clean.find("["); end = clean.rfind("]") + 1
+                        clean = clean[start:end]
                         tpl = uploaded_template if uploaded_template else None
-                        st.session_state.generated_pptx = generate_pptx_from_data(json.loads(clean_text), tpl)
+                        st.session_state.generated_pptx = generate_pptx_from_data(json.loads(clean), tpl)
                     except Exception as e: st.error(f"Error PPT: {e}")
             if st.session_state.generated_pptx: 
                 st.download_button("📥 Bajar .pptx", st.session_state.generated_pptx, "presentacion.pptx", use_container_width=True)
 
         with tab_data:
-            if st.button("📗 Exportar Excel", use_container_width=True):
+            if st.button("📗 Excel", use_container_width=True):
                 with st.spinner("Procesando..."):
                     genai.configure(api_key=api_key)
                     mod = genai.GenerativeModel(MODELO_USADO)
-                    prompt = f"Extrae datos de esto: {st.session_state.messages[-1]['content']}. JSON: {{'Hoja1':[{{'Col':'Val'}}]}}. SOLO JSON."
+                    prompt = f"Datos de: {st.session_state.messages[-1]['content']}. JSON: {{'Hoja1':[{{'Col':'Val'}}]}}. SOLO JSON."
                     try:
                         res = mod.generate_content(prompt).text
                         clean = res.replace("```json","").replace("```","").strip()
@@ -560,7 +510,7 @@ with st.sidebar:
                 st.download_button("📥 Bajar .xlsx", st.session_state.generated_excel, "datos.xlsx", use_container_width=True)
             
             st.markdown("---")
-            if st.button("📈 Generar Gráfico", use_container_width=True):
+            if st.button("📈 Gráfico", use_container_width=True):
                 with st.spinner("Graficando..."):
                     hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
                     prompt = f"Datos gráfico de: {hist}. JSON: {{'title':'T','labels':['A'],'datasets':[{{'label':'L','values':[10],'type':'bar'}}]}}. SOLO JSON."
@@ -572,7 +522,7 @@ with st.sidebar:
                     except: st.error("Sin datos.")
 
         with tab_visual:
-            if st.button("🎨 Crear Diagrama", use_container_width=True):
+            if st.button("🎨 Diagrama", use_container_width=True):
                 with st.spinner("Dibujando..."):
                     hist = "\n".join([m['content'] for m in st.session_state.messages[-5:]])
                     prompt = f"Diagrama MERMAID de: {hist}. Usa 'graph TD'. Solo código."
@@ -582,25 +532,24 @@ with st.sidebar:
                         st.session_state.generated_mermaid = res
                     except: pass
 
-    # 5. BASE DE CONOCIMIENTO (Ocultable)
-    with st.expander("📥 Ingesta de Archivos", expanded=True):
-        uploaded_docs = st.file_uploader("Documentos (PDF, Word, Excel)", accept_multiple_files=True, label_visibility="collapsed")
+    # 5. INSUMOS Y CONTEXTO (OCULTO)
+    with st.expander("📥 Insumos y Contexto", expanded=False):
+        uploaded_docs = st.file_uploader("Documentos (PDF, Office)", accept_multiple_files=True)
         if uploaded_docs and st.button("Procesar Archivos", use_container_width=True):
-            with st.spinner("Vectorizando..."):
+            with st.spinner("Leyendo..."):
                 text_acc = ""
                 for doc in uploaded_docs:
                     try:
-                        if doc.type == "application/pdf": text_acc += f"\n[PDF: {doc.name}]\n" + get_pdf_text(doc)
-                        elif "word" in doc.type: text_acc += f"\n[DOCX: {doc.name}]\n" + get_docx_text(doc)
-                        elif "sheet" in doc.type: text_acc += f"\n[XLSX: {doc.name}]\n" + get_excel_text(doc)
-                        elif "presentation" in doc.type: text_acc += f"\n[PPTX: {doc.name}]\n" + get_pptx_text(doc)
+                        if doc.type == "application/pdf": text_acc += f"\n[PDF]\n" + get_pdf_text(doc)
+                        elif "word" in doc.type: text_acc += f"\n[DOC]\n" + get_docx_text(doc)
+                        elif "sheet" in doc.type: text_acc += f"\n[XLS]\n" + get_excel_text(doc)
+                        elif "presentation" in doc.type: text_acc += f"\n[PPT]\n" + get_pptx_text(doc)
                     except: pass
                 st.session_state.contexto_texto += text_acc
-                st.success(f"{len(uploaded_docs)} Docs integrados")
-                
+                st.success(f"{len(uploaded_docs)} leídos")
+        
         st.divider()
-        st.caption("Multimedia")
-        up_media = st.file_uploader("Video/Audio", type=['mp4','mp3','png','jpg'], label_visibility="collapsed")
+        up_media = st.file_uploader("Multimedia (Audio/Video)", type=['mp4','mp3','png','jpg'])
         if up_media and api_key and st.button("Analizar Media", use_container_width=True):
             genai.configure(api_key=api_key)
             with st.spinner("Subiendo..."):
@@ -609,27 +558,29 @@ with st.sidebar:
                 mfile = genai.upload_file(path=tpath)
                 while mfile.state.name == "PROCESSING": time.sleep(1); mfile = genai.get_file(mfile.name)
                 st.session_state.archivo_multimodal = mfile
-                st.success("Listo para chat")
+                st.success("Listo")
                 os.remove(tpath)
-    
-    # 6. ENLACES (Ocultable)
-    with st.expander("🔗 Enlaces Externos", expanded=False):
-        u = st.text_input("YouTube URL:")
+
+        st.divider()
+        u = st.text_input("YouTube URL")
         if u and st.button("Leer YT", use_container_width=True): 
             st.session_state.contexto_texto += "\n" + get_youtube_text(u)
             st.success("OK")
         
-        w = st.text_input("Web URL:")
+        w = st.text_input("Web URL")
         if w and st.button("Leer Web", use_container_width=True): 
             st.session_state.contexto_texto += "\n" + get_web_text(w)
             st.success("OK")
 
     st.markdown("---")
-    # BACKUP DISCRETO
-    with st.popover("💾 Guardar Sesión"):
-        c1, c2 = st.columns(2)
-        c1.download_button("Acta", create_chat_docx(st.session_state.messages), "acta.docx")
-        c2.download_button("JSON", json.dumps(st.session_state.messages), "backup.json")
+    # BACKUP Y RESET
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("🗑️ Reset", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
+    with c2:
+        st.download_button("💾 Backup", json.dumps(st.session_state.messages), "chat.json", use_container_width=True)
 
 # ==========================================
 # 🚀 ÁREA PRINCIPAL
@@ -709,7 +660,7 @@ if p := st.chat_input("Escriba su instrucción..."):
             contenido.append("(Analiza el archivo adjunto)")
         
         try:
-            model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA, generation_config={"temperature": 0.2})
+            model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA, generation_config={"temperature": temp_val})
             response = model.generate_content(contenido, stream=True)
             def stream():
                 for chunk in response: yield chunk.text
