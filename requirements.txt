@@ -1,5 +1,5 @@
 streamlit
-google-generativeai
+google-generativeai>=0.8.3
 pypdf
 python-docx
 python-pptx
@@ -7,7 +7,9 @@ pandas
 openpyxl
 matplotlib
 beautifulsoup4
-gtts
+requests
+youtube-transcript-api
+gTTS
 streamlit-mic-recorder
 watchdog
 packaging
