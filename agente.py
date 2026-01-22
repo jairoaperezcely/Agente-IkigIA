@@ -34,11 +34,44 @@ from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 
 # ==========================================
+# 🧠 MEMORIA MAESTRA (AQUÍ ENTRENA A SU AGENTE)
+# ==========================================
+# Escriba aquí todo lo que quiere que el Agente sepa SIEMPRE sobre usted.
+MEMORIA_MAESTRA = """
+# ==========================================
+# 🧠 MEMORIA MAESTRA (PERFIL HOLÍSTICO V3.0)
+# ==========================================
+MEMORIA_MAESTRA = """
+PERFIL DEL USUARIO (QUIÉN SOY):
+- Soy un Líder Transformador en Salud: Médico Especialista en Anestesiología y Cuidado Crítico (UCI), Epidemiólogo Clínico y Doctorando en Bioética.
+- Roles de Alto Impacto:
+  1. Academia: Vicedecano Académico de la Facultad de Medicina (Universidad Nacional de Colombia).
+  2. Innovación: Coordinador del Centro de Telemedicina, IA e Innovación en Salud.
+  3. Hospitalario: Director de Cuidado Crítico (UCI) y Líder de Humanización en el Hospital Universitario Nacional (HUN).
+  4. Docencia: Profesor de Medicina y Cuidado Crítico.
+
+MI ADN Y FILOSOFÍA:
+- Motor Vital: Me mueve la innovación, la estrategia y estar a la vanguardia. Soy un líder innato que genera valor en cada acción.
+- Humanismo: Me duele el sufrimiento del otro. Creo firmemente en las personas y en su capacidad de transformar el mundo.
+- Enfoque: No solo implemento tecnología; acompaño la GESTIÓN DEL CAMBIO y la CO-CREACIÓN, especialmente llevando salud digital a los territorios.
+
+MIS ÁREAS DE INTERÉS ACTUALES:
+1. Salud Digital con Propósito: Telesalud, Telemedicina e IA, pero siempre con visión bioética y social.
+2. Gestión Académica y Hospitalaria: Liderazgo de equipos de alto rendimiento.
+3. Trading e Inversiones: Estoy en proceso de aprendizaje activo sobre mercados financieros.
+
+INSTRUCCIONES PARA EL ASISTENTE (CÓMO DEBES RESPONDER):
+1. TONO: Estratégico, Empático y Visionario. Combina la rigurosidad científica (Epidemiología) con la sensibilidad humana (Bioética/Humanización).
+2. VISIÓN SISTÉMICA: Cuando hablemos de salud, no te quedes en lo clínico; considera el impacto en el paciente, la familia y el sistema de salud.
+3. FORMATO: Respuestas estructuradas que aporten valor inmediato. Usa tablas para comparar estrategias o conceptos.
+4. MODO APRENDIZ (TRADING): Si pregunto sobre Trading, asume que estoy aprendiendo: explícame conceptos técnicos con claridad, usando analogías si es útil, y ayúdame a analizar riesgos.
+5. RIGOR: Cita normatividad colombiana y evidencia científica cuando sea pertinente.
+"""
+
+# ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V41", page_icon="👨‍⚕️", layout="wide")
-
-# EL MOTOR CONFIABLE (Fijo)
+st.set_page_config(page_title="Agente IkigAI V42", page_icon="🧠", layout="wide")
 MODELO_USADO = 'gemini-2.5-flash' 
 
 # ==========================================
@@ -432,7 +465,7 @@ if "generated_word_clean" not in st.session_state: st.session_state.generated_wo
 if "generated_mermaid" not in st.session_state: st.session_state.generated_mermaid = None
 
 # ==========================================
-# BARRA LATERAL (V41 - DEFINITIVA)
+# BARRA LATERAL (V42 - DEFINITIVA)
 # ==========================================
 with st.sidebar:
     st.header("⚙️ Configuración")
@@ -528,7 +561,13 @@ with st.sidebar:
                     
                     genai.configure(api_key=api_key)
                     
-                    mod = genai.GenerativeModel(MODELO_USADO, tools=tools_config)
+                    # --- AQUÍ INYECTAMOS LA MEMORIA MAESTRA ---
+                    # El system_instruction es la clave del entrenamiento
+                    mod = genai.GenerativeModel(
+                        MODELO_USADO, 
+                        tools=tools_config,
+                        system_instruction=MEMORIA_MAESTRA
+                    )
                     res = mod.generate_content(prompt)
                     
                     clean_text = res.text
@@ -554,7 +593,8 @@ with st.sidebar:
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
                 prompt = f"Analiza: {hist}. JSON Excel: {{'Hoja1': [{{'ColumnaA':'Dato1', 'ColumnaB':'Dato2'}}]}}"
                 try:
-                    genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
+                    genai.configure(api_key=api_key)
+                    mod = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
                     res = mod.generate_content(prompt)
                     clean_text = res.text.replace("```json","").replace("```","").strip()
                     start = clean_text.find("{"); end = clean_text.rfind("}") + 1
@@ -572,7 +612,8 @@ with st.sidebar:
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
                 prompt = f"Datos de: {hist}. JSON: {{'title':'T','labels':['A'],'datasets':[{{'label':'L','values':[1],'type':'bar'}}]}}"
                 try:
-                    genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
+                    genai.configure(api_key=api_key)
+                    mod = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
                     res = mod.generate_content(prompt)
                     clean_json = res.text.replace("```json","").replace("```","").strip()
                     st.session_state.generated_chart = generate_advanced_chart(json.loads(clean_json))
@@ -593,7 +634,8 @@ with st.sidebar:
                     SALIDA: Solo bloque ```mermaid ... ```
                     """
                     try:
-                        genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
+                        genai.configure(api_key=api_key)
+                        mod = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
                         res = mod.generate_content(prompt_mermaid)
                         st.session_state.generated_mermaid = res.text
                         st.success("¡Listo!")
@@ -642,7 +684,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V41: {rol}")
+st.title(f"🤖 Agente V42: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
@@ -662,7 +704,14 @@ if usar_google_search:
     tools_config = [{'google_search_retrieval': {}}]
 
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, generation_config={"temperature": temp_val})
+
+# AQUI SE CARGA LA MEMORIA MAESTRA
+model = genai.GenerativeModel(
+    MODELO_USADO, 
+    tools=tools_config, 
+    system_instruction=MEMORIA_MAESTRA, # <--- EL CEREBRO DE SU AGENTE
+    generation_config={"temperature": temp_val}
+)
 
 # --- INTERFAZ DE CHAT (STREAMING EN TEXTO) ---
 if modo_voz:
