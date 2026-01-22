@@ -36,7 +36,10 @@ from streamlit_mic_recorder import mic_recorder
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V36", page_icon="🧿", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V39", page_icon="🧬", layout="wide")
+
+# MODELO FIJO Y ESTABLE
+MODELO_USADO = 'gemini-2.5-flash' 
 
 # ==========================================
 # FUNCIÓN VISUALIZADORA MERMAID
@@ -224,7 +227,7 @@ def create_clean_docx(text_content):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (STRICT GEOMETRY & AUTO-FIT)
+# 3. PPTX PRO (STRICT GEOMETRY)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -429,7 +432,7 @@ if "generated_word_clean" not in st.session_state: st.session_state.generated_wo
 if "generated_mermaid" not in st.session_state: st.session_state.generated_mermaid = None
 
 # ==========================================
-# BARRA LATERAL (V36 MEJORADA)
+# BARRA LATERAL (V39 - CLEAN)
 # ==========================================
 with st.sidebar:
     st.header("⚙️ Configuración")
@@ -440,10 +443,6 @@ with st.sidebar:
         st.success("✅ Login Automático")
     else:
         api_key = st.text_input("🔑 API Key:", type="password")
-    
-    # --- SELECTOR DE CEREBRO ---
-    modelo_opcion = st.radio("🧠 Modelo:", ["Flash (Rápido)", "Pro (Razonamiento)"], horizontal=True)
-    MODELO_USADO = 'gemini-1.5-pro' if "Pro" in modelo_opcion else 'gemini-2.5-flash'
     
     # --- GOOGLE SEARCH ---
     usar_google_search = st.toggle("🌐 Búsqueda Google (En Vivo)")
@@ -528,14 +527,11 @@ with st.sidebar:
                         tools_config = [{'google_search_retrieval': {}}]
                     
                     genai.configure(api_key=api_key)
-                    # Forzamos modelo estándar si usa herramientas
-                    mod_name = MODELO_USADO
                     
-                    mod = genai.GenerativeModel(mod_name, tools=tools_config)
+                    mod = genai.GenerativeModel(MODELO_USADO, tools=tools_config)
                     res = mod.generate_content(prompt)
                     
                     clean_text = res.text
-                    # Limpieza JSON
                     if "```json" in clean_text:
                         clean_text = clean_text.replace("```json", "").replace("```", "").strip()
                     elif "```" in clean_text:
@@ -646,7 +642,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Super Agente V36: {rol}")
+st.title(f"🤖 Agente V39: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
@@ -660,13 +656,8 @@ if st.session_state.generated_chart:
     st.pyplot(st.session_state.generated_chart)
     st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
 
-# --- CONFIGURACIÓN DINÁMICA DEL MODELO ---
-tools_config = []
-if usar_google_search:
-    tools_config = [{'google_search_retrieval': {}}]
-
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, generation_config={"temperature": temp_val})
+model = genai.GenerativeModel(MODELO_USADO, generation_config={"temperature": temp_val})
 
 # --- INTERFAZ DE CHAT (STREAMING EN TEXTO) ---
 if modo_voz:
