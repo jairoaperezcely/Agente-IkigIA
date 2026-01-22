@@ -1,117 +1,86 @@
 import streamlit as st
 import google.generativeai as genai
-from duckduckgo_search import DDGS
+import subprocess
+import sys
 from datetime import date
-import time
+
+# ==========================================
+# 1. VERIFICACIÓN DE LIBRERÍA (Nivel Bajo)
+# ==========================================
+try:
+    import google.generativeai as genai
+    # Forzamos la versión que soporta tools
+    if genai.__version__ < "0.8.3":
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "google-generativeai==0.8.3"])
+        st.rerun()
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai==0.8.3"])
+    st.rerun()
+
+st.set_page_config(page_title="Test de Conectividad", page_icon="📡")
+
+st.title("📡 Prueba de Fuego: Conexión a Google")
 
 # ==========================================
 # CONFIGURACIÓN
 # ==========================================
-st.set_page_config(page_title="Agente V62 (Auto-Model)", page_icon="🗝️", layout="wide")
+if "GOOGLE_API_KEY" in st.secrets:
+    api_key = st.secrets["GOOGLE_API_KEY"]
+    st.success(f"✅ API Key Detectada | Librería: v{genai.__version__}")
+else:
+    api_key = st.text_input("🔑 API Key:", type="password")
+
+if not api_key: st.stop()
+
+genai.configure(api_key=api_key)
 
 # ==========================================
-# FUNCIONES: BÚSQUEDA SINTÉTICA
+# EL EXPERIMENTO
 # ==========================================
-def buscar_en_web(consulta):
-    """Busca en DuckDuckGo para obtener datos 2026 sin permisos de Google."""
-    try:
-        with DDGS() as ddgs:
-            resultados = list(ddgs.text(consulta, region='co-co', timelimit='y', max_results=4))
-            if not resultados: return "No se encontraron datos web."
-            
-            ctx = "🔴 DATOS DE INTERNET (ÚSALOS):\n"
-            for r in resultados:
-                ctx += f"- {r['title']}: {r['body']} ({r['href']})\n"
-            return ctx
-    except Exception as e:
-        return f"Error web: {e}"
+st.write("### 🧪 El Experimento")
+st.info("Vamos a hacer una pregunta que OBLIGUE a buscar datos recientes.")
 
-# ==========================================
-# BARRA LATERAL (SELECTOR AUTOMÁTICO)
-# ==========================================
-with st.sidebar:
-    st.header("🗝️ Configuración V62")
-    
-    # 1. API KEY
-    if "GOOGLE_API_KEY" in st.secrets:
-        api_key = st.secrets["GOOGLE_API_KEY"]
-        st.success("✅ API Key Detectada")
-    else:
-        api_key = st.text_input("🔑 API Key:", type="password")
+pregunta = st.text_input("Pregunta de control:", "Precio actual del Dólar en Colombia hoy")
 
-    # 2. AUTO-SELECCIÓN DE MODELO (LA SOLUCIÓN AL 404)
-    modelo_a_usar = None
-    
-    if api_key:
+if st.button("Lanzar Prueba de Conexión"):
+    with st.spinner("Conectando con Google Search Grounding..."):
         try:
-            genai.configure(api_key=api_key)
-            # Pedimos a Google la lista REAL de modelos disponibles para ESTA clave
-            listado = genai.list_models()
+            # 1. CONFIGURACIÓN EXPLÍCITA DE LA HERRAMIENTA
+            tools = [{'google_search': {}}]
             
-            opciones_validas = []
-            for m in listado:
-                if 'generateContent' in m.supported_generation_methods:
-                    # Limpiamos el nombre (quitamos 'models/')
-                    nombre = m.name.replace("models/", "")
-                    opciones_validas.append(nombre)
+            # 2. MODELO (Usamos Flash que es el más estable para esto)
+            model = genai.GenerativeModel('gemini-1.5-flash', tools=tools)
             
-            if opciones_validas:
-                # Usamos el primero de la lista (generalmente es gemini-pro o flash)
-                modelo_a_usar = st.selectbox("🧠 Modelo Detectado:", opciones_validas, index=0)
-                st.success(f"Conectado a: {modelo_a_usar}")
+            # 3. GENERACIÓN
+            # Forzamos la fecha para que sepa que necesita datos frescos
+            prompt = f"Fecha actual: {date.today()}. Responde: {pregunta}"
+            response = model.generate_content(prompt)
+            
+            # 4. LA HORA DE LA VERDAD (INSPECCIÓN DE METADATOS)
+            st.divider()
+            
+            # Verificamos si existe el objeto de metadatos de búsqueda
+            tiene_grounding = False
+            try:
+                if response.candidates[0].grounding_metadata.search_entry_point:
+                    tiene_grounding = True
+            except:
+                pass
+            
+            # 5. RESULTADO DEL SEMÁFORO
+            if tiene_grounding:
+                st.success("🟢 CONEXIÓN EXITOSA (ONLINE)")
+                st.write("Evidence: Se detectaron 'Grounding Metadata' en la respuesta.")
+                with st.expander("Ver Datos Técnicos (Prueba Forense)"):
+                    st.json(response.candidates[0].grounding_metadata)
+                st.write(f"**Respuesta:** {response.text}")
+                
             else:
-                st.error("Tu API Key no tiene modelos disponibles.")
+                st.error("🔴 CONEXIÓN FALLIDA (OFFLINE - MEMORIA INTERNA)")
+                st.warning("El modelo respondió, pero NO usó Google Search. Está alucinando o usando memoria base.")
+                st.write(f"**Respuesta:** {response.text}")
+                
         except Exception as e:
-            st.error(f"Error de API Key: {e}")
-
-    rol = st.selectbox("Rol:", ["Vicedecano Académico", "Director UCI"])
-
-# ==========================================
-# CHAT
-# ==========================================
-st.title(f"🤖 Agente V62: {rol}")
-
-if "messages" not in st.session_state: st.session_state.messages = []
-
-for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
-
-if p := st.chat_input("Pregunta: Salario Mínimo 2026"):
-    if not api_key: st.warning("Falta API Key"); st.stop()
-    if not modelo_a_usar: st.warning("No se detectó ningún modelo válido."); st.stop()
-    
-    st.session_state.messages.append({"role": "user", "content": p})
-    st.chat_message("user").markdown(p)
-    
-    with st.chat_message("assistant"):
-        # 1. BÚSQUEDA WEB (DUCKDUCKGO)
-        status = st.status("🕷️ Buscando datos en internet...", expanded=True)
-        contexto = buscar_en_web(f"{p} colombia 2026 oficial")
-        status.write("Datos obtenidos. Redactando...")
-        
-        # 2. GENERACIÓN (CON EL MODELO QUE SÍ EXISTE)
-        try:
-            model = genai.GenerativeModel(modelo_a_usar) # Usamos el que detectamos arriba
-            
-            prompt = f"""
-            FECHA: {date.today()}
-            CONTEXTO WEB: {contexto}
-            PREGUNTA: {p}
-            ROL: {rol}.
-            INSTRUCCIÓN: Responde usando el contexto web. Si no hay dato oficial, dilo.
-            """
-            
-            response = model.generate_content(prompt, stream=True)
-            
-            full_text = ""
-            placeholder = st.empty()
-            for chunk in response:
-                if chunk.text:
-                    full_text += chunk.text
-                    placeholder.markdown(full_text + "▌")
-            placeholder.markdown(full_text)
-            
-            st.session_state.messages.append({"role": "assistant", "content": full_text})
-            status.update(label="✅ Listo", state="complete", expanded=False)
-            
-        except Exception as e:
-            st.error(f"Error generando: {e}")
+            st.error("💥 ERROR TÉCNICO CRÍTICO")
+            st.error(f"El servidor rechazó la conexión: {e}")
+            st.write("Diagnóstico: Si sale 'Unknown field', la librería sigue vieja. Si sale '403', la API Key no permite Search.")
