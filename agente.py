@@ -66,14 +66,13 @@ INSTRUCCIONES PARA EL ASISTENTE (CÓMO DEBES RESPONDER):
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V43", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V43.1", page_icon="🧬", layout="wide")
 MODELO_USADO = 'gemini-2.5-flash' 
 
 # ==========================================
-# FUNCIÓN VISUALIZADORA MERMAID (CORREGIDA)
+# FUNCIÓN VISUALIZADORA MERMAID
 # ==========================================
 def plot_mermaid(code):
-    # El error estaba aquí. Asegúrese de que f""" esté presente y sin espacios raros.
     html_code = f"""
     <!DOCTYPE html>
     <html>
@@ -553,7 +552,7 @@ with st.sidebar:
                     # CONFIGURACIÓN DINÁMICA DE HERRAMIENTAS
                     tools_config = []
                     if usar_google_search:
-                        tools_config = [{'google_search_retrieval': {}}]
+                        tools_config = [{'google_search': {}}] # <--- FIXED FOR 2026
                     
                     genai.configure(api_key=api_key)
                     
@@ -678,7 +677,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V43: {rol}")
+st.title(f"🤖 Agente V43.1: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
@@ -695,7 +694,7 @@ if st.session_state.generated_chart:
 # --- CONFIGURACIÓN DINÁMICA DEL MODELO ---
 tools_config = []
 if usar_google_search:
-    tools_config = [{'google_search_retrieval': {}}]
+    tools_config = [{'google_search': {}}]
 
 genai.configure(api_key=api_key)
 
