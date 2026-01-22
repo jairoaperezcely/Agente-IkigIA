@@ -1,68 +1,75 @@
 import streamlit as st
-import subprocess
-import sys
-import time
+import google.generativeai as genai
+from duckduckgo_search import DDGS
 from datetime import date
-
-# ==========================================
-# 🚑 INSTALACIÓN DE MOTORES DE BÚSQUEDA
-# ==========================================
-try:
-    from duckduckgo_search import DDGS
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "duckduckgo-search"])
-    from duckduckgo_search import DDGS
-
-try:
-    import google.generativeai as genai
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai"])
-    import google.generativeai as genai
+import time
 
 # ==========================================
 # CONFIGURACIÓN
 # ==========================================
-st.set_page_config(page_title="Agente V60 (Sintético)", page_icon="🕷️", layout="wide")
+st.set_page_config(page_title="Agente V62 (Auto-Model)", page_icon="🗝️", layout="wide")
 
 # ==========================================
-# 🧠 CEREBRO: BÚSQUEDA MANUAL (NO NATIVA)
+# FUNCIONES: BÚSQUEDA SINTÉTICA
 # ==========================================
 def buscar_en_web(consulta):
-    """Sale a internet manualmente sin pedirle permiso a Google"""
+    """Busca en DuckDuckGo para obtener datos 2026 sin permisos de Google."""
     try:
         with DDGS() as ddgs:
-            # Buscamos 5 resultados frescos
-            resultados = list(ddgs.text(consulta, region='co-co', timelimit='y', max_results=5))
+            resultados = list(ddgs.text(consulta, region='co-co', timelimit='y', max_results=4))
+            if not resultados: return "No se encontraron datos web."
             
-            contexto = "INFORMACIÓN ENCONTRADA EN LA WEB (EN TIEMPO REAL):\n"
+            ctx = "🔴 DATOS DE INTERNET (ÚSALOS):\n"
             for r in resultados:
-                contexto += f"- Título: {r['title']}\n  Resumen: {r['body']}\n  Fuente: {r['href']}\n\n"
-            return contexto
+                ctx += f"- {r['title']}: {r['body']} ({r['href']})\n"
+            return ctx
     except Exception as e:
-        return f"Error buscando en web: {e}"
+        return f"Error web: {e}"
 
 # ==========================================
-# BARRA LATERAL
+# BARRA LATERAL (SELECTOR AUTOMÁTICO)
 # ==========================================
 with st.sidebar:
-    st.header("🕷️ Motor V60")
-    st.success("Modo: Búsqueda Sintética (Universal)")
+    st.header("🗝️ Configuración V62")
     
+    # 1. API KEY
     if "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]
-        st.success("✅ API Key")
+        st.success("✅ API Key Detectada")
     else:
         api_key = st.text_input("🔑 API Key:", type="password")
 
-    rol = st.selectbox("Rol:", ["Vicedecano Académico", "Director UCI", "Socio Estratégico"])
+    # 2. AUTO-SELECCIÓN DE MODELO (LA SOLUCIÓN AL 404)
+    modelo_a_usar = None
     
-    # Selector de modelo simple (sin tools complejas)
-    modelo = st.selectbox("Modelo:", ["gemini-1.5-flash", "gemini-pro", "gemini-1.5-pro-latest"])
+    if api_key:
+        try:
+            genai.configure(api_key=api_key)
+            # Pedimos a Google la lista REAL de modelos disponibles para ESTA clave
+            listado = genai.list_models()
+            
+            opciones_validas = []
+            for m in listado:
+                if 'generateContent' in m.supported_generation_methods:
+                    # Limpiamos el nombre (quitamos 'models/')
+                    nombre = m.name.replace("models/", "")
+                    opciones_validas.append(nombre)
+            
+            if opciones_validas:
+                # Usamos el primero de la lista (generalmente es gemini-pro o flash)
+                modelo_a_usar = st.selectbox("🧠 Modelo Detectado:", opciones_validas, index=0)
+                st.success(f"Conectado a: {modelo_a_usar}")
+            else:
+                st.error("Tu API Key no tiene modelos disponibles.")
+        except Exception as e:
+            st.error(f"Error de API Key: {e}")
+
+    rol = st.selectbox("Rol:", ["Vicedecano Académico", "Director UCI"])
 
 # ==========================================
 # CHAT
 # ==========================================
-st.title(f"🤖 Agente V60: {rol}")
+st.title(f"🤖 Agente V62: {rol}")
 
 if "messages" not in st.session_state: st.session_state.messages = []
 
@@ -70,39 +77,30 @@ for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["conte
 
 if p := st.chat_input("Pregunta: Salario Mínimo 2026"):
     if not api_key: st.warning("Falta API Key"); st.stop()
+    if not modelo_a_usar: st.warning("No se detectó ningún modelo válido."); st.stop()
     
     st.session_state.messages.append({"role": "user", "content": p})
     st.chat_message("user").markdown(p)
     
     with st.chat_message("assistant"):
-        status = st.empty()
-        status.info("🕷️ Saliendo a buscar en internet...")
+        # 1. BÚSQUEDA WEB (DUCKDUCKGO)
+        status = st.status("🕷️ Buscando datos en internet...", expanded=True)
+        contexto = buscar_en_web(f"{p} colombia 2026 oficial")
+        status.write("Datos obtenidos. Redactando...")
         
-        # 1. BÚSQUEDA SINTÉTICA (PYTHON HACE EL TRABAJO SUCIO)
-        contexto_web = buscar_en_web(p + " salario minimo colombia 2026 decreto")
-        
-        status.info("🧠 Analizando datos encontrados...")
-        
-        # 2. GENERACIÓN CON GEMINI (SOLO TEXTO, SIN TOOLS)
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(modelo)
-        
-        prompt_final = f"""
-        FECHA DE HOY: {date.today()}
-        ROL: {rol}.
-        
-        CONTEXTO DE INTERNET (ÚSALO PARA RESPONDER):
-        {contexto_web}
-        
-        PREGUNTA DEL USUARIO:
-        {p}
-        
-        INSTRUCCIÓN: Responde la pregunta basándote estrictamente en el CONTEXTO DE INTERNET encontrado.
-        Si encontraste cifras, dalas. Si hay decretos, cítalos.
-        """
-        
+        # 2. GENERACIÓN (CON EL MODELO QUE SÍ EXISTE)
         try:
-            response = model.generate_content(prompt_final, stream=True)
+            model = genai.GenerativeModel(modelo_a_usar) # Usamos el que detectamos arriba
+            
+            prompt = f"""
+            FECHA: {date.today()}
+            CONTEXTO WEB: {contexto}
+            PREGUNTA: {p}
+            ROL: {rol}.
+            INSTRUCCIÓN: Responde usando el contexto web. Si no hay dato oficial, dilo.
+            """
+            
+            response = model.generate_content(prompt, stream=True)
             
             full_text = ""
             placeholder = st.empty()
@@ -113,7 +111,7 @@ if p := st.chat_input("Pregunta: Salario Mínimo 2026"):
             placeholder.markdown(full_text)
             
             st.session_state.messages.append({"role": "assistant", "content": full_text})
-            status.empty() # Limpiar mensaje de estado
+            status.update(label="✅ Listo", state="complete", expanded=False)
             
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Error generando: {e}")
