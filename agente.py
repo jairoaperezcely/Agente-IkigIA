@@ -34,12 +34,7 @@ from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 
 # ==========================================
-# 🧠 MEMORIA MAESTRA (AQUÍ ENTRENA A SU AGENTE)
-# ==========================================
-# Escriba aquí todo lo que quiere que el Agente sepa SIEMPRE sobre usted.
-MEMORIA_MAESTRA = """
-# ==========================================
-# 🧠 MEMORIA MAESTRA (PERFIL HOLÍSTICO V3.0)
+# 🧠 MEMORIA MAESTRA (PERFIL V3.0)
 # ==========================================
 MEMORIA_MAESTRA = """
 PERFIL DEL USUARIO (QUIÉN SOY):
@@ -71,13 +66,14 @@ INSTRUCCIONES PARA EL ASISTENTE (CÓMO DEBES RESPONDER):
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V42", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V43", page_icon="🧬", layout="wide")
 MODELO_USADO = 'gemini-2.5-flash' 
 
 # ==========================================
-# FUNCIÓN VISUALIZADORA MERMAID
+# FUNCIÓN VISUALIZADORA MERMAID (CORREGIDA)
 # ==========================================
 def plot_mermaid(code):
+    # El error estaba aquí. Asegúrese de que f""" esté presente y sin espacios raros.
     html_code = f"""
     <!DOCTYPE html>
     <html>
@@ -465,7 +461,7 @@ if "generated_word_clean" not in st.session_state: st.session_state.generated_wo
 if "generated_mermaid" not in st.session_state: st.session_state.generated_mermaid = None
 
 # ==========================================
-# BARRA LATERAL (V42 - DEFINITIVA)
+# BARRA LATERAL
 # ==========================================
 with st.sidebar:
     st.header("⚙️ Configuración")
@@ -561,8 +557,6 @@ with st.sidebar:
                     
                     genai.configure(api_key=api_key)
                     
-                    # --- AQUÍ INYECTAMOS LA MEMORIA MAESTRA ---
-                    # El system_instruction es la clave del entrenamiento
                     mod = genai.GenerativeModel(
                         MODELO_USADO, 
                         tools=tools_config,
@@ -684,7 +678,7 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V42: {rol}")
+st.title(f"🤖 Agente V43: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
 
 if st.session_state.generated_mermaid:
