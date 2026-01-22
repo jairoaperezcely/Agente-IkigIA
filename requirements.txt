@@ -5,12 +5,4 @@ pypdf
 python-docx
 beautifulsoup4
 requests
-youtube-transcript-api
-gtts
-streamlit-mic-recorder
-python-pptx
-matplotlib
-pandas
-openpyxl
-watchdog
 packaging
