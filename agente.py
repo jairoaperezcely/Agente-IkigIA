@@ -1,86 +1,105 @@
 import streamlit as st
 import google.generativeai as genai
-import subprocess
-import sys
+from duckduckgo_search import DDGS
 from datetime import date
-
-# ==========================================
-# 1. VERIFICACIÓN DE LIBRERÍA (Nivel Bajo)
-# ==========================================
-try:
-    import google.generativeai as genai
-    # Forzamos la versión que soporta tools
-    if genai.__version__ < "0.8.3":
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "google-generativeai==0.8.3"])
-        st.rerun()
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai==0.8.3"])
-    st.rerun()
-
-st.set_page_config(page_title="Test de Conectividad", page_icon="📡")
-
-st.title("📡 Prueba de Fuego: Conexión a Google")
+import time
 
 # ==========================================
 # CONFIGURACIÓN
 # ==========================================
-if "GOOGLE_API_KEY" in st.secrets:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-    st.success(f"✅ API Key Detectada | Librería: v{genai.__version__}")
-else:
-    api_key = st.text_input("🔑 API Key:", type="password")
-
-if not api_key: st.stop()
-
-genai.configure(api_key=api_key)
+st.set_page_config(page_title="Agente V66 (Bypass)", page_icon="🌐", layout="wide")
 
 # ==========================================
-# EL EXPERIMENTO
+# CEREBRO DE BÚSQUEDA (EXTERNO)
 # ==========================================
-st.write("### 🧪 El Experimento")
-st.info("Vamos a hacer una pregunta que OBLIGUE a buscar datos recientes.")
+def buscar_en_web(consulta):
+    """
+    Busca en internet usando DuckDuckGo. 
+    Esto funciona INDEPENDIENTE de la versión de la librería de Google.
+    """
+    try:
+        with DDGS() as ddgs:
+            # Buscamos 4 resultados de Colombia
+            resultados = list(ddgs.text(consulta, region='co-co', timelimit='y', max_results=4))
+            
+            if not resultados:
+                return "No se encontraron resultados."
+            
+            texto = "DATOS ENCONTRADOS EN LA WEB (TIEMPO REAL):\n"
+            for r in resultados:
+                texto += f"- {r['title']}: {r['body']} (Fuente: {r['href']})\n"
+            return texto
+    except Exception as e:
+        return f"Error en búsqueda externa: {e}"
 
-pregunta = st.text_input("Pregunta de control:", "Precio actual del Dólar en Colombia hoy")
+# ==========================================
+# BARRA LATERAL
+# ==========================================
+with st.sidebar:
+    st.header("🌐 Conexión V66")
+    st.success("Modo: Búsqueda Externa (DuckDuckGo)")
+    
+    # Verificación de API Key
+    if "GOOGLE_API_KEY" in st.secrets:
+        api_key = st.secrets["GOOGLE_API_KEY"]
+        st.success("✅ API Key")
+    else:
+        api_key = st.text_input("🔑 API Key:", type="password")
 
-if st.button("Lanzar Prueba de Conexión"):
-    with st.spinner("Conectando con Google Search Grounding..."):
+    rol = st.selectbox("Rol:", ["Vicedecano Académico", "Director UCI", "Socio Estratégico"])
+
+# ==========================================
+# CHAT
+# ==========================================
+st.title(f"🤖 Agente V66: {rol}")
+
+if "messages" not in st.session_state: st.session_state.messages = []
+
+for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
+
+if p := st.chat_input("Ej: Salario mínimo Colombia 2026"):
+    if not api_key: st.warning("Falta API Key"); st.stop()
+    
+    st.session_state.messages.append({"role": "user", "content": p})
+    st.chat_message("user").markdown(p)
+    
+    with st.chat_message("assistant"):
+        # 1. BÚSQUEDA (El código Python hace el trabajo sucio)
+        status = st.status("🕷️ Buscando en internet (DuckDuckGo)...", expanded=True)
+        contexto = buscar_en_web(f"{p} colombia 2026 oficial")
+        status.write("Datos obtenidos. Analizando...")
+        
+        # 2. PENSAMIENTO (Gemini solo procesa el texto, no busca)
         try:
-            # 1. CONFIGURACIÓN EXPLÍCITA DE LA HERRAMIENTA
-            tools = [{'google_search': {}}]
+            genai.configure(api_key=api_key)
+            # Usamos el modelo estándar sin 'tools', así evitamos el error "Unknown field"
+            model = genai.GenerativeModel('gemini-1.5-flash')
             
-            # 2. MODELO (Usamos Flash que es el más estable para esto)
-            model = genai.GenerativeModel('gemini-1.5-flash', tools=tools)
+            prompt = f"""
+            FECHA ACTUAL: {date.today()}
+            ROL: {rol}
             
-            # 3. GENERACIÓN
-            # Forzamos la fecha para que sepa que necesita datos frescos
-            prompt = f"Fecha actual: {date.today()}. Responde: {pregunta}"
-            response = model.generate_content(prompt)
+            INFORMACIÓN DE INTERNET (ÚSALA OBLIGATORIAMENTE):
+            {contexto}
             
-            # 4. LA HORA DE LA VERDAD (INSPECCIÓN DE METADATOS)
-            st.divider()
+            PREGUNTA DEL USUARIO:
+            {p}
             
-            # Verificamos si existe el objeto de metadatos de búsqueda
-            tiene_grounding = False
-            try:
-                if response.candidates[0].grounding_metadata.search_entry_point:
-                    tiene_grounding = True
-            except:
-                pass
+            INSTRUCCIÓN: Responde usando la información de internet.
+            """
             
-            # 5. RESULTADO DEL SEMÁFORO
-            if tiene_grounding:
-                st.success("🟢 CONEXIÓN EXITOSA (ONLINE)")
-                st.write("Evidence: Se detectaron 'Grounding Metadata' en la respuesta.")
-                with st.expander("Ver Datos Técnicos (Prueba Forense)"):
-                    st.json(response.candidates[0].grounding_metadata)
-                st.write(f"**Respuesta:** {response.text}")
-                
-            else:
-                st.error("🔴 CONEXIÓN FALLIDA (OFFLINE - MEMORIA INTERNA)")
-                st.warning("El modelo respondió, pero NO usó Google Search. Está alucinando o usando memoria base.")
-                st.write(f"**Respuesta:** {response.text}")
-                
+            response = model.generate_content(prompt, stream=True)
+            
+            full_text = ""
+            placeholder = st.empty()
+            for chunk in response:
+                if chunk.text:
+                    full_text += chunk.text
+                    placeholder.markdown(full_text + "▌")
+            placeholder.markdown(full_text)
+            
+            st.session_state.messages.append({"role": "assistant", "content": full_text})
+            status.update(label="✅ Respuesta Generada", state="complete", expanded=False)
+            
         except Exception as e:
-            st.error("💥 ERROR TÉCNICO CRÍTICO")
-            st.error(f"El servidor rechazó la conexión: {e}")
-            st.write("Diagnóstico: Si sale 'Unknown field', la librería sigue vieja. Si sale '403', la API Key no permite Search.")
+            st.error(f"Error generando respuesta: {e}")
