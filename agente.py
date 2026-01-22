@@ -34,7 +34,7 @@ from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 
 # ==========================================
-# 🧠 MEMORIA MAESTRA (PERFIL COMPLETO)
+# 🧠 MEMORIA MAESTRA (PERFIL LÍDER HUMANISTA)
 # ==========================================
 MEMORIA_MAESTRA = """
 PERFIL DEL USUARIO (QUIÉN SOY):
@@ -66,7 +66,7 @@ INSTRUCCIONES PARA EL ASISTENTE (CÓMO DEBES RESPONDER):
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V46", page_icon="🏛️", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V48", page_icon="🧬", layout="wide")
 MODELO_USADO = 'gemini-2.5-flash' 
 
 # ==========================================
@@ -131,10 +131,10 @@ def get_pptx_text(pptx_file):
     except Exception as e: return f"Error PPTX: {e}"
 
 # ==========================================
-# FUNCIONES DE GENERACIÓN (OUTPUT COMPLETO)
+# FUNCIONES DE GENERACIÓN (OUTPUT DE LUJO)
 # ==========================================
 
-# 1. WORD ACTA
+# 1. WORD ACTA (Completo)
 def create_chat_docx(messages):
     doc = docx.Document()
     for section in doc.sections:
@@ -165,7 +165,7 @@ def create_chat_docx(messages):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO PRO (APA)
+# 2. WORD DOCUMENTO PRO (APA & Tablas - Completo)
 def create_clean_docx(text_content):
     doc = docx.Document()
     style = doc.styles['Normal']
@@ -255,7 +255,7 @@ def create_clean_docx(text_content):
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (STRICT GEOMETRY - VERSIÓN COMPLETA)
+# 3. PPTX PRO (Diseño Estricto - Completo)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
         template_file.seek(0); prs = Presentation(template_file)
@@ -394,7 +394,7 @@ def generate_pptx_from_data(slide_data, template_file=None):
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
     return buffer
 
-# 4. EXCEL PRO (VERSIÓN COMPLETA)
+# 4. EXCEL PRO (Estilo Corporativo - Completo)
 def generate_excel_from_data(excel_data):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -414,7 +414,7 @@ def generate_excel_from_data(excel_data):
     output.seek(0)
     return output
 
-# 5. GRÁFICO PRO (VERSIÓN COMPLETA)
+# 5. GRÁFICO PRO (Matplotlib Completo)
 def generate_advanced_chart(chart_data):
     plt.style.use('seaborn-v0_8-whitegrid') 
     fig, ax = plt.subplots(figsize=(10, 5))
@@ -477,14 +477,9 @@ with st.sidebar:
     c1, c2 = st.columns(2)
     c1.metric("Librería", f"v{ver}")
     
-    # Determinar estado
     estado_red = "🔴 OFFLINE"
     if ver >= "0.7.0": estado_red = "🟢 ONLINE"
     c2.metric("Internet", estado_red)
-    
-    if estado_red == "🔴 OFFLINE":
-        st.error("⚠️ REINSTALACIÓN REQUERIDA")
-        st.caption("Google Search no funciona con esta versión.")
     
     usar_google_search = st.toggle("🌐 Búsqueda Google", value=(estado_red=="🟢 ONLINE"))
     
@@ -528,7 +523,7 @@ with st.sidebar:
     st.subheader("🏭 Centro de Producción")
     
     tab_office, tab_data, tab_visual = st.tabs(["📝 Oficina", "📊 Analítica", "🎨 Diseño"])
-    
+
     with tab_office:
         st.markdown("##### 📄 Informes")
         if st.button("Generar Word (Elegante)", use_container_width=True):
@@ -564,17 +559,11 @@ with st.sidebar:
                 try:
                     # CONFIGURACIÓN DINÁMICA DE HERRAMIENTAS
                     genai.configure(api_key=api_key)
+                    # --- V48.0 FIX: USO DE LA HERRAMIENTA MODERNA SIEMPRE ---
+                    tools_config = [{'google_search': {}}] if usar_google_search else []
                     
-                    try:
-                         # Intento Moderno
-                        tools_config = [{'google_search': {}}] if usar_google_search else []
-                        mod = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA)
-                        res = mod.generate_content(prompt)
-                    except:
-                        # Fallback
-                        tools_config = [{'google_search_retrieval': {}}] if usar_google_search else []
-                        mod = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA)
-                        res = mod.generate_content(prompt)
+                    mod = genai.GenerativeModel(MODELO_USADO, tools=tools_config)
+                    res = mod.generate_content(prompt)
                     
                     clean_text = res.text
                     if "```json" in clean_text:
@@ -599,8 +588,7 @@ with st.sidebar:
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
                 prompt = f"Analiza: {hist}. JSON Excel: {{'Hoja1': [{{'ColumnaA':'Dato1', 'ColumnaB':'Dato2'}}]}}"
                 try:
-                    genai.configure(api_key=api_key)
-                    mod = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
+                    genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
                     res = mod.generate_content(prompt)
                     clean_text = res.text.replace("```json","").replace("```","").strip()
                     start = clean_text.find("{"); end = clean_text.rfind("}") + 1
@@ -618,8 +606,7 @@ with st.sidebar:
                 hist = "\n".join([m['content'] for m in st.session_state.messages[-10:]])
                 prompt = f"Datos de: {hist}. JSON: {{'title':'T','labels':['A'],'datasets':[{{'label':'L','values':[1],'type':'bar'}}]}}"
                 try:
-                    genai.configure(api_key=api_key)
-                    mod = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
+                    genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
                     res = mod.generate_content(prompt)
                     clean_json = res.text.replace("```json","").replace("```","").strip()
                     st.session_state.generated_chart = generate_advanced_chart(json.loads(clean_json))
@@ -640,8 +627,7 @@ with st.sidebar:
                     SALIDA: Solo bloque ```mermaid ... ```
                     """
                     try:
-                        genai.configure(api_key=api_key)
-                        mod = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
+                        genai.configure(api_key=api_key); mod = genai.GenerativeModel(MODELO_USADO)
                         res = mod.generate_content(prompt_mermaid)
                         st.session_state.generated_mermaid = res.text
                         st.success("¡Listo!")
@@ -690,10 +676,8 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V46: {rol}")
+st.title(f"🤖 Agente V48: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
-
-genai.configure(api_key=api_key)
 
 if st.session_state.generated_mermaid:
     st.subheader("🎨 Esquema Visual")
@@ -706,7 +690,10 @@ if st.session_state.generated_chart:
     st.pyplot(st.session_state.generated_chart)
     st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
 
-# --- INTERFAZ DE CHAT ---
+# --- CONFIGURACIÓN DINÁMICA DEL MODELO ---
+genai.configure(api_key=api_key)
+
+# --- INTERFAZ DE CHAT (STREAMING EN TEXTO) ---
 if modo_voz:
     col1, col2 = st.columns([1, 4])
     with col1:
@@ -725,12 +712,9 @@ if modo_voz:
                 instruccion = prompts_roles.get(rol, "Experto")
                 prompt = f"Rol: {rol}. INSTRUCCIONES: {instruccion}. Responde BREVE (audio). Contexto: {ctx[:50000]}"
                 
-                try:
-                    tools_config = [{'google_search': {}}] if usar_google_search else []
-                    res = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
-                except:
-                    # Fallback sin herramientas
-                    res = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
+                # SOLO GOOGLE_SEARCH (V48.0)
+                tools_config = [{'google_search': {}}] if usar_google_search else []
+                res = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
 
                 st.chat_message("assistant").markdown(res.text)
                 st.session_state.messages.append({"role": "user", "content": "Audio enviado"})
@@ -767,20 +751,11 @@ else:
                 con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo).")
             
             try:
-                # --- LÓGICA DE CONEXIÓN ROBUSTA (UNIVERSAL) ---
-                model = None
-                if usar_google_search and estado_red == "🟢 ONLINE":
-                    # Intento Moderno
-                    try:
-                        tools_config = [{'google_search': {}}] 
-                        model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA)
-                    except:
-                         # Fallback a vieja (Por si acaso)
-                         tools_config = [{'google_search_retrieval': {}}]
-                         model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA)
+                # --- SOLO LÓGICA MODERNA (V48.0) ---
+                if usar_google_search:
+                    tools_config = [{'google_search': {}}] 
+                    model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA)
                 else:
-                    # Modo Offline Seguro
-                    if usar_google_search: st.caption("⚠️ Búsqueda desactivada (Librería antigua detectada).")
                     model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
                 
                 response = model.generate_content(con, stream=True)
