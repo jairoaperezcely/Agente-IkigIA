@@ -66,7 +66,7 @@ INSTRUCCIONES PARA EL ASISTENTE (CÓMO DEBES RESPONDER):
 # ==========================================
 # CONFIGURACIÓN GLOBAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V48", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V50", page_icon="🧬", layout="wide")
 MODELO_USADO = 'gemini-2.5-flash' 
 
 # ==========================================
@@ -100,7 +100,8 @@ def plot_mermaid(code):
 def get_pdf_text(pdf_file):
     reader = PdfReader(pdf_file)
     text = ""
-    for page in reader.pages: text += page.extract_text()
+    for page in reader.pages:
+        text += page.extract_text()
     return text
 
 @st.cache_data
@@ -116,7 +117,8 @@ def get_excel_text(excel_file):
         for sheet_name, df in all_sheets.items():
             text += f"\n--- HOJA: {sheet_name} ---\n{df.to_string()}"
         return text
-    except Exception as e: return f"Error Excel: {e}"
+    except Exception as e:
+        return f"Error Excel: {e}"
 
 @st.cache_data
 def get_pptx_text(pptx_file):
@@ -126,25 +128,31 @@ def get_pptx_text(pptx_file):
         for i, slide in enumerate(prs.slides):
             text += f"\n--- SLIDE {i+1} ---\n"
             for shape in slide.shapes:
-                if hasattr(shape, "text"): text += shape.text + "\n"
+                if hasattr(shape, "text"):
+                    text += shape.text + "\n"
         return text
-    except Exception as e: return f"Error PPTX: {e}"
+    except Exception as e:
+        return f"Error PPTX: {e}"
 
 # ==========================================
 # FUNCIONES DE GENERACIÓN (OUTPUT DE LUJO)
 # ==========================================
 
-# 1. WORD ACTA (Completo)
+# 1. WORD ACTA (Versión Completa)
 def create_chat_docx(messages):
     doc = docx.Document()
+    # Márgenes Profesionales
     for section in doc.sections:
-        section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
+        section.top_margin = Cm(2.54)
+        section.bottom_margin = Cm(2.54)
     
+    # Encabezado
     header = doc.sections[0].header
     p = header.paragraphs[0]
     p.text = f"CONFIDENCIAL | {date.today()}"
     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     
+    # Título
     t = doc.add_heading('BITÁCORA DE SESIÓN', 0)
     t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph("_" * 40).alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -159,34 +167,47 @@ def create_chat_docx(messages):
         run = p_head.add_run(f"[{role}]")
         run.bold = True
         run.font.color.rgb = RGBColor(0, 51, 102) if role == "ASISTENTE" else RGBColor(80, 80, 80)
+        
         p_msg = doc.add_paragraph(clean_chat(msg["content"]))
         p_msg.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        doc.add_paragraph("")
-    buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
+        doc.add_paragraph("") # Espacio
+        
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
     return buffer
 
-# 2. WORD DOCUMENTO PRO (APA & Tablas - Completo)
+# 2. WORD DOCUMENTO PRO (APA & Tablas - Versión Completa)
 def create_clean_docx(text_content):
     doc = docx.Document()
     style = doc.styles['Normal']
-    style.font.name = 'Arial'; style.font.size = Pt(11)
+    style.font.name = 'Arial'
+    style.font.size = Pt(11)
     
     for section in doc.sections:
-        section.top_margin = Cm(2.54); section.bottom_margin = Cm(2.54)
+        section.top_margin = Cm(2.54)
+        section.bottom_margin = Cm(2.54)
 
-    for _ in range(3): doc.add_paragraph("")
+    for _ in range(3):
+        doc.add_paragraph("")
+        
     title = doc.add_paragraph("INFORME EJECUTIVO")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run_title = title.runs[0]
-    run_title.bold = True; run_title.font.size = Pt(24); run_title.font.color.rgb = RGBColor(0, 51, 102)
+    run_title.bold = True
+    run_title.font.size = Pt(24)
+    run_title.font.color.rgb = RGBColor(0, 51, 102)
+    
     doc.add_paragraph("__________________________________________________").alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph(f"\nFecha: {date.today().strftime('%d/%m/%Y')}").alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_page_break()
 
-    def clean_md(text): return text.replace("**", "").replace("__", "").replace("`", "").strip()
+    def clean_md(text):
+        return text.replace("**", "").replace("__", "").replace("`", "").strip()
 
     def build_word_table(rows_data):
-        if not rows_data: return
+        if not rows_data:
+            return
         table = doc.add_table(rows=len(rows_data), cols=len(rows_data[0]))
         table.style = 'Table Grid'
         for i, row in enumerate(rows_data):
@@ -195,30 +216,36 @@ def create_clean_docx(text_content):
                     cell = table.cell(i, j)
                     cell.text = clean_md(cell_text)
                     if i == 0:
+                        # Estilo Header Azul
                         shading = parse_xml(r'<w:shd {} w:fill="003366"/>'.format(nsdecls('w')))
                         cell._tc.get_or_add_tcPr().append(shading)
                         for p in cell.paragraphs:
                             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                             for r in p.runs:
-                                r.font.color.rgb = RGBColor(255, 255, 255); r.bold = True
+                                r.font.color.rgb = RGBColor(255, 255, 255)
+                                r.bold = True
 
     lines = text_content.split('\n')
-    table_buffer = []; in_table = False; is_biblio = False
+    table_buffer = []
+    in_table = False
 
     for line in lines:
         stripped = line.strip()
         if stripped.startswith('|') and stripped.endswith('|'):
-            if "---" in stripped: continue 
+            if "---" in stripped:
+                continue 
             row_cells = [c.strip() for c in stripped[1:-1].split('|')]
             table_buffer.append(row_cells)
             in_table = True
         else:
             if in_table:
                 build_word_table(table_buffer)
-                table_buffer = []; in_table = False
+                table_buffer = []
+                in_table = False
                 doc.add_paragraph("")
 
-            if not stripped: continue
+            if not stripped:
+                continue
 
             header_match = re.match(r'^(#+)\s*(.*)', stripped)
             if header_match:
@@ -226,17 +253,16 @@ def create_clean_docx(text_content):
                 level = len(hashes)
                 clean_title = clean_md(raw_text)
                 
-                if "referencia" in clean_title.lower() or "bibliografía" in clean_title.lower():
-                    is_biblio = True
-                else: is_biblio = False
-
                 if level == 1:
                     h = doc.add_heading(clean_title, level=1)
-                    h.runs[0].font.color.rgb = RGBColor(0, 51, 102); h.runs[0].font.size = Pt(16)
+                    h.runs[0].font.color.rgb = RGBColor(0, 51, 102)
+                    h.runs[0].font.size = Pt(16)
                 elif level == 2:
                     h = doc.add_heading(clean_title, level=2)
-                    h.runs[0].font.color.rgb = RGBColor(50, 50, 50); h.runs[0].font.size = Pt(14)
-                else: doc.add_heading(clean_title, level=3)
+                    h.runs[0].font.color.rgb = RGBColor(50, 50, 50)
+                    h.runs[0].font.size = Pt(14)
+                else:
+                    doc.add_heading(clean_title, level=3)
             elif stripped.startswith('- ') or stripped.startswith('* '):
                 doc.add_paragraph(clean_md(stripped[2:]), style='List Bullet')
             elif re.match(r'^\d+\.', stripped):
@@ -244,21 +270,22 @@ def create_clean_docx(text_content):
                 doc.add_paragraph(clean_md(parts[1]) if len(parts)>1 else clean_md(stripped), style='List Number')
             else:
                 p = doc.add_paragraph(clean_md(stripped))
-                if is_biblio:
-                    p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                    p.paragraph_format.left_indent = Cm(1.27) 
-                    p.paragraph_format.first_line_indent = Cm(-1.27)
-                else: p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 p.paragraph_format.space_after = Pt(6)
 
-    if in_table and table_buffer: build_word_table(table_buffer)
-    buffer = BytesIO(); doc.save(buffer); buffer.seek(0)
+    if in_table and table_buffer:
+        build_word_table(table_buffer)
+        
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
     return buffer
 
-# 3. PPTX PRO (Diseño Estricto - Completo)
+# 3. PPTX PRO (Diseño Estricto - Versión Completa)
 def generate_pptx_from_data(slide_data, template_file=None):
     if template_file: 
-        template_file.seek(0); prs = Presentation(template_file)
+        template_file.seek(0)
+        prs = Presentation(template_file)
         using_template = True
     else: 
         prs = Presentation()
@@ -267,39 +294,59 @@ def generate_pptx_from_data(slide_data, template_file=None):
     SLIDE_WIDTH = prs.slide_width
     SLIDE_HEIGHT = prs.slide_height
     
-    def clean_text(txt): return re.sub(r'\*\*(.*?)\*\*', r'\1', txt).strip()
+    def clean_text(txt):
+        return re.sub(r'\*\*(.*?)\*\*', r'\1', txt).strip()
 
     def apply_design(slide, title_shape=None):
-        if using_template: return
+        if using_template:
+            return
+        # Barra lateral azul oscuro
         shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0), PtxInches(0), PtxInches(0.4), SLIDE_HEIGHT)
-        shape.fill.solid(); shape.fill.fore_color.rgb = PtxRGB(0, 51, 102); shape.line.fill.background()
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = PtxRGB(0, 51, 102)
+        shape.line.fill.background()
+        
         if title_shape:
+            # Línea decorativa bajo el título
             line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PtxInches(0.8), PtxInches(1.4), SLIDE_WIDTH - PtxInches(1.5), PtxInches(0.05))
-            line.fill.solid(); line.fill.fore_color.rgb = PtxRGB(0, 150, 200); line.line.fill.background()
+            line.fill.solid()
+            line.fill.fore_color.rgb = PtxRGB(0, 150, 200)
+            line.line.fill.background()
+            
             title_shape.text_frame.word_wrap = True 
             title_shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
             title_shape.text_frame.paragraphs[0].font.name = 'Arial'
             title_shape.text_frame.paragraphs[0].font.bold = True
             title_shape.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
-            title_shape.top = PtxInches(0.5); title_shape.left = PtxInches(0.8)
+            title_shape.top = PtxInches(0.5)
+            title_shape.left = PtxInches(0.8)
             title_shape.width = SLIDE_WIDTH - PtxInches(1.5)
 
     def create_chart_image(data_dict):
         plt.style.use('seaborn-v0_8-whitegrid')
         fig, ax = plt.subplots(figsize=(8, 5))
-        labels = data_dict.get('labels', []); values = data_dict.get('values', [])
+        labels = data_dict.get('labels', [])
+        values = data_dict.get('values', [])
         label = data_dict.get('label', 'Datos')
         colors = ['#003366', '#708090', '#4682B4', '#A9A9A9']
+        
         if len(labels) == len(values):
             bars = ax.bar(labels, values, color=colors[:len(labels)], alpha=0.9)
             ax.bar_label(bars, fmt='%.1f')
+            
         ax.set_title(label, fontsize=14, fontweight='bold', color='#333333')
-        ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
         plt.tight_layout()
-        img_stream = BytesIO(); plt.savefig(img_stream, format='png', dpi=150); img_stream.seek(0)
-        plt.close(fig); return img_stream
+        
+        img_stream = BytesIO()
+        plt.savefig(img_stream, format='png', dpi=150)
+        img_stream.seek(0)
+        plt.close(fig)
+        return img_stream
 
     try:
+        # Portada
         slide = prs.slides.add_slide(prs.slide_layouts[0])
         if slide.shapes.title: 
             slide.shapes.title.text = clean_text(slide_data[0].get("title", "Presentación"))
@@ -308,8 +355,10 @@ def generate_pptx_from_data(slide_data, template_file=None):
             if not using_template:
                 slide.shapes.title.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
                 slide.shapes.title.text_frame.paragraphs[0].font.bold = True
-        if len(slide.placeholders) > 1: slide.placeholders[1].text = f"{date.today()}"
-    except: slide = prs.slides.add_slide(prs.slide_layouts[6])
+        if len(slide.placeholders) > 1:
+            slide.placeholders[1].text = f"{date.today()}"
+    except:
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
 
     for info in slide_data[1:]:
         slide_type = info.get("type", "text") 
@@ -335,6 +384,7 @@ def generate_pptx_from_data(slide_data, template_file=None):
             target_width = SLIDE_WIDTH * 0.9
             left = (SLIDE_WIDTH - target_width) / 2
             top = PtxInches(2.0); height = PtxInches(rows * 0.4)
+            
             graphic_frame = slide.shapes.add_table(rows, cols, left, top, target_width, height)
             table = graphic_frame.table
             single_col_width = int(target_width / cols)
@@ -343,17 +393,25 @@ def generate_pptx_from_data(slide_data, template_file=None):
             for i, row in enumerate(content):
                 for j, val in enumerate(row):
                     if j < cols:
-                        cell = table.cell(i, j); cell.text = str(val)
+                        cell = table.cell(i, j)
+                        cell.text = str(val)
                         cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+                        
                         txt_len = len(str(val))
                         font_size = 14
                         if txt_len > 50: font_size = 10
                         elif txt_len > 20: font_size = 12
+                        
                         p = cell.text_frame.paragraphs[0]
-                        p.font.size = PtxPt(font_size); p.font.name = 'Arial'
+                        p.font.size = PtxPt(font_size)
+                        p.font.name = 'Arial'
+                        
                         if i == 0:
-                            cell.fill.solid(); cell.fill.fore_color.rgb = PtxRGB(0, 51, 102)
-                            p.font.color.rgb = PtxRGB(255, 255, 255); p.font.bold = True; p.alignment = PP_ALIGN.CENTER
+                            cell.fill.solid()
+                            cell.fill.fore_color.rgb = PtxRGB(0, 51, 102)
+                            p.font.color.rgb = PtxRGB(255, 255, 255)
+                            p.font.bold = True
+                            p.alignment = PP_ALIGN.CENTER
             graphic_frame.left = int((SLIDE_WIDTH - graphic_frame.width) / 2)
 
         elif slide_type == "chart":
@@ -366,6 +424,7 @@ def generate_pptx_from_data(slide_data, template_file=None):
                 slide.shapes.add_picture(img_stream, pic_left, pic_top, width=pic_width)
 
         else:
+            # TEXT MODE
             if not using_template:
                 box_width = SLIDE_WIDTH * 0.85
                 box_left = (SLIDE_WIDTH - box_width) / 2
@@ -375,12 +434,15 @@ def generate_pptx_from_data(slide_data, template_file=None):
                 for shape in slide.placeholders:
                     if shape.placeholder_format.idx == 1: tf = shape.text_frame; tf.clear(); break
             
-            tf.word_wrap = True; tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+            tf.word_wrap = True
+            tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+            
             for point in content:
                 p = tf.add_paragraph()
                 p.text = clean_text(str(point))
                 p.font.name = 'Arial'
-                p.font.color.rgb = PtxRGB(60, 60, 60); p.space_after = PtxPt(12)
+                p.font.color.rgb = PtxRGB(60, 60, 60)
+                p.space_after = PtxPt(12)
 
         if ref_text and ref_text != "N/A":
             left = PtxInches(0.5); top = SLIDE_HEIGHT - PtxInches(0.6)
@@ -391,10 +453,12 @@ def generate_pptx_from_data(slide_data, template_file=None):
             p.font.size = PtxPt(10); p.font.italic = True
             p.font.color.rgb = PtxRGB(120, 120, 120)
 
-    buffer = BytesIO(); prs.save(buffer); buffer.seek(0)
+    buffer = BytesIO()
+    prs.save(buffer)
+    buffer.seek(0)
     return buffer
 
-# 4. EXCEL PRO (Estilo Corporativo - Completo)
+# 4. EXCEL PRO (Estilo Corporativo - Versión Completa)
 def generate_excel_from_data(excel_data):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -402,15 +466,19 @@ def generate_excel_from_data(excel_data):
             df = pd.DataFrame(data)
             df.to_excel(writer, index=False, sheet_name=sheet_name[:30])
             worksheet = writer.sheets[sheet_name[:30]]
+            
+            # Estilos Pro
             header_font = Font(bold=True, color="FFFFFF")
             header_fill = PatternFill(start_color="003366", end_color="003366", fill_type="solid")
             border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+            
             for col_idx, column_cells in enumerate(worksheet.columns, 1):
                 col_letter = get_column_letter(col_idx)
                 worksheet.column_dimensions[col_letter].width = 22
                 worksheet[f"{col_letter}1"].font = header_font
                 worksheet[f"{col_letter}1"].fill = header_fill
-                for cell in column_cells: cell.border = border
+                for cell in column_cells:
+                    cell.border = border
     output.seek(0)
     return output
 
@@ -421,16 +489,21 @@ def generate_advanced_chart(chart_data):
     colors = ['#003366', '#708090', '#A9A9A9', '#4682B4']
     labels = chart_data.get("labels", [])
     datasets = chart_data.get("datasets", [])
+    
     for i, ds in enumerate(datasets):
         color = colors[i % len(colors)]
         if len(ds["values"]) == len(labels):
-            if ds.get("type") == "line": ax.plot(labels, ds["values"], label=ds["label"], marker='o', color=color, linewidth=2.5)
+            if ds.get("type") == "line":
+                ax.plot(labels, ds["values"], label=ds["label"], marker='o', color=color, linewidth=2.5)
             else: 
                 bars = ax.bar(labels, ds["values"], label=ds["label"], color=color, alpha=0.9)
                 ax.bar_label(bars, padding=3, fmt='%.1f')
+                
     ax.legend(frameon=False)
     ax.set_title(chart_data.get("title", "Análisis"), fontsize=14, fontweight='bold', color='#333333')
-    ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False); ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
     ax.grid(axis='y', linestyle='--', alpha=0.5)
     plt.tight_layout()
     return fig
@@ -444,7 +517,8 @@ def get_youtube_text(url):
     except: return "Error YT"
 
 def get_web_text(url):
-    try: return "WEB: " + "\n".join([p.get_text() for p in BeautifulSoup(requests.get(url).content, 'html.parser').find_all('p')])
+    try:
+        return "WEB: " + "\n".join([p.get_text() for p in BeautifulSoup(requests.get(url).content, 'html.parser').find_all('p')])
     except: return "Error Web"
 
 # ==========================================
@@ -477,6 +551,7 @@ with st.sidebar:
     c1, c2 = st.columns(2)
     c1.metric("Librería", f"v{ver}")
     
+    # Determinar estado
     estado_red = "🔴 OFFLINE"
     if ver >= "0.7.0": estado_red = "🟢 ONLINE"
     c2.metric("Internet", estado_red)
@@ -523,7 +598,7 @@ with st.sidebar:
     st.subheader("🏭 Centro de Producción")
     
     tab_office, tab_data, tab_visual = st.tabs(["📝 Oficina", "📊 Analítica", "🎨 Diseño"])
-
+    
     with tab_office:
         st.markdown("##### 📄 Informes")
         if st.button("Generar Word (Elegante)", use_container_width=True):
@@ -557,13 +632,15 @@ with st.sidebar:
                 IMPORTANTE: Responde SOLO el JSON.
                 """
                 try:
-                    # CONFIGURACIÓN DINÁMICA DE HERRAMIENTAS
                     genai.configure(api_key=api_key)
-                    # --- V48.0 FIX: USO DE LA HERRAMIENTA MODERNA SIEMPRE ---
-                    tools_config = [{'google_search': {}}] if usar_google_search else []
-                    
-                    mod = genai.GenerativeModel(MODELO_USADO, tools=tools_config)
-                    res = mod.generate_content(prompt)
+                    # LÓGICA HÍBRIDA PARA PPTX TAMBIÉN
+                    try:
+                        tools_config = [{'google_search': {}}] if usar_google_search else [] 
+                        mod = genai.GenerativeModel(MODELO_USADO, tools=tools_config)
+                        res = mod.generate_content(prompt)
+                    except:
+                        mod = genai.GenerativeModel(MODELO_USADO)
+                        res = mod.generate_content(prompt)
                     
                     clean_text = res.text
                     if "```json" in clean_text:
@@ -676,8 +753,10 @@ with st.sidebar:
 # ==========================================
 # CHAT Y VISUALIZADORES
 # ==========================================
-st.title(f"🤖 Agente V48: {rol}")
+st.title(f"🤖 Agente V50: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key"); st.stop()
+
+genai.configure(api_key=api_key)
 
 if st.session_state.generated_mermaid:
     st.subheader("🎨 Esquema Visual")
@@ -690,10 +769,7 @@ if st.session_state.generated_chart:
     st.pyplot(st.session_state.generated_chart)
     st.button("Cerrar Gráfico", on_click=lambda: st.session_state.update(generated_chart=None))
 
-# --- CONFIGURACIÓN DINÁMICA DEL MODELO ---
-genai.configure(api_key=api_key)
-
-# --- INTERFAZ DE CHAT (STREAMING EN TEXTO) ---
+# --- INTERFAZ DE CHAT ---
 if modo_voz:
     col1, col2 = st.columns([1, 4])
     with col1:
@@ -712,9 +788,13 @@ if modo_voz:
                 instruccion = prompts_roles.get(rol, "Experto")
                 prompt = f"Rol: {rol}. INSTRUCCIONES: {instruccion}. Responde BREVE (audio). Contexto: {ctx[:50000]}"
                 
-                # SOLO GOOGLE_SEARCH (V48.0)
-                tools_config = [{'google_search': {}}] if usar_google_search else []
-                res = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
+                # SISTEMA BLINDADO V50 (VOZ)
+                try:
+                    tools_config = [{'google_search': {}}] if usar_google_search else []
+                    res = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
+                except:
+                    # Si falla, intenta sin herramientas para que no muera
+                    res = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA).generate_content([prompt, mfile])
 
                 st.chat_message("assistant").markdown(res.text)
                 st.session_state.messages.append({"role": "user", "content": "Audio enviado"})
@@ -751,14 +831,27 @@ else:
                 con.insert(0, st.session_state.archivo_multimodal); con.append("(Analiza el archivo).")
             
             try:
-                # --- SOLO LÓGICA MODERNA (V48.0) ---
-                if usar_google_search:
-                    tools_config = [{'google_search': {}}] 
-                    model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA)
-                else:
-                    model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
+                # --- SISTEMA BLINDADO V50.0 (ANTI-CRASH) ---
+                try:
+                    if usar_google_search:
+                        # 1. Intento Moderno
+                        tools_config = [{'google_search': {}}] 
+                        model = genai.GenerativeModel(MODELO_USADO, tools=tools_config, system_instruction=MEMORIA_MAESTRA)
+                        response = model.generate_content(con, stream=True)
+                    else:
+                        model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
+                        response = model.generate_content(con, stream=True)
                 
-                response = model.generate_content(con, stream=True)
+                except Exception as e:
+                    # 2. Si falla por error de versión (400/Unknown field), activamos modo emergencia
+                    if "Unknown field" in str(e) or "400" in str(e):
+                        st.caption("⚠️ Error de conexión a búsqueda (Servidor desactualizado). Usando memoria interna.")
+                        model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
+                        response = model.generate_content(con, stream=True)
+                    else:
+                        # Si es otro error (ej: API Key mala), sí lo mostramos
+                        raise e 
+
                 def stream_parser():
                     for chunk in response: yield chunk.text
                 full_response = st.write_stream(stream_parser)
