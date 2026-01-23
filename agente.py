@@ -41,7 +41,7 @@ st.markdown(f"""
 # 🧠 MEMORIA MAESTRA Y LÓGICA DE NEGOCIO
 # ==========================================
 MEMORIA_MAESTRA = """
-PERFIL: Eres el Asesor Principal del Vicedecano de Medicina UNAL, del Director de UCI, del Constultor en salud digital, el profesor universitario y asistente personal ejecutivo
+PERFIL: Eres el Asesor Principal del Vicedecano de Medicina UNAL y Director de UCI.
 COMPETENCIAS: Epidemiología, Bioética, Telemedicina y Gestión de Proyectos bajo Ley 1419.
 ESTILO: Académico de alto nivel, ejecutivo, preciso y basado en evidencia.
 PROTOCOLO: 
@@ -126,7 +126,7 @@ def generar_retroalimentacion(contexto, prioridades):
     return resumen
 
 def ejecutar_agente_personal():
-    tareas = ["Revisión de indicadores clínicos", "Preparar consejo de facultad", "Experto en salud digital y telesalud"]
+    tareas = ["Revisión de indicadores clínicos", "Preparar consejo de facultad", "Responder solicitud de telemedicina"]
     contexto = {
         "fecha": datetime.now().strftime("%Y-%m-%d"),
         "tareas": tareas,
