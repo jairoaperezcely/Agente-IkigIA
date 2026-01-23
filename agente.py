@@ -16,27 +16,54 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.57 - Clean Executive Suite", 
+    page_title="IkigAI V1.59 - Strategic Executive Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS: Deep Dark con aislamiento de Sidebar y contraste quirúrgico
+# Estilo CSS: Deep Dark Zen - Enfoque en Contraste y Pulcritud
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+    
+    /* Global Dark */
     .stApp { background-color: #000000 !important; font-family: 'Inter', sans-serif !important; }
-    [data-testid="stSidebar"] { background-color: #0A0A0A !important; border-right: 1px solid #1A1A1A !important; }
-    [data-testid="stSidebar"] .stText, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] h1, h2, h3 { color: #FFFFFF !important; }
+    
+    /* Sidebar Zen */
+    [data-testid="stSidebar"] { 
+        background-color: #080808 !important; 
+        border-right: 1px solid #1A1A1A !important; 
+    }
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, h2, h3 { 
+        color: #FFFFFF !important; 
+    }
+
+    /* Chat & Markdown */
     [data-testid="stChatMessage"] { background-color: #050505 !important; border: 1px solid #1A1A1A !important; }
     .stMarkdown p, .stMarkdown li { color: #FFFFFF !important; font-size: 16px !important; line-height: 1.7 !important; }
-    blockquote { border-left: 4px solid #00E6FF !important; background-color: #0D1117 !important; padding: 15px !important; margin: 15px 0 !important; }
+    
+    /* APA 7 References High Contrast */
+    blockquote { 
+        border-left: 4px solid #00E6FF !important; 
+        background-color: #0D1117 !important; 
+        padding: 15px !important; 
+        margin: 15px 0 !important; 
+    }
     blockquote p { color: #58A6FF !important; font-style: italic !important; font-size: 14px !important; }
-    .stDownloadButton button { width: 100%; border-radius: 6px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; margin-top: 10px; }
+
+    /* Clean Buttons */
+    .stDownloadButton button { 
+        width: 100%; border-radius: 4px; background-color: transparent !important; 
+        color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; 
+    }
     .stDownloadButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
-    [data-testid="stFileUploadDropzone"] { background-color: #0A0A0A !important; border: 1px dashed #333 !important; }
+    
+    /* Reset Button Style */
+    div.stButton > button { width: 100%; border-radius: 4px; }
+    
+    /* File Uploader Fix */
+    [data-testid="stFileUploadDropzone"] { background-color: #080808 !important; border: 1px dashed #333 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -69,45 +96,32 @@ def get_web_text(url):
 
 # --- 3. MOTOR DE LIMPIEZA Y EXPORTACIÓN ---
 def clean_markdown(text):
-    # Elimina asteriscos de negrita/itálica y limpia numerales de inicio
-    text = re.sub(r'\*+', '', text)
-    text = re.sub(r'^#+\s*', '', text)
+    text = re.sub(r'\*+', '', text) # Quita asteriscos
+    text = re.sub(r'^#+\s*', '', text) # Quita numerales de títulos
     return text.strip()
 
 def download_word(content, role):
     doc = docx.Document()
-    doc.add_heading(f'Análisis Estratégico: {role}', 0)
-    doc.add_paragraph(f"Generado por IkigAI Engine | {date.today()} | APA 7").italic = True
+    doc.add_heading(f'IkigAI Strategy: {role}', 0)
+    doc.add_paragraph(f"Intelligence Report | {date.today()}").italic = True
     for line in content.split('\n'):
         if line.strip():
-            # Si la línea original tiene marcas de encabezado
             if line.startswith('#'):
-                level = line.count('#')
-                doc.add_heading(clean_markdown(line), level=min(level, 3))
+                doc.add_heading(clean_markdown(line), level=2)
             else:
-                p = doc.add_paragraph(clean_markdown(line))
-                if "(" in line and ")" in line and len(line) > 50: # Formato APA sutil
-                    p.paragraph_format.left_indent = Pt(12)
+                doc.add_paragraph(clean_markdown(line))
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
 def download_pptx(content, role):
     prs = Presentation()
-    # Limpieza previa del contenido
-    lines = [l.strip() for l in content.split('\n') if len(l.strip()) > 20]
-    
-    # Portada
+    lines = [clean_markdown(l) for l in content.split('\n') if len(l.strip()) > 25]
     slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = clean_markdown(role).upper()
-    slide.placeholders[1].text = f"Estrategia Ejecutiva IkigAI\n{date.today()}"
-    
-    # Slides de contenido (máximo 10 para ROI cognitivo)
+    slide.shapes.title.text = role.upper()
+    slide.placeholders[1].text = f"Executive Presentation\n{date.today()}"
     for i, line in enumerate(lines[:10]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Eje Estratégico {i+1}"
-        # Eliminación de asteriscos en la diapositiva
-        text_frame = slide.placeholders[1].text_frame
-        text_frame.text = clean_markdown(line)
-        
+        slide.shapes.title.text = f"Pilar Estratégico {i+1}"
+        slide.placeholders[1].text = line[:550]
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
 # --- 4. LÓGICA DE MEMORIA ---
@@ -115,12 +129,14 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL ---
+# --- 5. BARRA LATERAL (ZEN DESIGN) ---
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=60)
-    st.title("IkigAI Engine")
+    # Icono Ikigai (Minimalista)
+    st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
+    st.caption("<p style='text-align: center; color: #666;'>Reason for Being | Strategy Hub</p>", unsafe_allow_html=True)
     
-    if st.button("🗑️ REINICIAR SESIÓN"):
+    if st.button("RESET ENGINE"):
         st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
         st.session_state.messages = []
         st.session_state.last_analysis = ""
@@ -128,32 +144,32 @@ with st.sidebar:
 
     st.divider()
     st.subheader("🎯 Perfil")
-    rol_activo = st.radio("Selección:", options=list(ROLES.keys()))
+    rol_activo = st.radio("Rol:", options=list(ROLES.keys()), label_visibility="collapsed")
     
     if st.session_state.last_analysis:
         st.divider()
-        st.subheader("💾 Exportar Limpio")
-        st.download_button("📄 WORD PROFESIONAL", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Informe_{rol_activo}.docx")
-        st.download_button("📊 PPTX EJECUTIVO", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Presentacion_{rol_activo}.pptx")
+        st.subheader("💾 Exportar")
+        st.download_button("📄 WORD (CLEAN)", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
+        st.download_button("📊 PPTX (CLEAN)", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
 
     st.divider()
     st.subheader("🔌 Datos")
     t1, t2, t3 = st.tabs(["DOC", "URL", "IMG"])
     with t1:
-        up = st.file_uploader("Cargar archivos:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
+        up = st.file_uploader("Upload:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
         if st.button("🧠 PROCESAR", use_container_width=True):
             for f in up:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
                 elif "word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
                 elif "sheet" in f.type: st.session_state.biblioteca[rol_activo] += get_excel_text(f)
-            st.success("Cargado.")
+            st.success("Analizado.")
     with t2:
         uw = st.text_input("URL:", placeholder="https://")
         if st.button("🔗 CONECTAR", use_container_width=True):
             if uw: st.session_state.biblioteca[rol_activo] += get_web_text(uw)
-            st.success("Link OK.")
+            st.success("Conectado.")
     with t3:
-        img_f = st.file_uploader("Imagen:", type=['jpg', 'png'], label_visibility="collapsed")
+        img_f = st.file_uploader("Image:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f:
             st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
@@ -163,12 +179,12 @@ st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_all
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-if pr := st.chat_input("¿Qué analizamos hoy, Doctor?"):
+if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
     with st.chat_message("assistant"):
         model = genai.GenerativeModel('gemini-2.5-flash')
-        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo. APA 7 obligatorio."
+        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo, ejecutivo. APA 7."
         response = model.generate_content([sys_context, f"Contexto: {st.session_state.biblioteca[rol_activo][:500000]}", pr])
         st.session_state.last_analysis = response.text
         st.markdown(response.text)
