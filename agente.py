@@ -10,12 +10,12 @@ from PIL import Image
 from io import BytesIO
 from datetime import date
 from pptx import Presentation
-from gtts import gTTS  # Requiere: pip install gTTS
+from gtts import gTTS 
 import os
 import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
-st.set_page_config(page_title="IkigAI V1.36 - Voice & Strategy Hub", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="IkigAI V1.37 - Voice Strategy Hub", page_icon="🧬", layout="wide")
 
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -51,7 +51,6 @@ def get_yt_text(url):
 
 # --- 3. FUNCIONES DE EXPORTACIÓN Y VOZ ---
 def generate_audio(text):
-    # Limpiar markdown para que la voz no lea asteriscos o símbolos
     clean_text = re.sub(r'[*#_>-]', '', text)
     tts = gTTS(text=clean_text, lang='es', tld='com.mx')
     fp = BytesIO()
@@ -64,8 +63,7 @@ def download_word_apa(content, role):
     doc.add_heading(f'Informe Estratégico: {role}', 0)
     doc.add_paragraph(f"Fecha: {date.today()} | Formato APA 7").italic = True
     for p in content.split('\n'):
-        if p.strip():
-            paragraph = doc.add_paragraph(p)
+        if p.strip(): doc.add_paragraph(p)
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
 def download_pptx_pro(content, role):
@@ -86,13 +84,17 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "temp_image" not in st.session_state: st.session_state.temp_image = None
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL ---
+# --- 5. BARRA LATERAL (Panel de Control de Voz) ---
 with st.sidebar:
     st.title("🧬 IkigAI Engine")
     rol_activo = st.selectbox("Cambiar Rol Estratégico:", list(ROLES.keys()))
     st.session_state.rol_actual = rol_activo
-    st.divider()
     
+    st.divider()
+    st.subheader("🎙️ Configuración de Voz")
+    voz_activa = st.toggle("Activar Respuesta por Voz", value=True)
+    
+    st.divider()
     st.subheader(f"🔌 Fuentes para {rol_activo}")
     t1, t2, t3 = st.tabs(["📄 Archivos", "🔗 Links", "🖼️ Imágenes"])
     with t1:
@@ -132,7 +134,7 @@ if pr := st.chat_input("¿En qué trabajamos hoy, Doctor?"):
 
     with st.chat_message("assistant"):
         model = genai.GenerativeModel('gemini-2.5-flash') 
-        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo, sin clichés. Citas en APA 7."
+        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. Citas APA 7."
         
         inputs = [sys, f"Contexto leído: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
         if st.session_state.temp_image: inputs.append(st.session_state.temp_image)
@@ -141,9 +143,10 @@ if pr := st.chat_input("¿En qué trabajamos hoy, Doctor?"):
         st.session_state.last_analysis = res.text
         st.markdown(res.text)
         
-        # Generar y reproducir audio
-        with st.spinner("Generando audio..."):
-            audio_fp = generate_audio(res.text)
-            st.audio(audio_fp, format="audio/mp3")
+        # Ejecución de voz basada en el estado del Toggle
+        if voz_activa:
+            with st.spinner("Generando audio..."):
+                audio_fp = generate_audio(res.text)
+                st.audio(audio_fp, format="audio/mp3")
             
         st.session_state.messages.append({"role": "assistant", "content": res.text})
