@@ -15,7 +15,7 @@ import re
 import urllib.parse
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
-st.set_page_config(page_title="IkigAI V1.28 - Hub Estratégico", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="IkigAI V1.29 - Hub Estratégico", page_icon="🧬", layout="wide")
 
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -49,15 +49,13 @@ def get_yt_text(url):
         return " ".join([t['text'] for t in YouTubeTranscriptApi.get_transcript(v_id, languages=['es', 'en'])])
     except: return "Error en YouTube."
 
-# --- 3. FUNCIONES DE EXPORTACIÓN (WORD, PPTX) ---
+# --- 3. FUNCIONES DE EXPORTACIÓN ---
 def download_word(content, role):
     doc = docx.Document()
     doc.add_heading(f'Entregable IkigAI: {role}', 0)
     for p in content.split('\n'):
         if p.strip(): doc.add_paragraph(p)
-    bio = BytesIO()
-    doc.save(bio)
-    return bio.getvalue()
+    bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
 def download_pptx(content, role):
     prs = Presentation()
@@ -66,51 +64,55 @@ def download_pptx(content, role):
     points = [p for p in content.split('\n') if len(p.strip()) > 30]
     for i, p in enumerate(points[:8]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Punto Estratégico {i+1}"
-        slide.placeholders[1].text = p
-    bio = BytesIO()
-    prs.save(bio)
-    return bio.getvalue()
+        slide.shapes.title.text = f"Punto Estratégico {i+1}"; slide.placeholders[1].text = p
+    bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
-# --- 4. NUEVO MOTOR DE INFOGRAFÍA (SÓLIDO) ---
-def render_mermaid_st(mermaid_code):
-    clean_code = re.sub(r'```mermaid|```', '', mermaid_code).strip()
-    # Generar URL de respaldo para visualización externa
-    encoded_mermaid = urllib.parse.quote(clean_code)
-    mermaid_url = f"https://mermaid.ink/img/{encoded_mermaid}"
-    
-    st.subheader("📊 Infografía Generada")
-    
-    # Intentar renderizar en pantalla
-    components.html(f"""
-        <script type="module">
-            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-            mermaid.initialize({{ startOnLoad: true, theme: 'neutral' }});
-        </script>
-        <div class="mermaid">{clean_code}</div>
-    """, height=400)
-    
-    # Botón de descarga garantizada (Imagen Directa)
-    st.markdown(f'''
-        <a href="{mermaid_url}" target="_blank">
-            <button style="width:100%; padding:10px; background-color:#28B463; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">
-                📥 DESCARGAR INFOGRAFÍA (PNG de Alta Calidad)
-            </button>
-        </a>
-    ''', unsafe_allow_html=True)
+# --- 4. MOTOR DE INFOGRAFÍA (DETECCIÓN ROBUSTA) ---
+def render_mermaid_st(text):
+    # Extrae solo el código Mermaid ignorando texto explicativo
+    match = re.search(r'(graph|sequenceDiagram|mindmap|gantt|classDiagram|pie)[\s\S]+', text)
+    if match:
+        clean_code = match.group(0).replace('```mermaid', '').replace('```', '').strip()
+        encoded_mermaid = urllib.parse.quote(clean_code)
+        mermaid_url = f"https://mermaid.ink/img/{encoded_mermaid}"
+        
+        st.subheader("📊 Infografía Estratégica")
+        
+        # Botón de descarga con imagen directa (Servidor Externo)
+        st.markdown(f'''
+            <div style="margin-bottom: 20px;">
+                <a href="{mermaid_url}" target="_blank">
+                    <button style="width:100%; padding:12px; background-color:#2E86C1; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; font-size:16px;">
+                        📥 CLIC AQUÍ PARA GUARDAR INFOGRAFÍA (PNG)
+                    </button>
+                </a>
+                <p style="font-size: 12px; color: gray; margin-top: 5px;">*Al abrir, clic derecho > Guardar imagen como.</p>
+            </div>
+        ''', unsafe_allow_html=True)
+        
+        # Renderizado en pantalla para previsualización
+        components.html(f"""
+            <div class="mermaid" style="background: white; display: flex; justify-content: center;">
+                {clean_code}
+            </div>
+            <script type="module">
+                import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+                mermaid.initialize({{ startOnLoad: true, theme: 'neutral' }});
+            </script>
+        """, height=500, scrolling=True)
+        return True
+    return False
 
-# --- 5. LÓGICA DE MEMORIA ---
+# --- 5. LÓGICA DE MEMORIA Y PANEL ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
 if "temp_image" not in st.session_state: st.session_state.temp_image = None
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 6. BARRA LATERAL ---
 with st.sidebar:
     st.title("🧬 IkigAI Engine")
     rol_activo = st.selectbox("Perfil Estratégico:", list(ROLES.keys()))
     st.session_state.rol_actual = rol_activo
-    
     st.divider()
     t1, t2, t3 = st.tabs(["📄 Documentos", "🔗 Enlaces", "🖼️ Imágenes"])
     with t1:
@@ -130,40 +132,28 @@ with st.sidebar:
     with t3:
         img_f = st.file_uploader("Leer imagen:", type=['jpg', 'jpeg', 'png'])
         if img_f:
-            st.session_state.temp_image = Image.open(img_f)
-            st.image(st.session_state.temp_image, caption="Imagen cargada")
+            st.session_state.temp_image = Image.open(img_f); st.image(st.session_state.temp_image)
 
     if st.session_state.last_analysis:
         st.divider()
-        st.subheader("💾 Exportar Texto")
-        st.download_button("📄 Word", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.docx")
-        st.download_button("📊 PPTX", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.pptx")
+        st.download_button("📄 Descargar Word", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.docx")
+        st.download_button("📊 Descargar PPTX", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.pptx")
 
-# --- 7. PANEL CENTRAL ---
+# --- 6. PANEL CENTRAL ---
 st.header(f"IkigAI: {rol_activo}")
-
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
 if pr := st.chat_input("Instrucción estratégica..."):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
-
     with st.chat_message("assistant"):
-        # MODELO FLASH 2.5 (Configurado por compatibilidad)
         model = genai.GenerativeModel('gemini-2.5-flash')
-        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo, sin clichés. Si pides infografía, responde SOLO con código Mermaid."
+        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo. Si pides infografía, responde SOLO con el código Mermaid (graph TD...)."
         inputs = [sys, f"Contexto: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
         if st.session_state.temp_image: inputs.append(st.session_state.temp_image)
-        
         res = model.generate_content(inputs)
         st.session_state.last_analysis = res.text
-        
-        if any(kw in res.text for kw in ["graph", "sequenceDiagram", "mindmap"]):
-            render_mermaid_st(res.text)
-        else:
-            st.markdown(res.text)
-        
+        if not render_mermaid_st(res.text): st.markdown(res.text)
         st.session_state.messages.append({"role": "assistant", "content": res.text})
-        st.session_state.temp_image = None
         st.rerun()
