@@ -2,192 +2,279 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 import docx
-from docx.shared import Pt, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-import pandas as pd
-import matplotlib.pyplot as plt
-from pptx import Presentation
-from pptx.util import Pt as PtxPt
-from pptx.dml.color import RGBColor as PtxRGB
+from bs4 import BeautifulSoup
+import requests
 from youtube_transcript_api import YouTubeTranscriptApi
 import tempfile
 import time
 import os
 from io import BytesIO
 import json
-from gtts import gTTS
-from streamlit_mic_recorder import mic_recorder
-from datetime import datetime, date
+from datetime import date 
 
-# ==========================================
-# 🏛️ CONFIGURACIÓN DE IDENTIDAD UNAL
-# ==========================================
-st.set_page_config(page_title="IkigAI: Ecosistema Directivo", page_icon="🏛️", layout="wide")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Agente V9.5 (Masivo & Multimodal)", page_icon="🧬", layout="wide")
 
-# Colores Institucionales UNAL
-UNAL_AZUL = "#003366"
-UNAL_GRIS = "#f0f2f6"
+# --- FUNCIONES DE LECTURA DE TEXTO ---
+def get_pdf_text(pdf_file):
+    reader = PdfReader(pdf_file)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text()
+    return text
 
-st.markdown(f"""
-    <style>
-    .stApp {{ background-color: #ffffff; }}
-    [data-testid="stSidebar"] {{ background-color: {UNAL_GRIS} !important; border-right: 3px solid {UNAL_AZUL}; }}
-    .reportview-container .main .block-container {{ padding-top: 2rem; }}
-    h1 {{ color: {UNAL_AZUL}; font-family: 'Helvetica Neue', sans-serif; font-weight: 800; }}
-    </style>
-    """, unsafe_allow_html=True)
+def get_docx_text(docx_file):
+    doc = docx.Document(docx_file)
+    return "\n".join([para.text for para in doc.paragraphs])
 
-# ==========================================
-# 🧠 MEMORIA MAESTRA Y LÓGICA DE NEGOCIO
-# ==========================================
-MEMORIA_MAESTRA = """
-PERFIL: Eres el Asesor Principal del Vicedecano de Medicina UNAL y Director de UCI.
-COMPETENCIAS: Epidemiología, Bioética, Telemedicina y Gestión de Proyectos bajo Ley 1419.
-ESTILO: Académico de alto nivel, ejecutivo, preciso y basado en evidencia.
-PROTOCOLO: 
-1. Si los datos son numéricos, genera una tabla Y un breve análisis de tendencias.
-2. Si la consulta es médica, incluye una sección de 'Consideraciones Bioéticas'.
-3. Formato: Usa Markdown con encabezados claros.
-"""
-
-# ==========================================
-# 📊 MÓDULO DE INTELIGENCIA DE DATOS
-# ==========================================
-def analizar_excel_avanzado(file):
-    df = pd.read_excel(file)
-    st.write("### 📈 Previsualización de Datos Institucionales")
-    st.dataframe(df.head(5), use_container_width=True)
-
-    num_cols = df.select_dtypes(include=['number']).columns
-    if not num_cols.empty:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        df[num_cols[0]].plot(kind='line' if len(df)>10 else 'bar', ax=ax, color=UNAL_AZUL)
-        plt.title(f"Tendencia de {num_cols[0]}")
-        st.pyplot(fig)
-    return df.to_string()
-
-# ==========================================
-# 📄 GENERADOR DE DOCUMENTOS NORMATIVOS (WORD)
-# ==========================================
-def create_executive_docx(content):
+# --- FUNCIÓN PARA GENERAR WORD (ACTA) ---
+def create_chat_docx(messages):
     doc = docx.Document()
-    section = doc.sections[0]
-    header = section.header
-    header.paragraphs[0].text = "UNIVERSIDAD NACIONAL DE COLOMBIA - FACULTAD DE MEDICINA"
-
-    p = doc.add_paragraph("INFORME TÉCNICO DE DIRECCIÓN")
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.runs[0]
-    run.bold = True
-    run.font.size = Pt(18)
-    run.font.color.rgb = RGBColor(0, 51, 102)
-
-    for line in content.split('\n'):
-        if line.startswith('#'):
-            doc.add_heading(line.replace('#', '').strip(), level=1)
-        else:
-            doc.add_paragraph(line)
-
+    doc.add_heading('Acta de Sesión con IA', 0)
+    doc.add_paragraph(f"Fecha de sesión: {date.today().strftime('%d/%m/%Y')}")
+    
+    for msg in messages:
+        role = "USUARIO" if msg["role"] == "user" else "ASISTENTE IA"
+        doc.add_heading(role, level=2)
+        doc.add_paragraph(msg["content"])
+        doc.add_paragraph("---")
+    
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-# ==========================================
-# 🧭 AGENTE PERSONAL MULTIPERFIL
-# ==========================================
-def analizar_prioridades(contexto):
-    prioridades = {
-        "urgente_importante": [],
-        "alto_impacto": [],
-        "posible_procrastinacion": []
-    }
-    for tarea in contexto["tareas"]:
-        if "urgente" in tarea or "crítico" in tarea:
-            prioridades["urgente_importante"].append(tarea)
-        elif "estrategia" in tarea or "innovación" in tarea:
-            prioridades["alto_impacto"].append(tarea)
+# --- FUNCIONES WEB Y YOUTUBE ---
+def get_youtube_text(video_url):
+    try:
+        if "v=" in video_url:
+            video_id = video_url.split("v=")[1].split("&")[0]
+        elif "youtu.be" in video_url:
+            video_id = video_url.split("/")[-1]
         else:
-            prioridades["posible_procrastinacion"].append(tarea)
-    return prioridades
+            return "URL inválida."
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
+        text = " ".join([entry['text'] for entry in transcript])
+        return f"TRANSCRIPCIÓN YOUTUBE:\n{text}"
+    except:
+        return "No se pudo obtener la transcripción."
 
-def ejercicio_pensamiento_critico():
-    return "¿Qué creencia no cuestionada podría estar limitando mi efectividad hoy en alguno de mis tres roles?"
+def get_web_text(url):
+    try:
+        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+        soup = BeautifulSoup(response.content, 'html.parser')
+        paragraphs = soup.find_all('p')
+        text = "\n".join([p.get_text() for p in paragraphs])
+        return f"CONTENIDO WEB ({url}):\n{text}"
+    except Exception as e:
+        return f"Error web: {str(e)}"
 
-def dinamica_creativa():
-    return "Rediseña uno de tus procesos actuales (clínico, académico o consultivo) eliminando pasos redundantes e introduciendo una solución digital disruptiva."
+# --- LÓGICA DE MEMORIA (ESTADO) ---
+if "messages" not in st.session_state: st.session_state.messages = []
+if "contexto_texto" not in st.session_state: st.session_state.contexto_texto = ""
+if "archivo_multimodal" not in st.session_state: st.session_state.archivo_multimodal = None
+if "info_archivos" not in st.session_state: st.session_state.info_archivos = "Ninguno"
 
-def generar_retroalimentacion(contexto, prioridades):
-    resumen = f"### 🗓️ Fecha: {contexto['fecha']}\n\n#### 🔍 Prioridades:\n"
-    for categoria, tareas in prioridades.items():
-        resumen += f"- **{categoria.replace('_', ' ').title()}**: {len(tareas)} tareas\n"
-    resumen += "\n---\n#### 🧠 Pensamiento Crítico:\n> " + ejercicio_pensamiento_critico()
-    resumen += "\n\n#### 💡 Dinámica Creativa:\n> " + dinamica_creativa()
-    return resumen
-
-def ejecutar_agente_personal():
-    tareas = ["Revisión de indicadores clínicos", "Preparar consejo de facultad", "Responder solicitud de telemedicina"]
-    contexto = {
-        "fecha": datetime.now().strftime("%Y-%m-%d"),
-        "tareas": tareas,
-        "objetivos": ["Optimizar flujo UCI", "Avance plan académico", "Escalar proyecto telesalud"],
-        "estado_emocional": "Concentrado",
-        "eventos": ["Reunión decanos", "Ronda clínica UCI"]
-    }
-    prioridades = analizar_prioridades(contexto)
-    resumen = generar_retroalimentacion(contexto, prioridades)
-    return resumen
-
-# ==========================================
-# 🚀 INTERFAZ Y FLUJO DE TRABAJO
-# ==========================================
+# --- BARRA LATERAL (CONTROLES) ---
 with st.sidebar:
-    st.image("https://unal.edu.co/typo3conf/ext/unaltemplate/Resources/Public/images/escudo_unal.png", width=180)
-    st.title("Panel de Control")
+    st.header("⚙️ Panel de Control")
+    api_key = st.text_input("🔑 API Key:", type="password")
+    
+    # 1. CONTROL DE TEMPERATURA
+    st.caption("Creatividad (0=Preciso | 1=Libre):")
+    temp_val = st.slider("", 0.0, 1.0, 0.2, 0.1)
+    
+    st.divider()
+    
+    # 2. SELECCIÓN DE ROL
+    rol = st.radio("Perfil Activo:", [
+        "Vicedecano Académico", 
+        "Director de UCI", 
+        "Experto en Telesalud",
+        "Investigador Científico",
+        "Profesor universitario",
+        "Asistente Personal",
+        "Mentor de Trading"
+    ])
+    
+    # DICCIONARIO DE ROLES (PROMPTS)
+    prompts_roles = {
+        "Vicedecano Académico": "Eres un Vicedecano riguroso, ético y normativo. Cita siempre la fuente.",
+        "Director de UCI": "Eres Director de UCI. Prioriza seguridad del paciente y guías clínicas.",
+        "Mentor de Trading": "Eres Trader Institucional (Smart Money). Analiza liquidez, estructura y riesgo.",
+        "Experto en Telesalud": "Eres experto en Salud Digital, interoperabilidad y normativa.",
+        "Investigador Científico": "Eres metodólogo. Prioriza validez estadística y bibliografía.",
+        "Profesor universitario": "Eres docente socrático. Explica con claridad y analogías.",
+        "Asistente Personal": "Eres asistente ejecutivo. Organiza y redacta con formalidad."
+    }
 
-    api_key = st.secrets.get("GOOGLE_API_KEY") or st.text_input("Gemini API Key", type="password")
+    st.divider()
+    
+    # 3. ZONA DE GUARDADO (SIEMPRE VISIBLE)
+    st.subheader("💾 GESTIÓN")
+    if len(st.session_state.messages) > 0:
+        col1, col2 = st.columns(2)
+        docx_file = create_chat_docx(st.session_state.messages)
+        col1.download_button("📄 Acta", docx_file, "acta_sesion.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        chat_json = json.dumps(st.session_state.messages)
+        col2.download_button("🧠 Backup", chat_json, "memoria.json", "application/json")
+    else:
+        st.info("Inicia el chat para habilitar guardado.")
 
-    if api_key:
-        genai.configure(api_key=api_key)
+    # CARGAR BACKUP
+    uploaded_memory = st.file_uploader("Restaurar (.json)", type=['json'])
+    if uploaded_memory and st.button("🔄 Cargar Memoria"):
+        try:
+            st.session_state.messages = json.load(uploaded_memory)
+            st.success("¡Memoria restaurada!")
+            time.sleep(1)
+            st.rerun()
+        except:
+            st.error("Archivo inválido")
 
-    st.subheader("📁 Gestión de Insumos")
-    uploaded_files = st.file_uploader("Cargar Actas, Resoluciones o Bases de Datos", accept_multiple_files=True)
+    st.divider()
+    
+    # 4. CARGA DE ARCHIVOS (MULTIMODAL & MASIVO)
+    st.subheader("📥 FUENTES")
+    tab1, tab2, tab3, tab4 = st.tabs(["📚 Lote Docs", "👁️ Media", "🔴 YT", "🌐 Web"])
+    
+    # --- PESTAÑA 1: CARGA MASIVA (PDF/WORD) ---
+    with tab1:
+        uploaded_docs = st.file_uploader("Subir Múltiples Archivos", 
+                                       type=['pdf', 'docx'], 
+                                       accept_multiple_files=True)
+        
+        if uploaded_docs:
+            if st.button(f"🧠 Procesar {len(uploaded_docs)} Archivos"):
+                texto_acumulado = ""
+                barra = st.progress(0)
+                with st.spinner("Leyendo biblioteca..."):
+                    for i, doc in enumerate(uploaded_docs):
+                        try:
+                            if doc.type == "application/pdf":
+                                contenido = get_pdf_text(doc)
+                            else:
+                                contenido = get_docx_text(doc)
+                            texto_acumulado += f"\n--- INICIO ARCHIVO: {doc.name} ---\n{contenido}\n--- FIN ARCHIVO ---\n"
+                        except:
+                            st.error(f"Error en {doc.name}")
+                        barra.progress((i + 1) / len(uploaded_docs))
+                
+                st.session_state.contexto_texto = texto_acumulado
+                st.session_state.info_archivos = f"{len(uploaded_docs)} archivos cargados."
+                st.success("✅ ¡Biblioteca cargada a la memoria!")
 
-    if st.button("🔄 Sincronizar Cerebro"):
-        with st.spinner("Procesando documentos..."):
-            full_context = ""
-            for f in uploaded_files:
-                if f.name.endswith('.pdf'): full_context += get_pdf_text(f)
-                elif f.name.endswith('.docx'): full_context += get_docx_text(f)
-                elif f.name.endswith(('.xlsx', '.xls')): full_context += analizar_excel_avanzado(f)
-            st.session_state.contexto_texto = full_context
-            st.success("Contexto actualizado.")
+        if st.session_state.info_archivos != "Ninguno":
+            st.caption(f"En memoria: {st.session_state.info_archivos}")
 
-if st.button("🧭 Activar Agente Diario"):
-    resumen = ejecutar_agente_personal()
-    st.markdown(resumen)
+    # --- PESTAÑA 2: MULTIMEDIA (VIDEO, IMAGEN, AUDIO) ---
+    with tab2:
+        uploaded_media = st.file_uploader("Video/Foto/Audio", type=['mp4', 'mov', 'png', 'jpg', 'jpeg', 'mp3', 'wav', 'm4a'])
+        if uploaded_media and api_key and st.button("Subir Media"):
+            genai.configure(api_key=api_key)
+            with st.spinner(f"Procesando {uploaded_media.type}..."):
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.' + uploaded_media.name.split('.')[-1]) as tmp_file:
+                    tmp_file.write(uploaded_media.read())
+                    tmp_path = tmp_file.name
+                
+                media_file = genai.upload_file(path=tmp_path)
+                
+                while media_file.state.name == "PROCESSING":
+                    time.sleep(2)
+                    media_file = genai.get_file(media_file.name)
+                
+                st.session_state.archivo_multimodal = media_file
+                st.success("✅ Archivo multimedia listo")
+                os.remove(tmp_path)
 
-st.info(f"📍 **Modo:** {rol if 'rol' in locals() else 'Socio Estratégico'} | **Contexto:** {len(st.session_state.get('contexto_texto', ''))} caracteres cargados.")
+    # --- PESTAÑA 3: YOUTUBE ---
+    with tab3:
+        if st.button("Leer YT") and (yt_url := st.text_input("Link YT")):
+            st.session_state.contexto_texto = get_youtube_text(yt_url)
+            st.success("✅ YT Cargado")
+            
+    # --- PESTAÑA 4: WEB ---
+    with tab4:
+        if st.button("Leer Web") and (web_url := st.text_input("Link Web")):
+            st.session_state.contexto_texto = get_web_text(web_url)
+            st.success("✅ Web Cargada")
 
-if prompt := st.chat_input("¿Qué reporte o análisis necesita hoy, Doctor?"):
+    if st.button("🗑️ Nueva Sesión"):
+        st.session_state.messages = []
+        st.session_state.contexto_texto = ""
+        st.session_state.archivo_multimodal = None
+        st.session_state.info_archivos = "Ninguno"
+        st.rerun()
+
+# --- CHAT PRINCIPAL ---
+st.title(f"🤖 Agente: {rol}")
+
+if not api_key:
+    st.warning("⚠️ Ingrese API Key.")
+    st.stop()
+
+genai.configure(api_key=api_key)
+generation_config = {"temperature": temp_val}
+
+try:
+    # Usamos Flash por velocidad y capacidad de contexto masivo
+    model = genai.GenerativeModel('gemini-2.5-flash', generation_config=generation_config)
+except Exception as e:
+    st.error(f"Error Gemini: {e}")
+    st.stop()
+
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+if prompt := st.chat_input("Escriba su instrucción..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        model = genai.GenerativeModel(
-            model_name='gemini-2.0-flash',
-            system_instruction=MEMORIA_MAESTRA
-        )
+        with st.spinner("Pensando..."):
+            try:
+                contenido = []
+                fecha_hoy = date.today().strftime("%d de %B de %Y")
+                
+                # --- PROMPT MAESTRO (APA 7 + ANTI-ROBOT) ---
+                instruccion = f"""
+                Actúa como {rol}.
+                FECHA DE HOY: {fecha_hoy}
+                CONTEXTO: {prompts_roles[rol]}
+                
+                REGLAS DE ESTILO (ANTI-ROBOT):
+                1. Escribe natural. PROHIBIDO usar: "cabe destacar", "en conclusión", "juega un papel crucial", "tapiz", "sinergia", "desbloquear potencial".
+                2. Sé directo y profesional.
+                
+                REGLAS DE CITACIÓN (APA 7a Edición):
+                1. Basa tus respuestas EXCLUSIVAMENTE en los archivos adjuntos.
+                2. SI TIENE DOI: https://doi.org/...
+                3. FUENTES ESTABLES (PDFs, Artículos): Cita (Autor, Año). NO uses "Recuperado de".
+                4. FUENTES DINÁMICAS (Webs vivas): Usa "Recuperado el {fecha_hoy} de [URL]".
+                5. Si no está en el documento, di: "No se menciona en el texto".
+                """
+                
+                # Inyectar Texto Acumulado
+                if st.session_state.contexto_texto:
+                    instruccion += f"\n\n--- BIBLIOTECA DE ARCHIVOS ---\n{st.session_state.contexto_texto[:800000]}\n--- FIN BIBLIOTECA ---\n"
+                
+                # Inyectar Multimedia
+                if st.session_state.archivo_multimodal:
+                    contenido.append(st.session_state.archivo_multimodal)
+                    instruccion += " (Analiza el archivo multimedia adjunto)."
 
-        contexto_limitado = st.session_state.get("contexto_texto", "")[:30000]
-        full_prompt = f"CONTEXTO PREVIO: {contexto_limitado}\n\nINSTRUCCIÓN: {prompt}"
+                # Historial
+                historial = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[-5:]])
+                instruccion += f"\n\nHISTORIAL:\n{historial}\n\nSOLICITUD: {prompt}"
 
-        response = model.generate_content(full_prompt)
-        st.markdown(response.text)
-
-        st.session_state.messages.append({"role": "assistant", "content": response.text})
-
-        st.divider()
-        col1, col2 = st.columns(2)
-        with col1:
-            doc_file = create_executive_docx(response.text)
-            st.download_button("📩 Descargar como Word (Oficial)", doc_file, file_name=f"Informe_{date.today()}.docx")
+                contenido.append(instruccion)
+                
+                response = model.generate_content(contenido)
+                st.markdown(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"Error: {e}")
