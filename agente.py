@@ -34,19 +34,26 @@ from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 
 # ==========================================
-# ⚙️ CONFIGURACIÓN DEL SISTEMA Y ESTILO
+# 🏛️ CONFIGURACIÓN DE IDENTIDAD INSTITUCIONAL
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V160", page_icon="🏛️", layout="wide")
+st.set_page_config(page_title="Agente IkigAI - Vicedecanatura", page_icon="🏛️", layout="wide")
 
-# CSS para Tablas Institucionales y Visibilidad Total
+# CSS para una UI de Nivel Directivo y Móvil
 st.markdown("""
     <style>
-    .stTable { border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    th { background-color: #003366 !important; color: white !important; font-weight: bold; text-align: center; }
+    /* Estilo de Tablas UNAL */
+    .stTable { border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e0e0e0; }
+    th { background-color: #003366 !important; color: white !important; font-weight: bold; text-align: center; text-transform: uppercase; font-size: 13px; }
+    td { font-size: 14px; }
+
+    /* Barra Lateral Premium */
+    [data-testid="stSidebar"] { background: linear-gradient(180deg, #f0f2f6 0%, #ffffff 100%); border-right: 1px solid #d1d5db; }
+    [data-testid="stSidebar"] .stMarkdown p { color: #003366; font-weight: 600; font-size: 15px; }
     
-    /* Forzar contraste en barra lateral */
-    [data-testid="stSidebar"] { border-right: 1px solid #e0e0e0; }
-    .stExpander { border: 1px solid #003366 !important; border-radius: 10px !important; }
+    /* Botones y Contenedores */
+    .stButton>button { width: 100%; border-radius: 10px; font-weight: bold; border: 1px solid #003366; transition: 0.3s; height: 45px; }
+    .stButton>button:hover { background-color: #003366; color: white; box-shadow: 0 4px 8px rgba(0,51,102,0.3); }
+    div[data-testid="stExpander"] { border: 1px solid #003366; border-radius: 12px; background-color: white; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -56,19 +63,22 @@ MODELO_USADO = 'gemini-2.5-flash'
 # 🧠 MEMORIA MAESTRA (DIRECTIVA)
 # ==========================================
 MEMORIA_MAESTRA = """
-PERFIL: Vicedecano Académico Medicina UNAL, Director UCI HUN, Epidemiólogo y Bioético.
-MISIÓN: Secretaría Técnica Digital. Generar informes y diapositivas de alto nivel.
-REGLA: Presentar datos en tablas Markdown con rigor académico.
+PERFIL DEL USUARIO (QUIÉN SOY):
+- Líder Transformador en Salud: Médico Especialista en Anestesiología y Cuidado Crítico (UCI), Epidemiólogo Clínico y Doctorando en Bioética.
+- Roles de Alto Impacto: Vicedecano Académico de Medicina (UNAL), Director de UCI y Líder de Humanización (HUN), Coordinador de Telemedicina e IA.
+
+INSTRUCCIONES OPERATIVAS:
+1. Eres su Secretaría Técnica de Alto Nivel. Tus entregables deben ser IMPECABLES.
+2. Formato: Presenta datos e indicadores SIEMPRE en tablas Markdown profesionales.
+3. Tono: Formal, institucional, riguroso, equilibrando tecnología con humanismo y bioética.
 """
 
 # ==========================================
-# 📖 MOTOR DE LECTURA (INGENIERÍA COMPLETA)
+# 📖 MOTOR DE LECTURA (SIN ALTERACIONES)
 # ==========================================
 @st.cache_data
 def get_pdf_text(pdf_file):
-    reader = PdfReader(pdf_file); text = ""
-    for page in reader.pages: text += page.extract_text() or ""
-    return text
+    reader = PdfReader(pdf_file); return "".join([p.extract_text() or "" for p in reader.pages])
 
 @st.cache_data
 def get_docx_text(docx_file):
@@ -82,33 +92,25 @@ def get_excel_text(excel_file):
         return text
     except: return "Error Excel"
 
-@st.cache_data
-def get_pptx_text(pptx_file):
-    try:
-        prs = Presentation(pptx_file); text = ""
-        for slide in prs.slides:
-            for shape in slide.shapes:
-                if hasattr(shape, "text"): text += shape.text + "\n"
-        return text
-    except: return "Error PPTX"
-
 def get_youtube_text(url):
     try:
         vid = url.split("v=")[1].split("&")[0] if "v=" in url else url.split("/")[-1]
         t = YouTubeTranscriptApi.get_transcript(vid, languages=['es', 'en'])
-        return "YT: " + " ".join([i['text'] for i in t])
-    except: return "Error YT"
+        return "TRANSCRIPCIÓN YT: " + " ".join([i['text'] for i in t])
+    except: return "No disponible"
 
 # ==========================================
-# 🏭 MOTOR DE PRODUCCIÓN (OFFICE PREMIUM)
+# 🏭 MOTOR DE PRODUCCIÓN (RESTAURACIÓN TOTAL)
 # ==========================================
-
-# --- 1. WORD ---
 def create_clean_docx(text_content):
     doc = docx.Document()
-    t = doc.add_paragraph("INFORME ESTRATÉGICO DE GESTIÓN"); t.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = t.runs[0]; run.bold = True; run.font.size = Pt(22); run.font.color.rgb = RGBColor(0, 51, 102)
+    # Estilos Vicedecanatura
+    for _ in range(4): doc.add_paragraph("")
+    t = doc.add_paragraph("INFORME TÉCNICO ESTRATÉGICO"); t.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = t.runs[0]; run.bold = True; run.font.size = Pt(24); run.font.color.rgb = RGBColor(0, 51, 102)
+    doc.add_paragraph(f"Vicedecanatura Académica / Dirección UCI\nFecha: {date.today()}").alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_page_break()
+
     table_buffer = []; in_table = False
     for line in text_content.split('\n'):
         if "|" in line:
@@ -130,7 +132,6 @@ def create_clean_docx(text_content):
             doc.add_paragraph(line.replace("**", ""))
     buffer = BytesIO(); doc.save(buffer); buffer.seek(0); return buffer
 
-# --- 2. POWERPOINT ---
 def generate_pptx_from_data(slide_data):
     prs = Presentation()
     for info in slide_data:
@@ -144,71 +145,70 @@ def generate_pptx_from_data(slide_data):
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0); return buffer
 
 # ==========================================
-# 💾 ESTADO DE SESIÓN
+# 💾 GESTIÓN DE ESTADO
 # ==========================================
 if "messages" not in st.session_state: st.session_state.messages = []
 if "contexto_texto" not in st.session_state: st.session_state.contexto_texto = ""
 
 # ==========================================
-# 🖥️ BARRA LATERAL (CORREGIDA Y COMPLETA)
+# 🖥️ BARRA LATERAL (8 ROLES + DISEÑO UX)
 # ==========================================
 with st.sidebar:
     st.image("https://medicina.unal.edu.co/fileadmin/templates/fm/img/logo-facultad-medicina.png", width=220)
-    st.markdown("### 🏛️ Dashboard")
+    st.markdown("### 🏛️ IkigAI Control Panel")
     st.divider()
 
-    # 1. Autenticación Prioritaria
+    # 1. AUTENTICACIÓN
     if "GOOGLE_API_KEY" in st.secrets:
-        api_key = st.secrets["GOOGLE_API_KEY"]; st.success("🔐 Acceso Automático")
-    else:
-        api_key = st.text_input("🔑 API Key:", type="password")
+        api_key = st.secrets["GOOGLE_API_KEY"]; st.success("🔐 Acceso Verificado")
+    else: api_key = st.text_input("🔑 API Key:", type="password")
 
-    # 2. Los 8 Perfiles Estratégicos
-    rol = st.selectbox("👤 Perfil Activo:", [
+    # 2. PERFIL ACTIVO (8 ROLES COMPLETOS)
+    rol = st.selectbox("👤 Perfil Estratégico:", [
         "Socio Estratégico (Innovación)", "Vicedecano Académico", "Director de UCI", 
         "Consultor Telesalud", "Profesor Universitario", "Investigador Científico", 
         "Mentor de Trading", "Asistente Ejecutivo"
     ])
 
     prompts_roles = {
-        "Socio Estratégico (Innovación)": "Consultor Senior disruptivo.",
-        "Vicedecano Académico": "Tono institucional formal UNAL.",
-        "Director de UCI": "Enfoque clínico UCI y seguridad.",
-        "Consultor Telesalud": "Experto en Ley 1419 y Salud Digital.",
-        "Profesor Universitario": "Pedagógico y académico.",
-        "Investigador Científico": "Rigor metodológico APA.",
-        "Mentor de Trading": "Análisis institucional y liquidez.",
-        "Asistente Ejecutivo": "Eficiente y enfocado en actas."
+        "Socio Estratégico (Innovación)": "Consultor Senior. Reta la instrucción, aplica marcos disruptivos y Design Thinking.",
+        "Vicedecano Académico": "Tono institucional formal UNAL. Riguroso, normativo y enfocado en gestión académica.",
+        "Director de UCI": "Enfoque clínico intensivo. Prioriza seguridad, guías de práctica clínica y eficiencia hospitalaria.",
+        "Consultor Telesalud": "Experto en Salud Digital, Ley 1419 y modelos de prestación en territorios.",
+        "Profesor Universitario": "Pedagógico, explicativo, enfocado en educación médica de vanguardia.",
+        "Investigador Científico": "Rigor metodológico, análisis de evidencia y normas de publicación científica.",
+        "Mentor de Trading": "Analista institucional. Enfoque en liquidez de mercado y gestión de riesgo financiero.",
+        "Asistente Ejecutivo": "Conciso, eficiente, experto en agendas, actas y seguimiento de tareas."
     }
 
     st.divider()
 
-    # 3. Módulo de Insumos
+    # 3. MÓDULO DE INSUMOS (Expandible)
     with st.expander("📥 INSUMOS Y CONTEXTO", expanded=False):
-        docs = st.file_uploader("Documentos (PDF/Office)", accept_multiple_files=True)
-        if docs and st.button("Cargar Memoria", use_container_width=True):
+        docs = st.file_uploader("Subir PDF/Office/Excel", accept_multiple_files=True)
+        if docs and st.button("Procesar Archivos", use_container_width=True):
             acc = ""
             for f in docs:
                 if f.type == "application/pdf": acc += get_pdf_text(f)
                 elif "word" in f.type: acc += get_docx_text(f)
                 elif "sheet" in f.type: acc += get_excel_text(f)
-                elif "presentation" in f.type: acc += get_pptx_text(f)
-            st.session_state.contexto_texto = acc; st.success("Listo")
+            st.session_state.contexto_texto = acc; st.success("Memoria Lista")
         
-        u_yt = st.text_input("URL YouTube:"); w_url = st.text_input("Web URL:")
-        if u_yt and st.button("Analizar YouTube"): st.session_state.contexto_texto += get_youtube_text(u_yt)
+        st.divider()
+        u_yt = st.text_input("YouTube URL:"); w_url = st.text_input("Web URL:")
+        if u_yt and st.button("Analizar YouTube", use_container_width=True): st.session_state.contexto_texto += get_youtube_text(u_yt)
 
-    # 4. Módulo de Herramientas
+    # 4. MÓDULO DE PRODUCCIÓN (Expandible)
     with st.expander("🛠️ HERRAMIENTAS DE PRODUCCIÓN", expanded=False):
-        if st.button("📄 Generar Informe Word", use_container_width=True):
+        if st.button("📄 Informe Word", use_container_width=True):
             if st.session_state.messages:
                 st.session_state.gen_word = create_clean_docx(st.session_state.messages[-1]["content"])
         if st.session_state.get("gen_word"):
             st.download_button("📥 Bajar Word", st.session_state.gen_word, "informe.docx")
 
         st.divider()
-        if st.button("📊 Generar Slides PPTX", use_container_width=True):
-            p_prompt = f"Resume en JSON para diapositivas: {st.session_state.messages[-1]['content']}. JSON: [{{'title':'T','content':['A']}}]"
+        if st.button("📊 Diapositivas PPTX", use_container_width=True):
+            p_prompt = f"Resume estratégicamente en JSON para PPTX: {st.session_state.messages[-1]['content']}. JSON: [{{'title':'T','content':['A']}}]"
             try:
                 genai.configure(api_key=api_key)
                 res = genai.GenerativeModel(MODELO_USADO).generate_content(p_prompt).text
@@ -219,40 +219,44 @@ with st.sidebar:
         if st.session_state.get("gen_pptx"):
             st.download_button("📥 Bajar PPTX", st.session_state.gen_pptx, "pres.pptx")
 
+    # 5. MULTIMEDIA Y VOZ
     st.divider()
     c1, c2 = st.columns(2)
     with c1: modo_voz = st.toggle("🎙️ Voz")
     with c2: 
-        if st.button("Reset"): st.session_state.clear(); st.rerun()
+        if st.button("🗑️ Reset"): st.session_state.clear(); st.rerun()
 
 # ==========================================
-# 🚀 ÁREA PRINCIPAL
+# 🚀 ÁREA PRINCIPAL DE TRABAJO
 # ==========================================
-st.title(f"🤖 Agente V160: {rol}")
-if not api_key: st.warning("⚠️ Falta API Key."); st.stop()
+st.title(f"🤖 Agente V170: {rol}")
+if not api_key: st.warning("⚠️ Ingrese su API Key en la barra lateral."); st.stop()
 
+# Mostrar Chat
 for m in st.session_state.messages:
     with st.chat_message(m["role"]): st.markdown(m["content"])
 
+# Lógica de Voz
 if modo_voz:
-    audio = mic_recorder(start_prompt="🔴", stop_prompt="⏹️", key='rec')
+    audio = mic_recorder(start_prompt="🔴 Hablar", stop_prompt="⏹️ Procesar", key='rec')
     if audio:
         with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tf:
             tf.write(audio['bytes']); tpath = tf.name
         genai.configure(api_key=api_key); mfile = genai.upload_file(path=tpath)
         while mfile.state.name == "PROCESSING": time.sleep(0.5); mfile = genai.get_file(mfile.name)
         res = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA).generate_content([f"Responde como {rol}:", mfile])
-        st.session_state.messages.append({"role": "user", "content": "(Voz)"}); st.session_state.messages.append({"role": "assistant", "content": res.text})
+        st.session_state.messages.append({"role": "user", "content": "(Audio Dictado)"})
+        st.session_state.messages.append({"role": "assistant", "content": res.text})
         tts = gTTS(text=res.text, lang='es'); fp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
         tts.save(fp.name); st.audio(fp.name); os.remove(tpath); st.rerun()
 
-if p := st.chat_input("Instrucción estratégica..."):
+# Entrada de Texto Directivo
+if p := st.chat_input("Escriba su requerimiento estratégico..."):
     st.session_state.messages.append({"role": "user", "content": p}); st.chat_message("user").markdown(p)
     with st.chat_message("assistant"):
         genai.configure(api_key=api_key); model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
         ctx = st.session_state.contexto_texto
-        payload = [f"ROL: {rol}\nDEFINICIÓN: {prompts_roles[rol]}\nCONTEXTO: {ctx[:80000]}\nCONSULTA: {p}"]
+        payload = [f"ROL: {rol}\nPERFIL: {prompts_roles[rol]}\nCONTEXTO: {ctx[:80000]}\nCONSULTA: {p}"]
         response = model.generate_content(payload, stream=True)
         full_res = st.write_stream(chunk.text for chunk in response)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
-
