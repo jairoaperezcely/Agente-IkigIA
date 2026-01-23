@@ -2,48 +2,54 @@ import streamlit as st
 import google.generativeai as genai
 from datetime import date
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="IkigAI: Sistema Operativo de Liderazgo", page_icon="🧬", layout="wide")
+# --- CONFIGURACIÓN E IDENTIDADES ---
+st.set_page_config(page_title="IkigAI V1.4", page_icon="🧬", layout="wide")
 
-# --- AUTENTICACIÓN AUTOMÁTICA ---
-if "GOOGLE_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-else:
-    st.error("⚠️ Falta la configuración de 'GOOGLE_API_KEY' en los secretos.")
-    st.stop()
+# Autenticación (Se recomienda usar st.secrets["GOOGLE_API_KEY"])
+genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 
-# --- DICCIONARIO DE ROLES (PROMPTS DE IDENTIDAD) ---
 ROLES = {
-    "Coach de Alto Desempeño": {
-        "icono": "🚀",
-        "prompt": "Eres el Coach de Alto Desempeño de IkigAI. Tu foco es la productividad estratégica, el bienestar del líder y romper patrones de procrastinación. Desafía creencias limitantes sobre éxito y dinero."
-    },
-    "Director Centro Telemedicina": {
-        "icono": "🌐",
-        "prompt": "Eres el CSO (Chief Strategy Officer) de IkigAI para el Centro de Telemedicina e IA de la UNAL. Tu foco es la innovación, la IA aplicada y la escalabilidad de proyectos tecnológicos con impacto social."
-    },
-    "Vicedecano Académico": {
-        "icono": "🏛️",
-        "prompt": "Eres el Arquitecto Normativo de IkigAI. Experto en la Universidad Nacional. Redactas resoluciones, actas y gestionas la burocracia académica de forma eficiente y diplomática."
-    },
-    "Director de UCI": {
-        "icono": "🏥",
-        "prompt": "Eres el Consultor Clínico de IkigAI. Foco en Medicina Basada en Evidencia, seguridad del paciente en el HUN y uso de datos para decisiones críticas en cuidado intensivo."
-    },
-    "Consultor BID/MinSalud": {
-        "icono": "🌍",
-        "prompt": "Eres el Arquitecto de Políticas Públicas de IkigAI. Especialista en Telesalud, interculturalidad y diseño de programas para territorios (PDET/ZOMAC)."
-    }
+    "Coach de Alto Desempeño": "Foco en ROI cognitivo, bienestar y eliminación de procastinación oculta.",
+    "Director Centro Telemedicina": "Estratega en Salud Digital, IA e innovación en la Universidad Nacional.",
+    "Vicedecano Académico": "Gestión administrativa, normativa académica y liderazgo institucional.",
+    "Director de UCI": "Rigor clínico, seguridad del paciente y medicina basada en evidencia.",
+    "Consultor Salud Digital": "Diseño de programas para el BID/MinSalud con enfoque territorial e intercultural.",
+    "Profesor Universitario": "Mentoría, diseño curricular médico y pedagogía disruptiva para el territorio.",
+    "Estratega de Trading": "Análisis técnico, gestión de riesgo y psicología del mercado aplicada a la toma de decisiones."
 }
 
-# --- ESTADO DE LA SESIÓN ---
-if "messages" not in st.session_state: st.session_state.messages = []
-
-# --- BARRA LATERAL: EL SELECTOR DE IDENTIDAD ---
+# --- INTERFAZ ---
 with st.sidebar:
     st.title("🧬 IkigAI")
-    st.caption("Sistema de Gestión Estratégica Integral")
+    rol_activo = st.selectbox("Cambiar Rol Estratégico:", list(ROLES.keys()))
     st.divider()
-    
-    # Cambio de rol dinámico
-    rol_seleccionado = st.selectbox("Seleccione el Rol Activo:", list(ROLES.keys()))
+    st.caption(f"Activo: {rol_activo}")
+
+st.header(f"Panel de Control: {rol_activo}")
+
+# Entrada de objetivos
+input_text = st.text_area("Describa sus objetivos, tareas o el escenario a analizar:", height=150)
+
+if st.button("🚀 Ejecutar Análisis IkigAI"):
+    if input_text:
+        with st.spinner("Procesando bajo lógica de alto desempeño..."):
+            model = genai.GenerativeModel('gemini-1.5-pro')
+            
+            # Prompt que integra los nuevos roles
+            sistema = f"""
+            Eres IkigAI en modo {rol_activo}.
+            CONTEXTO: {ROLES[rol_activo]}
+            
+            INSTRUCCIONES:
+            - Si es 'Profesor': Enfócate en cómo simplificar conceptos complejos y generar impacto social.
+            - Si es 'Trading': Analiza el riesgo, la estructura del mercado y la disciplina emocional.
+            - Detecta si hay procastinación en lo que el usuario describe.
+            - Estilo: Directo, ejecutivo, sin clichés.
+            """
+            
+            res = model.generate_content([sistema, input_text])
+            st.markdown("---")
+            st.subheader("💡 Respuesta Estratégica")
+            st.write(res.text)
+    else:
+        st.warning("Por favor, ingrese información para iniciar.")
