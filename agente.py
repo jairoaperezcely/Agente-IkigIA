@@ -2,119 +2,107 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 import docx
-import requests
 from bs4 import BeautifulSoup
+import requests
 from youtube_transcript_api import YouTubeTranscriptApi
 import tempfile
-import os
 import time
+import os
+from io import BytesIO
+import json
 from datetime import date
 
-# --- CONFIGURACIÓN Y AUTENTICACIÓN ---
-st.set_page_config(page_title="Coach Alto Desempeño V11", page_icon="📈", layout="wide")
+# Módulos utilitarios para lectura de documentos y creación de actas
+from utils.document_reader import get_pdf_text, get_docx_text
+from utils.media_handler import process_uploaded_media
+from utils.web_reader import get_web_text, get_youtube_text
+from utils.session_memory import reset_session, load_backup, save_chat_to_docx
+from utils.prompts import prompts_roles, create_instruccion
 
-if "GOOGLE_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-else:
-    st.error("Configura 'GOOGLE_API_KEY' en los secretos de Streamlit.")
+# Configuración inicial
+st.set_page_config(page_title="Agente IA Multimodal v9.5", page_icon="🧬", layout="wide")
+
+# Inicialización del estado
+for key in ["messages", "contexto_texto", "archivo_multimodal", "info_archivos"]:
+    if key not in st.session_state:
+        st.session_state[key] = [] if key == "messages" else ""
+
+# Sidebar: Configuración de usuario
+with st.sidebar:
+    st.header("⚙️ Panel de Control")
+    api_key = st.text_input("🔑 API Key:", type="password")
+    temp_val = st.slider("Creatividad", 0.0, 1.0, 0.2, 0.1)
+    rol = st.radio("Perfil Activo:", list(prompts_roles.keys()))
+
+    if st.session_state["messages"]:
+        col1, col2 = st.columns(2)
+        docx_file = save_chat_to_docx(st.session_state["messages"])
+        col1.download_button("📄 Acta", docx_file, "acta_sesion.docx")
+        chat_json = json.dumps(st.session_state["messages"])
+        col2.download_button("🧠 Backup", chat_json, "memoria.json")
+
+    uploaded_memory = st.file_uploader("Restaurar (.json)", type=['json'])
+    if uploaded_memory and st.button("🔄 Cargar Memoria"):
+        load_backup(uploaded_memory)
+
+    if st.button("🗑️ Nueva Sesión"):
+        reset_session()
+
+# Carga de fuentes: Archivos, media, YouTube, Web
+with st.sidebar.expander("📥 Carga de Fuentes"):
+    uploaded_docs = st.file_uploader("📚 Documentos (PDF/DOCX)", type=['pdf', 'docx'], accept_multiple_files=True)
+    if uploaded_docs and st.button("🧠 Procesar Archivos"):
+        texto_acumulado = ""
+        for doc in uploaded_docs:
+            contenido = get_pdf_text(doc) if doc.type == "application/pdf" else get_docx_text(doc)
+            texto_acumulado += f"\n--- {doc.name} ---\n{contenido}\n"
+        st.session_state.contexto_texto = texto_acumulado
+        st.session_state.info_archivos = f"{len(uploaded_docs)} archivos procesados."
+
+    media_file = st.file_uploader("🎥 Media (video/audio/imagen)", type=['mp4','mp3','wav','m4a','png','jpg','jpeg'])
+    if media_file and api_key and st.button("Procesar Media"):
+        archivo_multimodal = process_uploaded_media(media_file, api_key)
+        st.session_state.archivo_multimodal = archivo_multimodal
+
+    yt_url = st.text_input("🔴 Link YouTube")
+    if yt_url and st.button("Cargar YouTube"):
+        st.session_state.contexto_texto = get_youtube_text(yt_url)
+
+    web_url = st.text_input("🌐 Link Web")
+    if web_url and st.button("Cargar Web"):
+        st.session_state.contexto_texto = get_web_text(web_url)
+
+# Validación de API
+if not api_key:
+    st.warning("⚠️ Ingrese una API Key para continuar.")
     st.stop()
 
-# --- FUNCIONES DE EXTRACCIÓN DE CONTENIDO ---
+# Configuración del modelo
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"temperature": temp_val})
 
-def get_web_content(url):
-    try:
-        response = requests.get(url, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        paragraphs = soup.find_all('p')
-        return "\n".join([p.get_text() for p in paragraphs])
-    except Exception as e:
-        return f"Error al leer web: {e}"
-
-def get_youtube_transcript(url):
-    try:
-        video_id = url.split("v=")[1].split("&")[0] if "v=" in url else url.split("/")[-1]
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-        return " ".join([t['text'] for t in transcript])
-    except Exception as e:
-        return f"Error al obtener transcripción de YouTube: {e}"
-
-# --- LÓGICA DE ESTADO ---
-if "messages" not in st.session_state: st.session_state.messages = []
-if "global_context" not in st.session_state: st.session_state.global_context = ""
-
-# --- BARRA LATERAL (ENTRADAS DE DATOS) ---
-with st.sidebar:
-    st.header("🔌 Conectores de Datos")
-    
-    # 1. Entrada Web
-    web_url = st.text_input("🔗 URL Página Web:")
-    if st.button("Leer Web") and web_url:
-        with st.spinner("Extrayendo texto..."):
-            st.session_state.global_context += f"\n[CONTENIDO WEB]: {get_web_content(web_url)}"
-            st.success("Web cargada.")
-
-    # 2. Entrada YouTube
-    yt_url = st.text_input("🎥 URL YouTube:")
-    if st.button("Leer YouTube") and yt_url:
-        with st.spinner("Procesando transcripción..."):
-            st.session_state.global_context += f"\n[TRANSCRIPCIÓN YT]: {get_youtube_transcript(yt_url)}"
-            st.success("Video cargado.")
-
-    # 3. Subida de Archivos Multimedia (Video/Audio)
-    uploaded_media = st.file_uploader("📁 Video/Audio/Imagen", type=['mp4', 'mp3', 'png', 'jpg'])
-    
-    st.divider()
-    if st.button("🗑️ Limpiar Memoria"):
-        st.session_state.global_context = ""
-        st.session_state.messages = []
-        st.rerun()
-
-# --- CHAT PRINCIPAL ---
-st.title("🤖 Coach de Alto Desempeño Integral")
-
+# Título y despliegue del historial
+st.title(f"🤖 Agente IA: {rol}")
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("¿Cuál es el plan para hoy?"):
+# Entrada de usuario
+if prompt := st.chat_input("Escriba su instrucción..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    with st.chat_message("user"): st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        try:
-            # Usamos Gemini 1.5 Pro para análisis profundo de video y texto
-            model = genai.GenerativeModel('gemini-1.5-pro')
-            
-            # Construcción del Prompt con el contexto acumulado
-            full_prompt = f"""
-            ROL: Coach Personal de Alto Desempeño.
-            FECHA: {date.today()}
-            CONTEXTO ACUMULADO (Web/YT/Docs): {st.session_state.global_context[-500000:]}
-            
-            INSTRUCCIÓN: Analiza la solicitud basándote en el contexto. 
-            Identifica procrastinación y ofrece una dinámica de pensamiento crítico.
-            
-            SOLICITUD: {prompt}
-            """
-            
-            # Manejo de archivo multimedia si existe
-            if uploaded_media:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_media.name)[1]) as tmp:
-                    tmp.write(uploaded_media.read())
-                    file_to_genai = genai.upload_file(path=tmp.name)
-                
-                # Esperar procesamiento del video si es necesario
-                while file_to_genai.state.name == "PROCESSING":
-                    time.sleep(2)
-                    file_to_genai = genai.get_file(file_to_genai.name)
-                
-                response = model.generate_content([file_to_genai, full_prompt])
-            else:
-                response = model.generate_content(full_prompt)
+        with st.spinner("Procesando..."):
+            try:
+                instruccion = create_instruccion(rol, prompts_roles[rol], st.session_state.contexto_texto, prompt, st.session_state.messages, st.session_state.archivo_multimodal)
+                contenido = [instruccion]
+                if st.session_state.archivo_multimodal:
+                    contenido.append(st.session_state.archivo_multimodal)
 
-            st.markdown(response.text)
-            st.session_state.messages.append({"role": "assistant", "content": response.text})
-            
-        except Exception as e:
-            st.error(f"Error: {e}")
+                response = model.generate_content(contenido)
+                st.markdown(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error: {e}")
