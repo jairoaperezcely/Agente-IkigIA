@@ -10,13 +10,12 @@ from PIL import Image
 from io import BytesIO
 from datetime import date
 from pptx import Presentation
-from pptx.util import Inches, Pt
 import streamlit.components.v1 as components
-import os
 import re
+import urllib.parse
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
-st.set_page_config(page_title="IkigAI V1.26 - Executive Hub", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="IkigAI V1.27 - Centro Estratégico", page_icon="🧬", layout="wide")
 
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -25,14 +24,14 @@ else:
     st.stop()
 
 ROLES = {
-    "Coach de Alto Desempeño": "ROI cognitivo, sostenibilidad del líder y eliminación de procastinación.",
-    "Director Centro Telemedicina": "Innovación, IA y Salud Digital UNAL. Foco en Hospital Virtual.",
+    "Coach de Alto Desempeño": "ROI cognitivo y eliminación de procastinación.",
+    "Director Centro Telemedicina": "Innovación y Salud Digital UNAL. Foco en Hospital Virtual.",
     "Vicedecano Académico": "Gestión y normativa Facultad de Medicina UNAL.",
-    "Director de UCI": "Rigor clínico, seguridad del paciente y datos en el HUN.",
-    "Investigador Científico": "Metodología y redacción científica de alto impacto.",
-    "Consultor Salud Digital": "Estrategia BID/MinSalud, territorio e interculturalidad.",
-    "Professor Universitario": "Pedagogía disruptiva y mentoría médica.",
-    "Estratega de Trading": "Gestión de riesgo y psicología de mercado (Wyckoff/SMC)."
+    "Director de UCI": "Rigor clínico y datos en el HUN.",
+    "Investigador Científico": "Metodología y redacción científica.",
+    "Consultor Salud Digital": "Estrategia BID/MinSalud y territorio.",
+    "Profesor Universitario": "Pedagogía y mentoría médica.",
+    "Estratega de Trading": "Gestión de riesgo y psicología de mercado."
 }
 
 # --- 2. FUNCIONES DE LECTURA ---
@@ -54,7 +53,6 @@ def get_yt_text(url):
 def download_word(content, role):
     doc = docx.Document()
     doc.add_heading(f'Entregable IkigAI: {role}', 0)
-    doc.add_paragraph(f"Fecha: {date.today()}").bold = True
     for p in content.split('\n'):
         if p.strip(): doc.add_paragraph(p)
     bio = BytesIO()
@@ -65,44 +63,37 @@ def download_pptx(content, role):
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[0])
     slide.shapes.title.text = f"Estrategia {role}"
-    slide.placeholders[1].text = f"Generado por IkigAI\n{date.today()}"
     points = [p for p in content.split('\n') if len(p.strip()) > 30]
     for i, p in enumerate(points[:8]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Eje Estratégico {i+1}"
+        slide.shapes.title.text = f"Punto Estratégico {i+1}"
         slide.placeholders[1].text = p
     bio = BytesIO()
     prs.save(bio)
     return bio.getvalue()
 
-def render_infographic(mermaid_code):
+def render_and_export_infographic(mermaid_code):
     clean_code = re.sub(r'```mermaid|```', '', mermaid_code).strip()
-    # Inyección de CSS y JS para exportación visual
+    # Generar link para el editor oficial (Base64 no es necesario, URL Encode funciona)
+    encoded_mermaid = urllib.parse.quote(clean_code)
+    mermaid_url = f"https://mermaid.live/edit#code:{encoded_mermaid}"
+    
+    st.info("💡 Infografía generada. Use el botón de abajo para descargarla en alta calidad (PNG/PDF/SVG).")
+    st.markdown(f'''<a href="{mermaid_url}" target="_blank" style="text-decoration:none;">
+        <button style="width:100%; padding:15px; background-color:#2E86C1; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:16px;">
+            🚀 ABRIR Y DESCARGAR INFOGRAFÍA (Alta Resolución)
+        </button>
+    </a>''', unsafe_allow_html=True)
+    
     components.html(f"""
-        <div id="infographic-box" style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #e0e0e0; font-family: sans-serif;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <span style="font-weight: bold; color: #2E86C1;">📊 Infografía Estratégica IkigAI</span>
-                <button onclick="window.print()" style="padding: 8px 16px; background: #28B463; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s;">
-                    📥 Exportar (PDF / Imagen)
-                </button>
-            </div>
-            <div class="mermaid" style="display: flex; justify-content: center;">
-                {clean_code}
-            </div>
+        <div class="mermaid" style="background: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">
+            {clean_code}
         </div>
         <script type="module">
             import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-            mermaid.initialize({{ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' }});
+            mermaid.initialize({{ startOnLoad: true, theme: 'neutral' }});
         </script>
-        <style>
-            @media print {{
-                body * {{ visibility: hidden; }}
-                #infographic-box, #infographic-box * {{ visibility: visible; }}
-                #infographic-box {{ position: absolute; left: 0; top: 0; width: 100%; border: none; }}
-                button {{ display: none !important; }}
-            }}
-        </style>
-    """, height=800, scrolling=True)
+    """, height=500, scrolling=True)
 
 # --- 4. LÓGICA DE MEMORIA ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
@@ -113,40 +104,36 @@ if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 # --- 5. BARRA LATERAL ---
 with st.sidebar:
     st.title("🧬 IkigAI Engine")
-    rol_activo = st.selectbox("Cambiar Rol Estratégico:", list(ROLES.keys()))
+    rol_activo = st.selectbox("Perfil Estratégico:", list(ROLES.keys()))
     st.session_state.rol_actual = rol_activo
     
     st.divider()
-    st.subheader(f"🔌 Fuentes para {rol_activo}")
-    t1, t2, t3 = st.tabs(["📄 Archivos", "🔗 Links", "🖼️ Imágenes"])
-    
+    t1, t2, t3 = st.tabs(["📄 Documentos", "🔗 Enlaces", "🖼️ Imágenes"])
     with t1:
-        up = st.file_uploader("Leer PDF, Word, Excel:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True)
-        if st.button("🧠 Leer"):
+        up = st.file_uploader("Subir archivos:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True)
+        if st.button("🧠 Leer Datos"):
             for f in up:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
                 elif "officedocument.word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
                 elif "spreadsheet" in f.type: st.session_state.biblioteca[rol_activo] += get_excel_text(f)
             st.success("Fuentes integradas.")
-
     with t2:
         uw, uy = st.text_input("URL Web:"), st.text_input("URL YouTube:")
         if st.button("🌐 Conectar"):
             if uw: st.session_state.biblioteca[rol_activo] += get_web_text(uw)
             if uy: st.session_state.biblioteca[rol_activo] += get_yt_text(uy)
             st.success("Conexión exitosa.")
-
     with t3:
         img_f = st.file_uploader("Leer imagen:", type=['jpg', 'jpeg', 'png'])
         if img_f:
             st.session_state.temp_image = Image.open(img_f)
             st.image(st.session_state.temp_image, caption="Imagen cargada")
 
-    st.divider()
     if st.session_state.last_analysis:
-        st.subheader("💾 Exportar Texto/Presentación")
-        st.download_button("📄 Word", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.docx")
-        st.download_button("📊 PowerPoint", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.pptx")
+        st.divider()
+        st.subheader("💾 Exportar Texto")
+        st.download_button("📄 Descargar Word", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.docx")
+        st.download_button("📊 Descargar PPTX", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.pptx")
 
 # --- 6. PANEL CENTRAL ---
 st.header(f"IkigAI: {rol_activo}")
@@ -154,25 +141,24 @@ st.header(f"IkigAI: {rol_activo}")
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-if pr := st.chat_input("¿Qué entregable diseñamos hoy, Doctor?"):
+if pr := st.chat_input("Instrucción estratégica..."):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
 
     with st.chat_message("assistant"):
-        model = genai.GenerativeModel('gemini-2.5-flash') 
-        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo, sin clichés. Si pides infografía, responde ÚNICAMENTE con el código Mermaid."
-        
-        inputs = [sys, f"Contexto leído: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo, directo. Si pides infografía, responde SOLO con código Mermaid."
+        inputs = [sys, f"Contexto: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
         if st.session_state.temp_image: inputs.append(st.session_state.temp_image)
         
         res = model.generate_content(inputs)
         st.session_state.last_analysis = res.text
         
-        if "graph" in res.text or "sequenceDiagram" in res.text or "mindmap" in res.text:
-            render_infographic(res.text)
+        if any(kw in res.text for kw in ["graph", "sequenceDiagram", "mindmap"]):
+            render_and_export_infographic(res.text)
         else:
             st.markdown(res.text)
-            
+        
         st.session_state.messages.append({"role": "assistant", "content": res.text})
         st.session_state.temp_image = None
         st.rerun()
