@@ -1,55 +1,81 @@
 import streamlit as st
 import google.generativeai as genai
+from pypdf import PdfReader
+import docx
 from datetime import date
 
-# --- CONFIGURACIÓN E IDENTIDADES ---
-st.set_page_config(page_title="IkigAI V1.4", page_icon="🧬", layout="wide")
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="IkigAI V1.5 - Biblioteca Estratégica", page_icon="🧬", layout="wide")
 
-# Autenticación (Se recomienda usar st.secrets["GOOGLE_API_KEY"])
-genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+if "GOOGLE_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+else:
+    st.error("Configure GOOGLE_API_KEY en st.secrets")
+    st.stop()
 
-ROLES = {
-    "Coach de Alto Desempeño": "Foco en ROI cognitivo, bienestar y eliminación de procastinación oculta.",
-    "Director Centro Telemedicina": "Estratega en Salud Digital, IA e innovación en la Universidad Nacional.",
-    "Vicedecano Académico": "Gestión administrativa, normativa académica y liderazgo institucional.",
-    "Director de UCI": "Rigor clínico, seguridad del paciente y medicina basada en evidencia.",
-    "Consultor Salud Digital": "Diseño de programas para el BID/MinSalud con enfoque territorial e intercultural.",
-    "Profesor Universitario": "Mentoría, diseño curricular médico y pedagogía disruptiva para el territorio.",
-    "Estratega de Trading": "Análisis técnico, gestión de riesgo y psicología del mercado aplicada a la toma de decisiones."
-}
+# --- FUNCIONES DE CARGA ---
+def extract_text(files):
+    text = ""
+    for file in files:
+        if file.type == "application/pdf":
+            reader = PdfReader(file)
+            for page in reader.pages: text += page.extract_text()
+        elif file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            doc = docx.Document(file)
+            text += "\n".join([p.text for p in doc.paragraphs])
+    return text
 
-# --- INTERFAZ ---
+# --- ESTADO DE MEMORIA ---
+if "biblioteca" not in st.session_state:
+    st.session_state.biblioteca = {rol: "" for rol in [
+        "Coach de Alto Desempeño", "Director Centro Telemedicina", 
+        "Vicedecano Académico", "Director de UCI", 
+        "Consultor Salud Digital", "Profesor Universitario", "Estratega de Trading"
+    ]}
+
+# --- BARRA LATERAL ---
 with st.sidebar:
-    st.title("🧬 IkigAI")
-    rol_activo = st.selectbox("Cambiar Rol Estratégico:", list(ROLES.keys()))
+    st.title("🧬 IkigAI Engine")
+    rol_activo = st.selectbox("Perfil Activo:", list(st.session_state.biblioteca.keys()))
+    
     st.divider()
-    st.caption(f"Activo: {rol_activo}")
+    st.subheader(f"📥 Fuentes para {rol_activo}")
+    archivos = st.file_uploader("Subir PDF/Docs del rol:", type=['pdf', 'docx'], accept_multiple_files=True)
+    
+    if st.button("🧠 Alimentar Cerebro"):
+        if archivos:
+            contenido = extract_text(archivos)
+            st.session_state.biblioteca[rol_activo] += f"\n{contenido}"
+            st.success(f"Memoria de {rol_activo} actualizada.")
 
-st.header(f"Panel de Control: {rol_activo}")
+# --- INTERFAZ PRINCIPAL ---
+st.header(f"IkigAI en modo: {rol_activo}")
 
-# Entrada de objetivos
-input_text = st.text_area("Describa sus objetivos, tareas o el escenario a analizar:", height=150)
+# Muestra si hay documentos cargados para ese rol
+if st.session_state.biblioteca[rol_activo]:
+    st.caption(f"✅ Este rol tiene {len(st.session_state.biblioteca[rol_activo])} caracteres de contexto específico.")
+else:
+    st.caption("⚠️ Este rol aún no tiene documentos base cargados.")
 
-if st.button("🚀 Ejecutar Análisis IkigAI"):
-    if input_text:
-        with st.spinner("Procesando bajo lógica de alto desempeño..."):
-            model = genai.GenerativeModel('gemini-1.5-pro')
-            
-            # Prompt que integra los nuevos roles
-            sistema = f"""
-            Eres IkigAI en modo {rol_activo}.
-            CONTEXTO: {ROLES[rol_activo]}
-            
-            INSTRUCCIONES:
-            - Si es 'Profesor': Enfócate en cómo simplificar conceptos complejos y generar impacto social.
-            - Si es 'Trading': Analiza el riesgo, la estructura del mercado y la disciplina emocional.
-            - Detecta si hay procastinación en lo que el usuario describe.
-            - Estilo: Directo, ejecutivo, sin clichés.
-            """
-            
-            res = model.generate_content([sistema, input_text])
-            st.markdown("---")
-            st.subheader("💡 Respuesta Estratégica")
-            st.write(res.text)
-    else:
-        st.warning("Por favor, ingrese información para iniciar.")
+prompt = st.chat_input("Instrucción estratégica...")
+
+if prompt:
+    with st.chat_message("assistant"):
+        model = genai.GenerativeModel('gemini-1.5-pro')
+        
+        # El Prompt Maestro usa el contexto guardado de ese rol específico
+        contexto_especifico = st.session_state.biblioteca[rol_activo]
+        
+        instruccion_sistema = f"""
+        Actúa como IkigAI en el rol de {rol_activo}.
+        BASE DE CONOCIMIENTO ESPECÍFICA PARA ESTE ROL:
+        {contexto_especifico[:800000]}
+        
+        TU MISIÓN:
+        - Responde usando la base de conocimiento adjunta.
+        - Sé estratégico, innovador y detecta procrastinación.
+        - Estilo ejecutivo, clínico y directo. Sin clichés.
+        """
+        
+        response = model.generate_content([instruccion_sistema, prompt])
+        st.markdown(response.text)
