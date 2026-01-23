@@ -17,6 +17,7 @@ from io import BytesIO
 import json
 from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
+from datetime import datetime, date
 
 # ==========================================
 # 🏛️ CONFIGURACIÓN DE IDENTIDAD UNAL
@@ -39,9 +40,8 @@ st.markdown(f"""
 # ==========================================
 # 🧠 MEMORIA MAESTRA Y LÓGICA DE NEGOCIO
 # ==========================================
-# Optimizamos la instrucción de sistema para que sea un agente de "Cadenas de Pensamiento"
 MEMORIA_MAESTRA = """
-PERFIL: Eres el Asesor Principal del Vicedecano de Medicina UNAL y Director de UCI.
+PERFIL: Eres el Asesor Principal del Vicedecano de Medicina UNAL, del Director de UCI, del Constultor en salud digital, el profesor universitario y asistente personal ejecutivo
 COMPETENCIAS: Epidemiología, Bioética, Telemedicina y Gestión de Proyectos bajo Ley 1419.
 ESTILO: Académico de alto nivel, ejecutivo, preciso y basado en evidencia.
 PROTOCOLO: 
@@ -57,8 +57,7 @@ def analizar_excel_avanzado(file):
     df = pd.read_excel(file)
     st.write("### 📈 Previsualización de Datos Institucionales")
     st.dataframe(df.head(5), use_container_width=True)
-    
-    # Generar gráfico rápido de tendencia si hay datos numéricos
+
     num_cols = df.select_dtypes(include=['number']).columns
     if not num_cols.empty:
         fig, ax = plt.subplots(figsize=(10, 4))
@@ -72,12 +71,10 @@ def analizar_excel_avanzado(file):
 # ==========================================
 def create_executive_docx(content):
     doc = docx.Document()
-    # Encabezado Institucional
     section = doc.sections[0]
     header = section.header
     header.paragraphs[0].text = "UNIVERSIDAD NACIONAL DE COLOMBIA - FACULTAD DE MEDICINA"
-    
-    # Título
+
     p = doc.add_paragraph("INFORME TÉCNICO DE DIRECCIÓN")
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.runs[0]
@@ -85,17 +82,61 @@ def create_executive_docx(content):
     run.font.size = Pt(18)
     run.font.color.rgb = RGBColor(0, 51, 102)
 
-    # Cuerpo del texto procesado
     for line in content.split('\n'):
         if line.startswith('#'):
             doc.add_heading(line.replace('#', '').strip(), level=1)
         else:
             doc.add_paragraph(line)
-            
+
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
+
+# ==========================================
+# 🧭 AGENTE PERSONAL MULTIPERFIL
+# ==========================================
+def analizar_prioridades(contexto):
+    prioridades = {
+        "urgente_importante": [],
+        "alto_impacto": [],
+        "posible_procrastinacion": []
+    }
+    for tarea in contexto["tareas"]:
+        if "urgente" in tarea or "crítico" in tarea:
+            prioridades["urgente_importante"].append(tarea)
+        elif "estrategia" in tarea or "innovación" in tarea:
+            prioridades["alto_impacto"].append(tarea)
+        else:
+            prioridades["posible_procrastinacion"].append(tarea)
+    return prioridades
+
+def ejercicio_pensamiento_critico():
+    return "¿Qué creencia no cuestionada podría estar limitando mi efectividad hoy en alguno de mis tres roles?"
+
+def dinamica_creativa():
+    return "Rediseña uno de tus procesos actuales (clínico, académico o consultivo) eliminando pasos redundantes e introduciendo una solución digital disruptiva."
+
+def generar_retroalimentacion(contexto, prioridades):
+    resumen = f"### 🗓️ Fecha: {contexto['fecha']}\n\n#### 🔍 Prioridades:\n"
+    for categoria, tareas in prioridades.items():
+        resumen += f"- **{categoria.replace('_', ' ').title()}**: {len(tareas)} tareas\n"
+    resumen += "\n---\n#### 🧠 Pensamiento Crítico:\n> " + ejercicio_pensamiento_critico()
+    resumen += "\n\n#### 💡 Dinámica Creativa:\n> " + dinamica_creativa()
+    return resumen
+
+def ejecutar_agente_personal():
+    tareas = ["Revisión de indicadores clínicos", "Preparar consejo de facultad", "Experto en salud digital y telesalud"]
+    contexto = {
+        "fecha": datetime.now().strftime("%Y-%m-%d"),
+        "tareas": tareas,
+        "objetivos": ["Optimizar flujo UCI", "Avance plan académico", "Escalar proyecto telesalud"],
+        "estado_emocional": "Concentrado",
+        "eventos": ["Reunión decanos", "Ronda clínica UCI"]
+    }
+    prioridades = analizar_prioridades(contexto)
+    resumen = generar_retroalimentacion(contexto, prioridades)
+    return resumen
 
 # ==========================================
 # 🚀 INTERFAZ Y FLUJO DE TRABAJO
@@ -103,15 +144,15 @@ def create_executive_docx(content):
 with st.sidebar:
     st.image("https://unal.edu.co/typo3conf/ext/unaltemplate/Resources/Public/images/escudo_unal.png", width=180)
     st.title("Panel de Control")
-    
+
     api_key = st.secrets.get("GOOGLE_API_KEY") or st.text_input("Gemini API Key", type="password")
-    
+
     if api_key:
         genai.configure(api_key=api_key)
-        
+
     st.subheader("📁 Gestión de Insumos")
     uploaded_files = st.file_uploader("Cargar Actas, Resoluciones o Bases de Datos", accept_multiple_files=True)
-    
+
     if st.button("🔄 Sincronizar Cerebro"):
         with st.spinner("Procesando documentos..."):
             full_context = ""
@@ -122,32 +163,29 @@ with st.sidebar:
             st.session_state.contexto_texto = full_context
             st.success("Contexto actualizado.")
 
-# --- ÁREA DE CHAT ---
+if st.button("🧭 Activar Agente Diario"):
+    resumen = ejecutar_agente_personal()
+    st.markdown(resumen)
+
 st.info(f"📍 **Modo:** {rol if 'rol' in locals() else 'Socio Estratégico'} | **Contexto:** {len(st.session_state.get('contexto_texto', ''))} caracteres cargados.")
 
-
-
-# --- LÓGICA DE RESPUESTA ---
 if prompt := st.chat_input("¿Qué reporte o análisis necesita hoy, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    
+
     with st.chat_message("assistant"):
         model = genai.GenerativeModel(
-            model_name='gemini-2.0-flash', # Actualizado a la versión más estable y rápida
+            model_name='gemini-2.0-flash',
             system_instruction=MEMORIA_MAESTRA
         )
-        
-        # Construcción del payload inteligente
-        contexto_limitado = st.session_state.get("contexto_texto", "")[:30000] # Evita saturación
+
+        contexto_limitado = st.session_state.get("contexto_texto", "")[:30000]
         full_prompt = f"CONTEXTO PREVIO: {contexto_limitado}\n\nINSTRUCCIÓN: {prompt}"
-        
+
         response = model.generate_content(full_prompt)
         st.markdown(response.text)
-        
-        # Guardar en memoria
+
         st.session_state.messages.append({"role": "assistant", "content": response.text})
-        
-        # Ofrecer descarga inmediata
+
         st.divider()
         col1, col2 = st.columns(2)
         with col1:
