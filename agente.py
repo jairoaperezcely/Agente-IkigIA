@@ -10,12 +10,12 @@ from PIL import Image
 from io import BytesIO
 from datetime import date
 from pptx import Presentation
-from gtts import gTTS 
+from gtts import gTTS
 import os
 import re
 
-# --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
-st.set_page_config(page_title="IkigAI V1.37 - Voice Strategy Hub", page_icon="🧬", layout="wide")
+# --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES CONSOLIDADOS) ---
+st.set_page_config(page_title="IkigAI V1.38 - Sistema Operativo Integral", page_icon="🧬", layout="wide")
 
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -63,14 +63,18 @@ def download_word_apa(content, role):
     doc.add_heading(f'Informe Estratégico: {role}', 0)
     doc.add_paragraph(f"Fecha: {date.today()} | Formato APA 7").italic = True
     for p in content.split('\n'):
-        if p.strip(): doc.add_paragraph(p)
+        if p.strip():
+            paragraph = doc.add_paragraph(p)
+            if "Referencias" in p or (len(p) > 60 and "(" in p and ")" in p):
+                paragraph.paragraph_format.left_indent = docx.shared.Inches(0.5)
+                paragraph.paragraph_format.first_line_indent = docx.shared.Inches(-0.5)
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
 def download_pptx_pro(content, role):
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[0])
     slide.shapes.title.text = f"ESTRATEGIA {role.upper()}"
-    slide.placeholders[1].text = f"Generado por IkigAI Engine\n{date.today()}"
+    slide.placeholders[1].text = f"IkigAI Engine - {date.today()}"
     points = [p for p in content.split('\n') if len(p.strip()) > 35]
     for i, p in enumerate(points[:10]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
@@ -78,20 +82,25 @@ def download_pptx_pro(content, role):
         slide.placeholders[1].text = p[:600]
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
+def copy_to_clipboard_ui(text):
+    text_escaped = text.replace("`", "\\`").replace("$", "\\$")
+    copy_html = f"""<button onclick="navigator.clipboard.writeText(`{text_escaped}`)" style="padding: 8px 16px; background-color: #f0f2f6; border: 1px solid #d1d8e0; border-radius: 5px; cursor: pointer; font-size: 14px; margin-top: 10px; width: 100%;">📋 Copiar al Portapapeles</button>"""
+    st.components.v1.html(copy_html, height=50)
+
 # --- 4. LÓGICA DE MEMORIA ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
 if "temp_image" not in st.session_state: st.session_state.temp_image = None
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL (Panel de Control de Voz) ---
+# --- 5. BARRA LATERAL (Restaurada y Completa) ---
 with st.sidebar:
     st.title("🧬 IkigAI Engine")
     rol_activo = st.selectbox("Cambiar Rol Estratégico:", list(ROLES.keys()))
     st.session_state.rol_actual = rol_activo
     
     st.divider()
-    st.subheader("🎙️ Configuración de Voz")
+    st.subheader("🎙️ Voz")
     voz_activa = st.toggle("Activar Respuesta por Voz", value=True)
     
     st.divider()
@@ -104,49 +113,46 @@ with st.sidebar:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
                 elif "officedocument.word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
                 elif "spreadsheet" in f.type: st.session_state.biblioteca[rol_activo] += get_excel_text(f)
-            st.success("Fuentes integradas.")
+            st.success("Leído.")
     with t2:
-        uw, uy = st.text_input("URL Web:"), st.text_input("URL YouTube:")
+        uw, uy = st.text_input("Web:"), st.text_input("YouTube:")
         if st.button("🌐 Conectar"):
             if uw: st.session_state.biblioteca[rol_activo] += get_web_text(uw)
             if uy: st.session_state.biblioteca[rol_activo] += get_yt_text(uy)
-            st.success("Conexión exitosa.")
+            st.success("Conectado.")
     with t3:
-        img_f = st.file_uploader("Leer imagen:", type=['jpg', 'jpeg', 'png'])
+        img_f = st.file_uploader("Cargar imagen:", type=['jpg', 'jpeg', 'png'])
         if img_f:
             st.session_state.temp_image = Image.open(img_f); st.image(st.session_state.temp_image)
 
+    # SECCIÓN DE EXPORTACIÓN PERMANENTE
     if st.session_state.last_analysis:
         st.divider()
         st.subheader("💾 Exportar Entregables")
-        st.download_button("📄 Informe Word", data=download_word_apa(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_Informe_{rol_activo}.docx")
-        st.download_button("📊 Presentación PPTX", data=download_pptx_pro(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_Presentacion_{rol_activo}.pptx")
+        st.download_button("📄 Word (APA 7)", data=download_word_apa(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_Informe_{rol_activo}.docx")
+        st.download_button("📊 PowerPoint", data=download_pptx_pro(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_Presentacion_{rol_activo}.pptx")
 
 # --- 6. PANEL CENTRAL ---
 st.header(f"IkigAI: {rol_activo}")
-
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
 if pr := st.chat_input("¿En qué trabajamos hoy, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
-
     with st.chat_message("assistant"):
         model = genai.GenerativeModel('gemini-2.5-flash') 
-        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. Citas APA 7."
-        
-        inputs = [sys, f"Contexto leído: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
+        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. Referencias APA 7."
+        inputs = [sys, f"Contexto: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
         if st.session_state.temp_image: inputs.append(st.session_state.temp_image)
         
         res = model.generate_content(inputs)
         st.session_state.last_analysis = res.text
         st.markdown(res.text)
         
-        # Ejecución de voz basada en el estado del Toggle
         if voz_activa:
-            with st.spinner("Generando audio..."):
-                audio_fp = generate_audio(res.text)
-                st.audio(audio_fp, format="audio/mp3")
-            
+            st.audio(generate_audio(res.text), format="audio/mp3")
+        
+        copy_to_clipboard_ui(res.text)
         st.session_state.messages.append({"role": "assistant", "content": res.text})
+        st.rerun()
