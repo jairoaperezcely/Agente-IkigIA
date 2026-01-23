@@ -15,40 +15,29 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
 st.set_page_config(
-    page_title="IkigAI V1.46 - Responsive Dark Hub", 
+    page_title="IkigAI V1.47 - High Performance Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS para modo oscuro, visibilidad y menú de selección optimizado
+# Estilo CSS optimizado para Dark Mode y visibilidad total
 st.markdown("""
     <style>
-    /* Fondo principal y sidebar en gris profundo */
     .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
         background-color: #0e1117 !important;
         color: #ffffff !important;
     }
     
-    /* Forzar texto blanco */
+    /* Texto blanco en Sidebar */
     [data-testid="stSidebar"] .stText, 
     [data-testid="stSidebar"] label, 
     [data-testid="stSidebar"] .stMarkdown p,
-    [data-testid="stSidebar"] h1, 
-    [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3,
-    .stMarkdown, p, h1, h2, h3 {
+    [data-testid="stSidebar"] h1, h2, h3 {
         color: #ffffff !important;
     }
 
-    /* OPTIMIZACIÓN DEL MENÚ DESPLEGABLE (SELECTBOX) */
-    /* Limita la altura del menú para que no se salga de la pantalla */
-    div[data-baseweb="popover"] > div {
-        max-height: 300px !important;
-        overflow-y: auto !important;
-    }
-    
-    /* Botones de descarga con estética de alto contraste */
+    /* Botones de descarga Neon-Dark */
     .stDownloadButton button {
         width: 100%;
         border-radius: 8px;
@@ -59,14 +48,13 @@ st.markdown("""
         font-weight: bold;
         margin-bottom: 5px;
     }
-    .stDownloadButton button:hover {
-        background-color: #00d4ff;
-        color: #0e1117 !important;
-    }
-
-    /* Pestañas (Tabs) visibles en modo oscuro */
-    button[data-baseweb="tab"] {
-        color: #ffffff !important;
+    
+    /* Estilo para los Tabs */
+    button[data-baseweb="tab"] { color: #ffffff !important; }
+    
+    /* Ajuste de espacio para Radio Buttons en móvil */
+    .stRadio div[role="radiogroup"] {
+        gap: 0.5rem;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -129,13 +117,18 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "temp_image" not in st.session_state: st.session_state.temp_image = None
 
-# --- 5. BARRA LATERAL (DISEÑO RESPONSIVO) ---
+# --- 5. BARRA LATERAL (NUEVO DISEÑO DE RADIO BUTTONS) ---
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=60)
     st.title("🧬 IkigAI Engine")
     
-    # Menú de Perfiles con altura controlada por CSS
-    rol_activo = st.selectbox("🎯 Seleccionar Perfil:", list(ROLES.keys()))
+    st.subheader("🎯 Perfil Estratégico")
+    # Cambio de selectbox a radio para asegurar visibilidad total
+    rol_activo = st.radio(
+        "Seleccione su rol actual:",
+        options=list(ROLES.keys()),
+        label_visibility="collapsed"
+    )
     st.session_state.rol_actual = rol_activo
     
     # EXPORTACIÓN
@@ -160,10 +153,10 @@ with st.sidebar:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
                 elif "word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
                 elif "sheet" in f.type: st.session_state.biblioteca[rol_activo] += get_excel_text(f)
-            st.success("Listo.")
+            st.success("Fuentes listas.")
 
     with tab_links:
-        uw = st.text_input("Web:", placeholder="https://")
+        uw = st.text_input("URL Web:", placeholder="https://")
         uy = st.text_input("YouTube:", placeholder="https://")
         if st.button("🌐 Conectar", use_container_width=True):
             if uw: st.session_state.biblioteca[rol_activo] += get_web_text(uw)
@@ -174,7 +167,7 @@ with st.sidebar:
         img_f = st.file_uploader("Imagen:", type=['jpg', 'jpeg', 'png'], label_visibility="collapsed")
         if img_f:
             st.session_state.temp_image = Image.open(img_f)
-            st.image(img_f, caption="Imagen cargada")
+            st.image(st.session_state.temp_image, caption="Imagen cargada")
 
 # --- 6. PANEL CENTRAL ---
 st.header(f"IkigAI: {rol_activo}")
