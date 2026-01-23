@@ -140,7 +140,7 @@ with st.sidebar:
     if st.session_state.last_analysis:
         st.divider()
         st.subheader("💾 Exportar Entregables")
-        st.download_button("📄 Informe Word (APA 7)", data=download_word_apa(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_Informe_{rol_activo}.docx")
+        st.download_button("📄 Informe Word", data=download_word_apa(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_Informe_{rol_activo}.docx")
         st.download_button("📊 Presentación PPTX", data=download_pptx_pro(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_Presentacion_{rol_activo}.pptx")
         xl_data = download_excel_pro(st.session_state.last_analysis)
         if xl_data: st.download_button("📈 Tabla Excel", data=xl_data, file_name=f"IkigAI_Datos_{rol_activo}.xlsx")
@@ -169,3 +169,4 @@ if pr := st.chat_input("Instrucción estratégica..."):
         
         st.session_state.messages.append({"role": "assistant", "content": res.text})
         st.rerun()
+
