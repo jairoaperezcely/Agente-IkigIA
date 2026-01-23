@@ -15,7 +15,7 @@ import os
 import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
-st.set_page_config(page_title="IkigAI V1.34 - Executive Strategy Hub", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="IkigAI V1.35 - Executive Strategy Hub", page_icon="🧬", layout="wide")
 
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -49,10 +49,10 @@ def get_yt_text(url):
         return " ".join([t['text'] for t in YouTubeTranscriptApi.get_transcript(v_id, languages=['es', 'en'])])
     except: return "Error en YouTube."
 
-# --- 3. MOTOR DE EXPORTACIÓN OFFICE ELEGANTE ---
+# --- 3. MOTOR DE EXPORTACIÓN OFFICE ---
 def download_word_apa(content, role):
     doc = docx.Document()
-    doc.add_heading(f'Informe Estratégico: {role}', 0)
+    doc.add_heading(f'Entregable IkigAI: {role}', 0)
     doc.add_paragraph(f"Fecha: {date.today()} | Formato APA 7").italic = True
     for p in content.split('\n'):
         if p.strip():
@@ -91,13 +91,25 @@ def download_excel_pro(content):
         return bio.getvalue()
     except: return None
 
-# --- 4. LÓGICA DE MEMORIA ---
+# --- 4. FUNCIÓN DE COPIADO (NUEVO) ---
+def copy_to_clipboard(text):
+    # Genera un botón HTML/JS para copiar texto
+    text_escaped = text.replace("`", "\\`").replace("$", "\\$")
+    copy_html = f"""
+        <button onclick="navigator.clipboard.writeText(`{text_escaped}`)" 
+        style="padding: 8px 16px; background-color: #f0f2f6; border: 1px solid #d1d8e0; border-radius: 5px; cursor: pointer; font-size: 14px; margin-top: 10px;">
+            📋 Copiar Análisis al Portapapeles
+        </button>
+    """
+    st.components.v1.html(copy_html, height=50)
+
+# --- 5. LÓGICA DE MEMORIA ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
 if "temp_image" not in st.session_state: st.session_state.temp_image = None
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL (Restaurada con Exportadores) ---
+# --- 6. BARRA LATERAL ---
 with st.sidebar:
     st.title("🧬 IkigAI Engine")
     rol_activo = st.selectbox("Cambiar Rol Estratégico:", list(ROLES.keys()))
@@ -125,18 +137,15 @@ with st.sidebar:
         if img_f:
             st.session_state.temp_image = Image.open(img_f); st.image(st.session_state.temp_image)
 
-    # SECCIÓN DE EXPORTACIÓN PERMANENTE SI HAY ANÁLISIS
     if st.session_state.last_analysis:
         st.divider()
         st.subheader("💾 Exportar Entregables")
         st.download_button("📄 Informe Word (APA 7)", data=download_word_apa(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_Informe_{rol_activo}.docx")
         st.download_button("📊 Presentación PPTX", data=download_pptx_pro(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_Presentacion_{rol_activo}.pptx")
-        
         xl_data = download_excel_pro(st.session_state.last_analysis)
-        if xl_data:
-            st.download_button("📈 Tabla Excel Elegante", data=xl_data, file_name=f"IkigAI_Datos_{rol_activo}.xlsx")
+        if xl_data: st.download_button("📈 Tabla Excel", data=xl_data, file_name=f"IkigAI_Datos_{rol_activo}.xlsx")
 
-# --- 6. PANEL CENTRAL ---
+# --- 7. PANEL CENTRAL ---
 st.header(f"IkigAI: {rol_activo}")
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
@@ -146,15 +155,17 @@ if pr := st.chat_input("Instrucción estratégica..."):
     with st.chat_message("user"): st.markdown(pr)
     with st.chat_message("assistant"):
         model = genai.GenerativeModel('gemini-2.5-flash')
-        sys = f"""Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. 
-        Estilo clínico, ejecutivo, sin clichés. Citas y referencias en APA 7. 
-        Si hay datos comparativos, usa tablas Markdown."""
+        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. APA 7."
         
-        inputs = [sys, f"Contexto leído: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
+        inputs = [sys, f"Contexto: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
         if st.session_state.temp_image: inputs.append(st.session_state.temp_image)
         
         res = model.generate_content(inputs)
         st.session_state.last_analysis = res.text
         st.markdown(res.text)
+        
+        # Insertar botón de copiado
+        copy_to_clipboard(res.text)
+        
         st.session_state.messages.append({"role": "assistant", "content": res.text})
         st.rerun()
