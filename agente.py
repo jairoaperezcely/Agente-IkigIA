@@ -158,7 +158,7 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     with st.chat_message("user"): st.markdown(pr)
 
     with st.chat_message("assistant"):
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo: Ejecutivo, elegante, sin clichés. Si se pide una infografía o diagrama, responde ÚNICAMENTE con el código Mermaid."
         
         inputs = [sys, f"Contexto leído: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
@@ -174,3 +174,4 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
             
         st.session_state.messages.append({"role": "assistant", "content": res.text})
         st.session_state.temp_image = None
+
