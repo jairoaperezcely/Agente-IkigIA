@@ -34,44 +34,33 @@ from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 
 # ==========================================
-# ⚙️ CONFIGURACIÓN DEL SISTEMA Y ESTILO
+# ⚙️ CONFIGURACIÓN DEL SISTEMA Y ESTILO FORZADO
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI V135", page_icon="🏛️", layout="wide")
+st.set_page_config(page_title="Agente IkigAI V140", page_icon="🏛️", layout="wide")
 
-# CSS MAESTRO: Forzar contraste en barra lateral y tablas
+# CSS BLINDADO: Fuerza el contraste para evitar el error de letra blanca
 st.markdown("""
     <style>
     /* Tablas ejecutivas */
     .stTable { border-radius: 10px; overflow: hidden; }
     th { background-color: #003366 !important; color: white !important; font-weight: bold; }
     
-    /* Fondo de barra lateral y visibilidad de texto */
+    /* FUERZA EL COLOR DE LA BARRA LATERAL (FONDO Y TEXTO) */
     [data-testid="stSidebar"] {
         background-color: #f0f2f6 !important;
     }
-    [data-testid="stSidebar"] .stMarkdown p, [data-testid="stSidebar"] label {
-        color: #1f1f1f !important;
-        font-weight: 500;
+    /* Fuerza texto negro en toda la barra lateral */
+    [data-testid="stSidebar"] * {
+        color: #000000 !important;
     }
-    
-    /* Contenedores expandibles */
+    /* Ajuste para que los botones dentro del sidebar sigan siendo legibles */
+    [data-testid="stSidebar"] button p {
+        color: inherit !important;
+    }
+    /* Estilo para los expanders */
     .stExpander {
         border: 1px solid #003366 !important;
         background-color: #ffffff !important;
-        border-radius: 10px !important;
-    }
-    
-    /* Botones UNAL */
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        font-weight: bold;
-        background-color: #003366;
-        color: white;
-    }
-    .stButton>button:hover {
-        background-color: #004080;
-        color: #e0e0e0;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -79,16 +68,16 @@ st.markdown("""
 MODELO_USADO = 'gemini-2.5-flash' 
 
 # ==========================================
-# 🧠 MEMORIA MAESTRA (DIRECTIVA)
+# 🧠 MEMORIA MAESTRA
 # ==========================================
 MEMORIA_MAESTRA = """
-PERFIL: Vicedecano Académico Medicina UNAL, Director UCI HUN, Epidemiólogo y Bioético.
-MISIÓN: Secretaría Técnica Digital. Genera informes y presentaciones de alto nivel.
+PERFIL: Vicedecano Académico Medicina UNAL, Director UCI HUN, Bioético.
+MISIÓN: Secretaría Técnica Digital de Alto Nivel. 
 REGLA: Usa tablas Markdown impecables para indicadores.
 """
 
 # ==========================================
-# 📖 MOTOR DE LECTURA (COMPLETO)
+# 📖 MOTOR DE LECTURA (INGENIERÍA)
 # ==========================================
 @st.cache_data
 def get_pdf_text(pdf_file):
@@ -154,20 +143,20 @@ def generate_pptx_from_data(slide_data):
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0); return buffer
 
 # ==========================================
-# 🖥️ BARRA LATERAL (8 ROLES + AUTENTICACIÓN)
+# 🖥️ BARRA LATERAL (8 ROLES + FIX AUTENTICACIÓN)
 # ==========================================
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Escudo_de_la_Universidad_Nacional_de_Colombia.svg/1200px-Escudo_de_la_Universidad_Nacional_de_Colombia.svg.png", width=100)
-    st.markdown("### 🏛️ Dashboard V135")
+    st.markdown("### 🏛️ Dashboard V140")
     st.divider()
 
-    # 1. AUTENTICACIÓN
+    # 1. AUTENTICACIÓN AUTOMÁTICA (RESTABLECIDA)
     if "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]; st.success("🔐 Acceso Automático")
     else:
         api_key = st.text_input("🔑 Ingrese API Key:", type="password")
 
-    # 2. SELECCIÓN DE ROL
+    # 2. SELECCIÓN DE ROL (8 ROLES RESTAURADOS)
     rol = st.selectbox("👤 Perfil:", [
         "Socio Estratégico (Innovación)", "Vicedecano Académico", "Director de UCI", 
         "Consultor Telesalud", "Profesor Universitario", "Investigador Científico", 
@@ -189,7 +178,7 @@ with st.sidebar:
 
     # 3. MÓDULO INSUMOS
     with st.expander("📥 INGESTAR DATOS", expanded=False):
-        docs = st.file_uploader("Subir PDF/Word/Excel", accept_multiple_files=True)
+        docs = st.file_uploader("Documentos", accept_multiple_files=True)
         if docs and st.button("Cargar Memoria"):
             acc = ""
             for f in docs:
@@ -198,19 +187,19 @@ with st.sidebar:
                 elif "sheet" in f.type: acc += get_excel_text(f)
             st.session_state.contexto_texto = acc; st.success("Listo")
         
-        u_yt = st.text_input("URL YouTube:"); w_url = st.text_input("Web URL:")
-        if u_yt and st.button("Leer YT"): st.session_state.contexto_texto += get_youtube_text(u_yt)
+        u_yt = st.text_input("YouTube:"); w_url = st.text_input("Web URL:")
+        if u_yt and st.button("Analizar YT"): st.session_state.contexto_texto += get_youtube_text(u_yt)
 
-    # 4. MÓDULO HERRAMIENTAS (PPTX Restaurado)
+    # 4. MÓDULO HERRAMIENTAS (PPTX RESTAURADO)
     with st.expander("🛠️ HERRAMIENTAS", expanded=False):
-        if st.button("📄 Word"):
+        if st.button("📄 Generar Word"):
             if st.session_state.get("messages"):
                 st.session_state.gen_word = create_clean_docx(st.session_state.messages[-1]["content"])
         if st.session_state.get("gen_word"):
-            st.download_button("📥 Bajar Word", st.session_state.gen_word, "informe.docx")
+            st.download_button("📥 Descargar Word", st.session_state.gen_word, "informe.docx")
 
         st.divider()
-        if st.button("📊 PowerPoint"):
+        if st.button("📊 Generar PPTX"):
             p_prompt = f"Genera JSON para PPTX: {st.session_state.messages[-1]['content']}. JSON: [{{'title':'T','content':['A']}}]"
             try:
                 genai.configure(api_key=api_key)
@@ -220,12 +209,12 @@ with st.sidebar:
                 st.success("PPTX Listo")
             except: st.error("Error en datos")
         if st.session_state.get("gen_pptx"):
-            st.download_button("📥 Bajar PPTX", st.session_state.gen_pptx, "pres.pptx")
+            st.download_button("📥 Descargar PPTX", st.session_state.gen_pptx, "pres.pptx")
 
     # 5. MULTIMEDIA
     with st.expander("🎙️ MULTIMEDIA", expanded=False):
-        up_media = st.file_uploader("Multimedia", type=['mp3','mp4','png','jpg'])
-        if up_media and st.button("Subir a Gemini"):
+        up_media = st.file_uploader("Audio/Video", type=['mp3','mp4','png','jpg'])
+        if up_media and st.button("Analizar Multimedia"):
             genai.configure(api_key=api_key)
             with tempfile.NamedTemporaryFile(delete=False, suffix='.'+up_media.name.split('.')[-1]) as tf:
                 tf.write(up_media.read()); tpath = tf.name
@@ -242,8 +231,8 @@ with st.sidebar:
 # ==========================================
 # 🚀 ÁREA PRINCIPAL
 # ==========================================
-st.title(f"🤖 Agente V135: {rol}")
-if not api_key: st.warning("⚠️ Falta Clave API en la barra lateral."); st.stop()
+st.title(f"🤖 Agente V140: {rol}")
+if not api_key: st.warning("⚠️ Ingrese Clave API."); st.stop()
 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "contexto_texto" not in st.session_state: st.session_state.contexto_texto = ""
@@ -263,7 +252,7 @@ if modo_voz:
         tts = gTTS(text=res.text, lang='es'); fp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
         tts.save(fp.name); st.audio(fp.name); os.remove(tpath); st.rerun()
 
-if p := st.chat_input("Escriba su instrucción..."):
+if p := st.chat_input("Escriba su instrucción estratégica..."):
     st.session_state.messages.append({"role": "user", "content": p}); st.chat_message("user").markdown(p)
     with st.chat_message("assistant"):
         genai.configure(api_key=api_key); model = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA)
