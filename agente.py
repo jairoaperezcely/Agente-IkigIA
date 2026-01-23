@@ -15,7 +15,7 @@ import os
 import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
-st.set_page_config(page_title="IkigAI V1.41 - Bimodal Strategy Hub", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="IkigAI V1.42 - Bimodal Strategy Hub", page_icon="🧬", layout="wide")
 
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -72,7 +72,7 @@ def download_pptx(content, role):
     points = [p for p in content.split('\n') if len(p.strip()) > 30]
     for i, p in enumerate(points[:8]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Punto Estratégico {i+1}"; slide.placeholders[1].text = p
+        slide.shapes.title.text = f"Eje Estratégico {i+1}"; slide.placeholders[1].text = p
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
 # --- 4. LÓGICA DE MEMORIA ---
@@ -92,7 +92,7 @@ with st.sidebar:
     voz_lectura = st.toggle("Escuchar respuestas", value=True)
     
     st.write("Dictar instrucción:")
-    audio_value = st.audio_input("Grabe su mensaje") # Componente Nativo de Streamlit
+    audio_value = st.audio_input("Grabar") 
     
     if st.session_state.last_analysis:
         st.divider()
@@ -120,16 +120,21 @@ with st.sidebar:
         img_f = st.file_uploader("Imagen:", type=['jpg', 'png'])
         if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
-# --- 6. PROCESAMIENTO DE ENTRADA ---
+# --- 6. PROCESAMIENTO DE ENTRADA (CORRECCIÓN NOTFOUND) ---
 prompt_final = None
 if audio_value:
-    with st.spinner("Transcribiendo audio..."):
-        model_transcribe = genai.GenerativeModel('gemini-1.5-flash')
-        res_voice = model_transcribe.generate_content([
-            "Transcribe este audio a texto en español de forma exacta.",
-            {"mime_type": "audio/wav", "data": audio_value.read()}
-        ])
-        prompt_final = res_voice.text
+    try:
+        with st.spinner("Transcribiendo..."):
+            # Se usa el nombre de modelo más estable
+            model_transcribe = genai.GenerativeModel('gemini-1.5-flash')
+            audio_data = audio_value.read()
+            res_voice = model_transcribe.generate_content([
+                "Transcribe este audio a texto en español de forma exacta.",
+                {"mime_type": "audio/wav", "data": audio_data}
+            ])
+            prompt_final = res_voice.text
+    except Exception as e:
+        st.error(f"Error en transcripción. Por favor, escriba su mensaje.")
 
 # --- 7. PANEL CENTRAL ---
 st.header(f"IkigAI: {rol_activo}")
@@ -144,6 +149,7 @@ if prompt_final or chat_input:
     with st.chat_message("user"): st.markdown(pr)
     
     with st.chat_message("assistant"):
+        # Aseguramos el modelo gemini-1.5-flash para evitar NotFound
         model = genai.GenerativeModel('gemini-2.5-flash')
         sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. APA 7."
         inputs = [sys, f"Contexto: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
@@ -157,5 +163,4 @@ if prompt_final or chat_input:
             st.audio(generate_audio(res.text), format="audio/mp3")
             
         st.session_state.messages.append({"role": "assistant", "content": res.text})
-        st.session_state.temp_image = None
         st.rerun()
