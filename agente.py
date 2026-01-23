@@ -16,7 +16,7 @@ import os
 import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
-st.set_page_config(page_title="IkigAI V1.16 - Executive Design Center", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="IkigAI V1.24 - Executive Design Center", page_icon="🧬", layout="wide")
 
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -74,31 +74,33 @@ def create_word_doc(title, content):
 
 def create_pptx(title, text_content):
     prs = Presentation()
-    # Slide de Título
     slide = prs.slides.add_slide(prs.slide_layouts[0])
     slide.shapes.title.text = title
     slide.placeholders[1].text = f"Análisis Estratégico IkigAI\n{date.today()}\n{st.session_state.rol_actual}"
-    
-    # Intento de fragmentar el texto en diapositivas
     paragraphs = text_content.split('\n\n')
-    for i, p in enumerate(paragraphs[:10]): # Límite de 10 slides
+    for i, p in enumerate(paragraphs[:10]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
         slide.shapes.title.text = f"Punto Clave {i+1}"
         slide.placeholders[1].text = p
-    
     buf = BytesIO(); prs.save(buf); buf.seek(0)
     return buf
 
 def render_infographic(mermaid_code):
     clean_code = re.sub(r'```mermaid|```', '', mermaid_code).strip()
+    # Botón de exportación visual integrado
     components.html(f"""
-        <div class="mermaid" style="background: white; padding: 20px;">
-            {clean_code}
+        <div id="graph-container" style="background: white; padding: 20px; border-radius: 10px;">
+            <button onclick="window.print()" style="margin-bottom: 10px; padding: 10px; background: #2E86C1; color: white; border: none; border-radius: 5px; cursor: pointer; font-family: sans-serif;">
+                📊 Descargar Infografía (Imprimir/Guardar PDF)
+            </button>
+            <div class="mermaid">{clean_code}</div>
         </div>
         <script type="module">
             import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
             mermaid.initialize({{ startOnLoad: true, theme: 'neutral' }});
-        </script>""", height=600, scrolling=True)
+        </script>
+        <style> @media print {{ button {{ display: none; }} }} </style>
+    """, height=600, scrolling=True)
 
 # --- 4. LÓGICA DE MEMORIA ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
@@ -158,7 +160,8 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     with st.chat_message("user"): st.markdown(pr)
 
     with st.chat_message("assistant"):
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        # MODELO FIJADO EN GEMINI 2.5 FLASH SEGÚN SOLICITUD
+        model = genai.GenerativeModel('gemini-2.5-flash') 
         sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo: Ejecutivo, elegante, sin clichés. Si se pide una infografía o diagrama, responde ÚNICAMENTE con el código Mermaid."
         
         inputs = [sys, f"Contexto leído: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
@@ -174,4 +177,3 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
             
         st.session_state.messages.append({"role": "assistant", "content": res.text})
         st.session_state.temp_image = None
-
