@@ -34,39 +34,27 @@ from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 
 # ==========================================
-# 🏛️ CONFIGURACIÓN DE IDENTIDAD Y CONTRASTE
+# 🏛️ CONFIGURACIÓN DE IDENTIDAD Y CONTRASTE FORZADO
 # ==========================================
-st.set_page_config(page_title="Agente IkigAI - Vicedecanatura", page_icon="🏛️", layout="wide")
+st.set_page_config(page_title="Agente IkigAI - Directivo", page_icon="🏛️", layout="wide")
 
-# CSS BLINDADO: Fuerza el color de la fuente para que no se pierda en el fondo
+# CSS BLINDADO: Fuerza el color de la fuente para que no se pierda en el fondo blanco
 st.markdown("""
     <style>
-    /* 1. FUERZA COLOR DE TEXTO EN BARRA LATERAL */
+    /* 1. FUERZA CONTRASTE EN BARRA LATERAL */
     [data-testid="stSidebar"] {
         background-color: #f0f2f6 !important;
         border-right: 2px solid #003366;
     }
-    [data-testid="stSidebar"] .stMarkdown p, 
-    [data-testid="stSidebar"] .stSelectbox label, 
-    [data-testid="stSidebar"] .stFileUploader label,
-    [data-testid="stSidebar"] .stTextInput label,
-    [data-testid="stSidebar"] .stHeader {
+    
+    /* ESTA REGLA FUERZA EL TEXTO NEGRO EN TODO EL SIDEBAR SIN EXCEPCIÓN */
+    [data-testid="stSidebar"] * {
         color: #000000 !important;
-        font-weight: 600 !important;
     }
 
     /* 2. ESTILO DE TABLAS UNAL */
-    .stTable { 
-        border-radius: 12px; 
-        overflow: hidden; 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
-    }
-    th { 
-        background-color: #003366 !important; 
-        color: #ffffff !important; 
-        font-weight: bold !important; 
-        text-align: center !important;
-    }
+    .stTable { border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    th { background-color: #003366 !important; color: white !important; font-weight: bold !important; text-align: center !important; }
 
     /* 3. BOTONES EJECUTIVOS */
     .stButton>button {
@@ -74,13 +62,13 @@ st.markdown("""
         border-radius: 10px;
         font-weight: bold;
         background-color: #ffffff;
-        color: #003366;
+        color: #003366 !important;
         border: 2px solid #003366;
         height: 45px;
     }
     .stButton>button:hover {
         background-color: #003366;
-        color: #ffffff;
+        color: #ffffff !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -93,7 +81,7 @@ MODELO_USADO = 'gemini-2.5-flash'
 MEMORIA_MAESTRA = """
 PERFIL DEL USUARIO: Vicedecano Académico Medicina UNAL, Director UCI HUN, Epidemiólogo y Bioético.
 MISIÓN: Secretaría Técnica de Alto Nivel. Entregables con rigor institucional.
-TABLAS: Presentar datos siempre en tablas Markdown profesionales.
+REGLA: Presentar datos siempre en tablas Markdown profesionales.
 """
 
 # ==========================================
@@ -114,6 +102,13 @@ def get_excel_text(excel_file):
         for name, df in sheets.items(): text += f"\n--- HOJA: {name} ---\n{df.to_string()}\n"
         return text
     except: return "Error Excel"
+
+def get_youtube_text(url):
+    try:
+        vid = url.split("v=")[1].split("&")[0] if "v=" in url else url.split("/")[-1]
+        t = YouTubeTranscriptApi.get_transcript(vid, languages=['es', 'en'])
+        return "YT: " + " ".join([i['text'] for i in t])
+    except: return "No disponible"
 
 # ==========================================
 # 🏭 MOTOR DE PRODUCCIÓN (OFFICE PREMIUM)
@@ -148,22 +143,31 @@ def generate_pptx_from_data(slide_data):
     prs = Presentation()
     for info in slide_data:
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        if slide.shapes.title: slide.shapes.title.text = info.get("title", "Análisis")
+        if slide.shapes.title: 
+            slide.shapes.title.text = info.get("title", "Punto Estratégico")
+            slide.shapes.title.text_frame.paragraphs[0].font.color.rgb = PtxRGB(0, 51, 102)
         tf = slide.placeholders[1].text_frame
-        for p in info.get("content", []): tf.add_paragraph().text = str(p)
+        for point in info.get("content", []):
+            p = tf.add_paragraph(); p.text = str(point); p.level = 0
     buffer = BytesIO(); prs.save(buffer); buffer.seek(0); return buffer
 
 # ==========================================
-# 🖥️ BARRA LATERAL (8 ROLES + CONTRASTE FORZADO)
+# 💾 GESTIÓN DE ESTADO
+# ==========================================
+if "messages" not in st.session_state: st.session_state.messages = []
+if "contexto_texto" not in st.session_state: st.session_state.contexto_texto = ""
+
+# ==========================================
+# 🖥️ BARRA LATERAL (8 ROLES + CONTRASTE TOTAL)
 # ==========================================
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Escudo_de_la_Universidad_Nacional_de_Colombia.svg/1200px-Escudo_de_la_Universidad_Nacional_de_Colombia.svg.png", width=120)
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Escudo_de_la_Universidad_Nacional_de_Colombia.svg/1200px-Escudo_de_la_Universidad_Nacional_de_Colombia.svg.png", width=110)
     st.markdown("## 🏛️ PANEL DIRECTIVO")
     st.divider()
 
-    # 1. AUTENTICACIÓN
+    # 1. AUTENTICACIÓN AUTOMÁTICA O MANUAL
     if "GOOGLE_API_KEY" in st.secrets:
-        api_key = st.secrets["GOOGLE_API_KEY"]; st.success("🔐 Acceso Automático")
+        api_key = st.secrets["GOOGLE_API_KEY"]; st.success("🔐 Acceso Verificado")
     else: api_key = st.text_input("🔑 API Key:", type="password")
 
     # 2. LOS 8 ROLES
@@ -181,32 +185,36 @@ with st.sidebar:
         "Profesor Universitario": "Pedagógico y académico.",
         "Investigador Científico": "Rigor metodológico APA.",
         "Mentor de Trading": "Análisis institucional y liquidez.",
-        "Asistente Ejecutivo": "Conciso y enfocado en actas."
+        "Asistente Ejecutivo": "Eficiente y enfocado en actas."
     }
 
     st.divider()
 
-    # 3. MÓDULOS DE TRABAJO (CONTRASTE GARANTIZADO)
+    # 3. MÓDULOS DE TRABAJO (VISIBILIDAD GARANTIZADA)
     st.markdown("### 📥 INSUMOS")
-    with st.expander("Subir Datos", expanded=False):
-        docs = st.file_uploader("Documentos", accept_multiple_files=True)
-        if docs and st.button("Procesar"):
+    with st.expander("Documentos", expanded=False):
+        docs = st.file_uploader("Subir Archivos", accept_multiple_files=True)
+        if docs and st.button("Procesar Memoria"):
             acc = ""
             for f in docs:
                 if f.type == "application/pdf": acc += get_pdf_text(f)
                 elif "word" in f.type: acc += get_docx_text(f)
-            st.session_state.contexto_texto = acc; st.success("Listo")
+                elif "sheet" in f.type: acc += get_excel_text(f)
+            st.session_state.contexto_texto = acc; st.success("Memoria Lista")
+        
+        u_yt = st.text_input("YouTube:"); w_url = st.text_input("Web:")
+        if u_yt and st.button("Leer YT"): st.session_state.contexto_texto += get_youtube_text(u_yt)
 
     st.markdown("### 🛠️ HERRAMIENTAS")
     with st.expander("Producción", expanded=False):
-        if st.button("📄 Word Directivo"):
-            if "messages" in st.session_state and st.session_state.messages:
+        if st.button("📄 Informe Word", use_container_width=True):
+            if st.session_state.messages:
                 st.session_state.gen_word = create_clean_docx(st.session_state.messages[-1]["content"])
         if st.session_state.get("gen_word"):
             st.download_button("📥 Bajar Word", st.session_state.gen_word, "informe.docx")
 
         st.divider()
-        if st.button("📊 PowerPoint"):
+        if st.button("📊 Generar PPTX", use_container_width=True):
             p_prompt = f"Resume en JSON para PPTX: {st.session_state.messages[-1]['content']}. JSON: [{{'title':'T','content':['A']}}]"
             try:
                 genai.configure(api_key=api_key); res = genai.GenerativeModel(MODELO_USADO).generate_content(p_prompt).text
@@ -225,16 +233,24 @@ with st.sidebar:
 # ==========================================
 # 🚀 ÁREA PRINCIPAL
 # ==========================================
-st.title(f"🤖 Agente V180: {rol}")
+st.title(f"🤖 Agente Directivo: {rol}")
 if not api_key: st.warning("⚠️ Ingrese API Key."); st.stop()
-
-if "messages" not in st.session_state: st.session_state.messages = []
-if "contexto_texto" not in st.session_state: st.session_state.contexto_texto = ""
 
 for m in st.session_state.messages:
     with st.chat_message(m["role"]): st.markdown(m["content"])
 
-# Entrada de Texto
+if modo_voz:
+    audio = mic_recorder(start_prompt="🔴", stop_prompt="⏹️", key='rec')
+    if audio:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tf:
+            tf.write(audio['bytes']); tpath = tf.name
+        genai.configure(api_key=api_key); mfile = genai.upload_file(path=tpath)
+        while mfile.state.name == "PROCESSING": time.sleep(0.5); mfile = genai.get_file(mfile.name)
+        res = genai.GenerativeModel(MODELO_USADO, system_instruction=MEMORIA_MAESTRA).generate_content([f"Rol: {rol}", mfile])
+        st.session_state.messages.append({"role": "user", "content": "(Voz)"}); st.session_state.messages.append({"role": "assistant", "content": res.text})
+        tts = gTTS(text=res.text, lang='es'); fp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+        tts.save(fp.name); st.audio(fp.name); os.remove(tpath); st.rerun()
+
 if p := st.chat_input("Escriba su instrucción..."):
     st.session_state.messages.append({"role": "user", "content": p}); st.chat_message("user").markdown(p)
     with st.chat_message("assistant"):
