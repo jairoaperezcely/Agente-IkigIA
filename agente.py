@@ -154,7 +154,7 @@ if "contexto_texto" not in st.session_state: st.session_state.contexto_texto = "
 # ==========================================
 with st.sidebar:
     st.image("https://medicina.unal.edu.co/fileadmin/templates/fm/img/logo-facultad-medicina.png", width=220)
-    st.markdown("### 🏛️ Dashboard V160")
+    st.markdown("### 🏛️ Dashboard")
     st.divider()
 
     # 1. Autenticación Prioritaria
@@ -255,3 +255,4 @@ if p := st.chat_input("Instrucción estratégica..."):
         response = model.generate_content(payload, stream=True)
         full_res = st.write_stream(chunk.text for chunk in response)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
+
