@@ -10,85 +10,33 @@ from PIL import Image
 from io import BytesIO
 from datetime import date
 from pptx import Presentation
+from pptx.util import Inches, Pt
 import os
 import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.55 - Final Executive Hub", 
+    page_title="IkigAI V1.57 - Clean Executive Suite", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS Final: Aislamiento total y Legibilidad Extrema
+# Estilo CSS: Deep Dark con aislamiento de Sidebar y contraste quirúrgico
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
-
-    /* FONDO GENERAL */
-    .stApp {
-        background-color: #000000 !important;
-        font-family: 'Inter', sans-serif !important;
-    }
-
-    /* BARRA LATERAL */
-    [data-testid="stSidebar"] {
-        background-color: #0A0A0A !important;
-        border-right: 1px solid #1A1A1A !important;
-    }
-    
-    [data-testid="stSidebar"] .stText, 
-    [data-testid="stSidebar"] label, 
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] h1, h2, h3 {
-        color: #FFFFFF !important;
-    }
-
-    /* CHAT: CONTRASTE MÁXIMO */
-    [data-testid="stChatMessage"] {
-        background-color: #050505 !important;
-        border: 1px solid #1A1A1A !important;
-    }
-
-    .stMarkdown p, .stMarkdown li {
-        color: #FFFFFF !important;
-        font-size: 16px !important;
-        line-height: 1.7 !important;
-    }
-
-    /* REFERENCIAS APA 7: Legibilidad Garantizada (Texto en Cian/Azul Claro) */
-    blockquote {
-        border-left: 4px solid #00E6FF !important;
-        background-color: #0D1117 !important;
-        padding: 15px !important;
-        margin: 15px 0 !important;
-    }
-    blockquote p {
-        color: #58A6FF !important;
-        font-style: italic !important;
-        font-size: 14px !important;
-    }
-
-    /* BOTONES DE EXPORTACIÓN */
-    .stDownloadButton button {
-        width: 100%;
-        border-radius: 6px;
-        background-color: transparent !important;
-        color: #00E6FF !important;
-        border: 1px solid #00E6FF !important;
-        font-weight: 600;
-    }
-    .stDownloadButton button:hover {
-        background-color: #00E6FF !important;
-        color: #000000 !important;
-    }
-
-    /* FIX PARA FILE UPLOADER (Fondo Oscuro) */
-    [data-testid="stFileUploadDropzone"] {
-        background-color: #0A0A0A !important;
-        border: 1px dashed #333 !important;
-    }
+    .stApp { background-color: #000000 !important; font-family: 'Inter', sans-serif !important; }
+    [data-testid="stSidebar"] { background-color: #0A0A0A !important; border-right: 1px solid #1A1A1A !important; }
+    [data-testid="stSidebar"] .stText, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] h1, h2, h3 { color: #FFFFFF !important; }
+    [data-testid="stChatMessage"] { background-color: #050505 !important; border: 1px solid #1A1A1A !important; }
+    .stMarkdown p, .stMarkdown li { color: #FFFFFF !important; font-size: 16px !important; line-height: 1.7 !important; }
+    blockquote { border-left: 4px solid #00E6FF !important; background-color: #0D1117 !important; padding: 15px !important; margin: 15px 0 !important; }
+    blockquote p { color: #58A6FF !important; font-style: italic !important; font-size: 14px !important; }
+    .stDownloadButton button { width: 100%; border-radius: 6px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; margin-top: 10px; }
+    .stDownloadButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
+    [data-testid="stFileUploadDropzone"] { background-color: #0A0A0A !important; border: 1px dashed #333 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -119,28 +67,47 @@ def get_web_text(url):
         return "\n".join([p.get_text() for p in BeautifulSoup(r.text, 'html.parser').find_all('p')])
     except: return ""
 
-# --- 3. EXPORTACIÓN OFFICE ---
+# --- 3. MOTOR DE LIMPIEZA Y EXPORTACIÓN ---
+def clean_markdown(text):
+    # Elimina asteriscos de negrita/itálica y limpia numerales de inicio
+    text = re.sub(r'\*+', '', text)
+    text = re.sub(r'^#+\s*', '', text)
+    return text.strip()
+
 def download_word(content, role):
     doc = docx.Document()
-    doc.add_heading(f'Informe IkigAI: {role}', 0)
-    doc.add_paragraph(f"Fecha: {date.today()}").italic = True
-    for p in content.split('\n'):
-        if p.strip(): doc.add_paragraph(p)
+    doc.add_heading(f'Análisis Estratégico: {role}', 0)
+    doc.add_paragraph(f"Generado por IkigAI Engine | {date.today()} | APA 7").italic = True
+    for line in content.split('\n'):
+        if line.strip():
+            # Si la línea original tiene marcas de encabezado
+            if line.startswith('#'):
+                level = line.count('#')
+                doc.add_heading(clean_markdown(line), level=min(level, 3))
+            else:
+                p = doc.add_paragraph(clean_markdown(line))
+                if "(" in line and ")" in line and len(line) > 50: # Formato APA sutil
+                    p.paragraph_format.left_indent = Pt(12)
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
 def download_pptx(content, role):
     prs = Presentation()
-    # Corrección de la lógica de creación de slides
-    points = [p for p in content.split('\n') if len(p.strip()) > 30]
+    # Limpieza previa del contenido
+    lines = [l.strip() for l in content.split('\n') if len(l.strip()) > 20]
+    
     # Portada
     slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = role.upper()
-    slide.placeholders[1].text = f"Análisis Estratégico - {date.today()}"
-    # Contenido
-    for i, p in enumerate(points[:8]):
+    slide.shapes.title.text = clean_markdown(role).upper()
+    slide.placeholders[1].text = f"Estrategia Ejecutiva IkigAI\n{date.today()}"
+    
+    # Slides de contenido (máximo 10 para ROI cognitivo)
+    for i, line in enumerate(lines[:10]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Eje {i+1}"
-        slide.placeholders[1].text = p[:550]
+        slide.shapes.title.text = f"Eje Estratégico {i+1}"
+        # Eliminación de asteriscos en la diapositiva
+        text_frame = slide.placeholders[1].text_frame
+        text_frame.text = clean_markdown(line)
+        
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
 # --- 4. LÓGICA DE MEMORIA ---
@@ -150,7 +117,8 @@ if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
 # --- 5. BARRA LATERAL ---
 with st.sidebar:
-    st.title("🧬 IkigAI Engine")
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=60)
+    st.title("IkigAI Engine")
     
     if st.button("🗑️ REINICIAR SESIÓN"):
         st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
@@ -164,9 +132,9 @@ with st.sidebar:
     
     if st.session_state.last_analysis:
         st.divider()
-        st.subheader("💾 Exportar")
-        st.download_button("📄 WORD (APA 7)", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
-        st.download_button("📊 POWERPOINT", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
+        st.subheader("💾 Exportar Limpio")
+        st.download_button("📄 WORD PROFESIONAL", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Informe_{rol_activo}.docx")
+        st.download_button("📊 PPTX EJECUTIVO", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Presentacion_{rol_activo}.pptx")
 
     st.divider()
     st.subheader("🔌 Datos")
