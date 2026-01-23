@@ -10,12 +10,25 @@ from PIL import Image
 from io import BytesIO
 from datetime import date
 from pptx import Presentation
-from gtts import gTTS
 import os
 import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
-st.set_page_config(page_title="IkigAI V1.42 - Bimodal Strategy Hub", page_icon="🧬", layout="wide")
+st.set_page_config(
+    page_title="IkigAI V1.43 - Executive Design Center", 
+    page_icon="🧬", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Estilo CSS para mejorar la estética en móviles y escritorio
+st.markdown("""
+    <style>
+    .stDownloadButton button { width: 100%; border-radius: 8px; height: 3em; background-color: #f0f2f6; border: 1px solid #d1d8e0; }
+    .stDownloadButton button:hover { background-color: #e0e4eb; border-color: #2E86C1; }
+    [data-testid="stSidebar"] { background-color: #f8f9fa; border-right: 1px solid #e0e0e0; }
+    </style>
+""", unsafe_allow_html=True)
 
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -49,18 +62,11 @@ def get_yt_text(url):
         return " ".join([t['text'] for t in YouTubeTranscriptApi.get_transcript(v_id, languages=['es', 'en'])])
     except: return "Error en YouTube."
 
-# --- 3. FUNCIONES DE EXPORTACIÓN Y VOZ ---
-def generate_audio(text):
-    clean_text = re.sub(r'[*#_>-]', '', text)
-    tts = gTTS(text=clean_text, lang='es', tld='com.mx')
-    fp = BytesIO()
-    tts.write_to_fp(fp)
-    fp.seek(0)
-    return fp
-
+# --- 3. MOTOR DE EXPORTACIÓN OFFICE ---
 def download_word(content, role):
     doc = docx.Document()
     doc.add_heading(f'Entregable IkigAI: {role}', 0)
+    doc.add_paragraph(f"Fecha: {date.today()} | Formato APA 7").italic = True
     for p in content.split('\n'):
         if p.strip(): doc.add_paragraph(p)
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
@@ -69,10 +75,11 @@ def download_pptx(content, role):
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[0])
     slide.shapes.title.text = f"Estrategia {role}"
+    slide.placeholders[1].text = f"IkigAI Engine - {date.today()}"
     points = [p for p in content.split('\n') if len(p.strip()) > 30]
     for i, p in enumerate(points[:8]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Eje Estratégico {i+1}"; slide.placeholders[1].text = p
+        slide.shapes.title.text = f"Eje {i+1}"; slide.placeholders[1].text = p[:500]
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
 # --- 4. LÓGICA DE MEMORIA ---
@@ -81,86 +88,81 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "temp_image" not in st.session_state: st.session_state.temp_image = None
 
-# --- 5. BARRA LATERAL ---
+# --- 5. BARRA LATERAL (DISEÑO PREMIUM MÉXICO/COLOMBIA) ---
 with st.sidebar:
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=80)
     st.title("🧬 IkigAI Engine")
-    rol_activo = st.selectbox("Rol Estratégico:", list(ROLES.keys()))
+    st.caption("Executive Design Center | V1.43")
+    
+    rol_activo = st.selectbox("🎯 Perfil Activo:", list(ROLES.keys()))
     st.session_state.rol_actual = rol_activo
     
-    st.divider()
-    st.subheader("🎙️ Interacción de Voz")
-    voz_lectura = st.toggle("Escuchar respuestas", value=True)
-    
-    st.write("Dictar instrucción:")
-    audio_value = st.audio_input("Grabar") 
-    
+    # SECCIÓN DE EXPORTACIÓN (Prioridad Alta)
     if st.session_state.last_analysis:
         st.divider()
-        st.subheader("💾 Exportar")
-        st.download_button("📄 Word (APA 7)", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.docx")
-        st.download_button("📊 PowerPoint", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.pptx")
+        st.subheader("💾 Exportar Informe")
+        st.download_button("📄 Formato Word (APA 7)", 
+                           data=download_word(st.session_state.last_analysis, rol_activo), 
+                           file_name=f"IkigAI_{rol_activo}_{date.today()}.docx")
+        st.download_button("📊 Presentación PPTX", 
+                           data=download_pptx(st.session_state.last_analysis, rol_activo), 
+                           file_name=f"IkigAI_{rol_activo}_{date.today()}.pptx")
 
     st.divider()
-    t1, t2, t3 = st.tabs(["📄 Archivos", "🔗 Links", "🖼️ Img"])
-    with t1:
-        up = st.file_uploader("Cargar:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True)
-        if st.button("🧠 Procesar"):
+    st.subheader("🔌 Fuentes de Datos")
+    tab_files, tab_links, tab_img = st.tabs(["📄 Doc", "🔗 Link", "🖼️ Img"])
+    
+    with tab_files:
+        up = st.file_uploader("Subir PDF/Docs:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
+        if st.button("🧠 Procesar Archivos", use_container_width=True):
             for f in up:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
                 elif "word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
                 elif "sheet" in f.type: st.session_state.biblioteca[rol_activo] += get_excel_text(f)
-            st.success("Leído.")
-    with t2:
-        uw, uy = st.text_input("URL Web:"), st.text_input("URL YouTube:")
-        if st.button("🌐 Conectar"):
+            st.success("Datos integrados.")
+
+    with tab_links:
+        uw = st.text_input("URL Web:", placeholder="https://...")
+        uy = st.text_input("URL YouTube:", placeholder="https://youtube.com/...")
+        if st.button("🌐 Conectar Fuentes", use_container_width=True):
             if uw: st.session_state.biblioteca[rol_activo] += get_web_text(uw)
             if uy: st.session_state.biblioteca[rol_activo] += get_yt_text(uy)
-            st.success("Conectado.")
-    with t3:
-        img_f = st.file_uploader("Imagen:", type=['jpg', 'png'])
-        if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
+            st.success("Links conectados.")
 
-# --- 6. PROCESAMIENTO DE ENTRADA (CORRECCIÓN NOTFOUND) ---
-prompt_final = None
-if audio_value:
-    try:
-        with st.spinner("Transcribiendo..."):
-            # Se usa el nombre de modelo más estable
-            model_transcribe = genai.GenerativeModel('gemini-1.5-flash')
-            audio_data = audio_value.read()
-            res_voice = model_transcribe.generate_content([
-                "Transcribe este audio a texto en español de forma exacta.",
-                {"mime_type": "audio/wav", "data": audio_data}
-            ])
-            prompt_final = res_voice.text
-    except Exception as e:
-        st.error(f"Error en transcripción. Por favor, escriba su mensaje.")
+    with tab_img:
+        img_f = st.file_uploader("Analizar Imagen:", type=['jpg', 'jpeg', 'png'], label_visibility="collapsed")
+        if img_f:
+            st.session_state.temp_image = Image.open(img_f)
+            st.image(img_f, caption="Imagen cargada")
 
-# --- 7. PANEL CENTRAL ---
+# --- 6. PANEL CENTRAL (CHAT EJECUTIVO) ---
 st.header(f"IkigAI: {rol_activo}")
 
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]): st.markdown(msg["content"])
+    with st.chat_message(msg["role"]): 
+        st.markdown(msg["content"])
+        if msg["role"] == "assistant":
+            # Botón de copiado simple integrado por Markdown para mayor compatibilidad
+            st.button("📋 Copiar respuesta", key=f"btn_{st.session_state.messages.index(msg)}", 
+                      on_click=lambda text=msg["content"]: st.write(f'<script>navigator.clipboard.writeText(`{text}`)</script>', unsafe_allow_html=True))
 
-chat_input = st.chat_input("Escriba su instrucción...")
-if prompt_final or chat_input:
-    pr = prompt_final if prompt_final else chat_input
+if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
     
     with st.chat_message("assistant"):
-        # Aseguramos el modelo gemini-1.5-flash para evitar NotFound
+        # Usamos gemini-1.5-flash por ser el identificador más estable en la API
         model = genai.GenerativeModel('gemini-2.5-flash')
-        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. APA 7."
-        inputs = [sys, f"Contexto: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
-        if st.session_state.temp_image: inputs.append(st.session_state.temp_image)
+        sys_context = f"""Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. 
+        Estilo clínico, directo y humano. Sin clichés. Citas y bibliografía estrictamente en APA 7."""
         
-        res = model.generate_content(inputs)
-        st.session_state.last_analysis = res.text
-        st.markdown(res.text)
+        content_to_send = [sys_context, f"Contexto acumulado: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
+        if st.session_state.temp_image: content_to_send.append(st.session_state.temp_image)
         
-        if voz_lectura:
-            st.audio(generate_audio(res.text), format="audio/mp3")
-            
-        st.session_state.messages.append({"role": "assistant", "content": res.text})
-        st.rerun()
+        response = model.generate_content(content_to_send)
+        st.session_state.last_analysis = response.text
+        st.markdown(response.text)
+        
+        st.session_state.messages.append({"role": "assistant", "content": response.text})
+        st.session_state.temp_image = None # Limpia imagen tras uso
+        st.rerun() # Actualiza barra lateral para mostrar descargas
