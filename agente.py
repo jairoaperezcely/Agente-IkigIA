@@ -9,13 +9,14 @@ import requests
 from PIL import Image
 from io import BytesIO
 from datetime import date
-from pptx import Presentation # Requiere: pip install python-pptx
+from pptx import Presentation
 from pptx.util import Inches, Pt
 import streamlit.components.v1 as components
 import os
+import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
-st.set_page_config(page_title="IkigAI V1.15 - Centro de Diseño Ejecutivo", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="IkigAI V1.16 - Executive Design Center", page_icon="🧬", layout="wide")
 
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -34,7 +35,7 @@ ROLES = {
     "Estratega de Trading": "Gestión de riesgo y psicología de mercado (Wyckoff/SMC)."
 }
 
-# --- 2. FUNCIONES DE LECTURA MULTIFUENTE (Acumulativo) ---
+# --- 2. FUNCIONES DE LECTURA ---
 def get_pdf_text(pdf_file):
     reader = PdfReader(pdf_file)
     return "".join([page.extract_text() for page in reader.pages])
@@ -61,7 +62,7 @@ def get_yt_text(url):
         return f"TRANSCRIPCIÓN YOUTUBE:\n" + " ".join([t['text'] for t in transcript])
     except: return "No se encontró transcripción."
 
-# --- 3. FUNCIONES DE DISEÑO Y ESCRITURA EJECUTIVA ---
+# --- 3. FUNCIONES DE DISEÑO EJECUTIVO ---
 def create_word_doc(title, content):
     doc = docx.Document()
     doc.add_heading(title, 0)
@@ -71,23 +72,29 @@ def create_word_doc(title, content):
     buf = BytesIO(); doc.save(buf); buf.seek(0)
     return buf
 
-def create_pptx(title, slides_data):
+def create_pptx(title, text_content):
     prs = Presentation()
-    # Título
+    # Slide de Título
     slide = prs.slides.add_slide(prs.slide_layouts[0])
     slide.shapes.title.text = title
-    slide.placeholders[1].text = f"IkigAI Strategic Presentation\n{date.today()}"
-    # Contenido (slides_data es lista de dicts con 'title' y 'content')
-    for s in slides_data:
+    slide.placeholders[1].text = f"Análisis Estratégico IkigAI\n{date.today()}\n{st.session_state.rol_actual}"
+    
+    # Intento de fragmentar el texto en diapositivas
+    paragraphs = text_content.split('\n\n')
+    for i, p in enumerate(paragraphs[:10]): # Límite de 10 slides
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = s['title']
-        slide.placeholders[1].text = s['content']
+        slide.shapes.title.text = f"Punto Clave {i+1}"
+        slide.placeholders[1].text = p
+    
     buf = BytesIO(); prs.save(buf); buf.seek(0)
     return buf
 
 def render_infographic(mermaid_code):
+    clean_code = re.sub(r'```mermaid|```', '', mermaid_code).strip()
     components.html(f"""
-        <pre class="mermaid" style="background: white;">{mermaid_code}</pre>
+        <div class="mermaid" style="background: white; padding: 20px;">
+            {clean_code}
+        </div>
         <script type="module">
             import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
             mermaid.initialize({{ startOnLoad: true, theme: 'neutral' }});
@@ -135,12 +142,11 @@ with st.sidebar:
     st.subheader("💾 Exportar Entregables")
     if st.session_state.last_analysis:
         st.download_button("📄 Word", data=create_word_doc("Informe IkigAI", st.session_state.last_analysis), file_name=f"IkigAI_{rol_activo}.docx")
-        # El botón de PPT se habilita cuando la IA genera estructura de slides
+        st.download_button("📊 PowerPoint", data=create_pptx(f"Estrategia {rol_activo}", st.session_state.last_analysis), file_name=f"IkigAI_{rol_activo}.pptx")
 
 # --- 6. PANEL CENTRAL ---
 st.header(f"IkigAI: {rol_activo}")
 
-# Módulo de ROI
 with st.expander("🚀 ROI Cognitivo"):
     tareas = st.text_area("Objetivos de hoy:")
 
@@ -153,7 +159,7 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
 
     with st.chat_message("assistant"):
         model = genai.GenerativeModel('gemini-1.5-pro')
-        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo: Ejecutivo, elegante, sin clichés. Si pide infografía usa formato Mermaid."
+        sys = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo: Ejecutivo, elegante, sin clichés. Si se pide una infografía o diagrama, responde ÚNICAMENTE con el código Mermaid."
         
         inputs = [sys, f"Contexto leído: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
         if st.session_state.temp_image: inputs.append(st.session_state.temp_image)
@@ -161,8 +167,7 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
         res = model.generate_content(inputs)
         st.session_state.last_analysis = res.text
         
-        # Detección de código Mermaid para renderizar infografía
-        if "graph" in res.text or "sequenceDiagram" in res.text:
+        if "graph" in res.text or "sequenceDiagram" in res.text or "mindmap" in res.text:
             render_infographic(res.text)
         else:
             st.markdown(res.text)
