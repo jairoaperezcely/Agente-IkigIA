@@ -15,13 +15,13 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
 st.set_page_config(
-    page_title="IkigAI V1.50 - Strategic Executive Hub", 
+    page_title="IkigAI V1.51 - Strategic Executive Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS Avanzado: Fondo Negro/Gris y Organización de Sidebar
+# Estilo CSS Avanzado: Fondo Negro/Gris y Corrección de File Uploader
 st.markdown("""
     <style>
     /* Estructura Principal Dark */
@@ -35,6 +35,19 @@ st.markdown("""
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
         color: #ffffff !important;
         font-weight: 500;
+    }
+
+    /* CORRECCIÓN FILE UPLOADER (Fondo Blanco a Oscuro) */
+    [data-testid="stFileUploadDropzone"] {
+        background-color: #161b22 !important;
+        color: #ffffff !important;
+        border: 1px dashed #00e6ff !important;
+    }
+    [data-testid="stFileUploadDropzone"] svg {
+        fill: #00e6ff !important;
+    }
+    [data-testid="stText"] {
+        color: #ffffff !important;
     }
 
     /* Botones de Descarga Estilo Neon */
@@ -142,12 +155,12 @@ with st.sidebar:
 
     st.divider()
     
-    # Prioridad 2: Perfil Estratégico (Radio buttons para evitar cortes)
+    # Prioridad 2: Perfil Estratégico
     st.subheader("🎯 Perfil Activo")
     rol_activo = st.radio("Rol:", options=list(ROLES.keys()), label_visibility="collapsed")
     st.session_state.rol_actual = rol_activo
     
-    # Prioridad 3: Exportación de Resultados
+    # Prioridad 3: Exportación
     if st.session_state.last_analysis:
         st.divider()
         st.subheader("💾 Exportar Entregable")
@@ -160,7 +173,7 @@ with st.sidebar:
 
     st.divider()
     
-    # Prioridad 4: Ingesta de Datos (Tabs compactos)
+    # Prioridad 4: Ingesta de Datos (Con corrección de fondo blanco)
     st.subheader("🔌 Fuentes de Datos")
     t1, t2, t3 = st.tabs(["📄 Doc", "🔗 Link", "🖼️ Img"])
     with t1:
@@ -179,7 +192,7 @@ with st.sidebar:
             if uy: st.session_state.biblioteca[rol_activo] += get_yt_text(uy)
             st.success("Nodos conectados.")
     with t3:
-        img_f = st.file_uploader("Imagen:", type=['jpg', 'png'], label_visibility="collapsed")
+        img_f = st.file_uploader("Imagen:", type=['jpg', 'png'], label_visibility="collapsed", key="img_uploader")
         if img_f:
             st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
@@ -195,7 +208,6 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     with st.chat_message("user"): st.markdown(pr)
     
     with st.chat_message("assistant"):
-        # Fijado en gemini-1.5-flash para estabilidad absoluta
         model = genai.GenerativeModel('gemini-2.5-flash')
         sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo, ejecutivo. APA 7 obligatorio."
         
