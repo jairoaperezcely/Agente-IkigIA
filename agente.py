@@ -149,9 +149,7 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
 # --- 5. BARRA LATERAL (ESTRUCTURA FIJA) ---
-with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=60)
-    st.title("IkigAI Engine")
+with st.sidebar: st.title("IkigAI Engine")
     
     if st.button("🗑️ REINICIAR SESIÓN"):
         st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
@@ -207,3 +205,4 @@ if pr := st.chat_input("¿Qué analizamos hoy, Doctor?"):
         st.markdown(response.text)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.rerun()
+
