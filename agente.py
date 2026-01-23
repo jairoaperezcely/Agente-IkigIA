@@ -15,22 +15,22 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
 st.set_page_config(
-    page_title="IkigAI V1.45 - Deep Dark Hub", 
+    page_title="IkigAI V1.46 - Responsive Dark Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS para modo oscuro profundo y alto contraste
+# Estilo CSS para modo oscuro, visibilidad y menú de selección optimizado
 st.markdown("""
     <style>
-    /* Fondo principal y sidebar en gris oscuro/negro */
+    /* Fondo principal y sidebar en gris profundo */
     .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
         background-color: #0e1117 !important;
         color: #ffffff !important;
     }
     
-    /* Forzar texto blanco en toda la aplicación */
+    /* Forzar texto blanco */
     [data-testid="stSidebar"] .stText, 
     [data-testid="stSidebar"] label, 
     [data-testid="stSidebar"] .stMarkdown p,
@@ -41,31 +41,32 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* Estilo de los Tabs en el Sidebar */
-    button[data-baseweb="tab"] {
-        color: #ffffff !important;
+    /* OPTIMIZACIÓN DEL MENÚ DESPLEGABLE (SELECTBOX) */
+    /* Limita la altura del menú para que no se salga de la pantalla */
+    div[data-baseweb="popover"] > div {
+        max-height: 300px !important;
+        overflow-y: auto !important;
     }
-
-    /* Botones de descarga con estética Neon-Medical */
+    
+    /* Botones de descarga con estética de alto contraste */
     .stDownloadButton button {
         width: 100%;
         border-radius: 8px;
-        height: 3.5em;
+        height: 3em;
         background-color: #1f2937;
         color: #00d4ff !important;
         border: 1px solid #00d4ff;
         font-weight: bold;
-        transition: 0.3s;
+        margin-bottom: 5px;
     }
     .stDownloadButton button:hover {
         background-color: #00d4ff;
         color: #0e1117 !important;
-        box-shadow: 0 0 15px #00d4ff;
     }
-    
-    /* Input de chat adaptado */
-    .stChatInputContainer {
-        background-color: #0e1117 !important;
+
+    /* Pestañas (Tabs) visibles en modo oscuro */
+    button[data-baseweb="tab"] {
+        color: #ffffff !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -105,7 +106,7 @@ def get_yt_text(url):
 # --- 3. MOTOR DE EXPORTACIÓN OFFICE ---
 def download_word(content, role):
     doc = docx.Document()
-    doc.add_heading(f'Entregable IkigAI: {role}', 0)
+    doc.add_heading(f'Informe Estratégico: {role}', 0)
     doc.add_paragraph(f"Fecha: {date.today()} | Formato APA 7").italic = True
     for p in content.split('\n'):
         if p.strip(): doc.add_paragraph(p)
@@ -114,7 +115,7 @@ def download_word(content, role):
 def download_pptx(content, role):
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = f"Estrategia {role}"
+    slide.shapes.title.text = f"Estrategia {role.upper()}"
     slide.placeholders[1].text = f"IkigAI Engine - {date.today()}"
     points = [p for p in content.split('\n') if len(p.strip()) > 30]
     for i, p in enumerate(points[:8]):
@@ -128,15 +129,16 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "temp_image" not in st.session_state: st.session_state.temp_image = None
 
-# --- 5. BARRA LATERAL (DISEÑO DARK PREMIUM) ---
+# --- 5. BARRA LATERAL (DISEÑO RESPONSIVO) ---
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=60)
     st.title("🧬 IkigAI Engine")
     
-    rol_activo = st.selectbox("🎯 Perfil Activo:", list(ROLES.keys()))
+    # Menú de Perfiles con altura controlada por CSS
+    rol_activo = st.selectbox("🎯 Seleccionar Perfil:", list(ROLES.keys()))
     st.session_state.rol_actual = rol_activo
     
-    # EXPORTACIÓN (Visibilidad garantizada en blanco sobre oscuro)
+    # EXPORTACIÓN
     if st.session_state.last_analysis:
         st.divider()
         st.subheader("💾 Exportar")
