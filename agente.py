@@ -13,71 +13,100 @@ from pptx import Presentation
 import os
 import re
 
-# --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
+# --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.51 - Strategic Executive Hub", 
+    page_title="IkigAI V1.52 - Strategic Intelligence Center", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS Avanzado: Fondo Negro/Gris y Corrección de File Uploader
+# Estilo CSS de Alta Costura Digital: Minimalismo, Tipografía y Contraste Suave
 st.markdown("""
     <style>
-    /* Estructura Principal Dark */
-    .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
-        background-color: #0e1117 !important;
-        color: #ffffff !important;
-    }
-    
-    /* Forzar visibilidad de etiquetas y textos en Sidebar */
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, 
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: #ffffff !important;
-        font-weight: 500;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+
+    /* Reset General */
+    html, body, [data-testid="stAppViewContainer"], .main {
+        background-color: #050505 !important;
+        font-family: 'Inter', sans-serif !important;
+        color: #E0E0E0 !important;
     }
 
-    /* CORRECCIÓN FILE UPLOADER (Fondo Blanco a Oscuro) */
-    [data-testid="stFileUploadDropzone"] {
-        background-color: #161b22 !important;
-        color: #ffffff !important;
-        border: 1px dashed #00e6ff !important;
-    }
-    [data-testid="stFileUploadDropzone"] svg {
-        fill: #00e6ff !important;
-    }
-    [data-testid="stText"] {
-        color: #ffffff !important;
+    /* Sidebar con efecto Glassmorphism */
+    [data-testid="stSidebar"] {
+        background-color: #0A0A0A !important;
+        border-right: 1px solid #1A1A1A !important;
+        padding-top: 2rem;
     }
 
-    /* Botones de Descarga Estilo Neon */
+    /* Títulos y Labels */
+    h1, h2, h3, label, p {
+        color: #FFFFFF !important;
+        font-weight: 300 !important;
+    }
+
+    /* Botones de Descarga: Estilo Minimalista Premium */
     .stDownloadButton button {
         width: 100%;
-        border-radius: 10px;
-        height: 3.2em;
-        background-color: #161b22;
-        color: #00e6ff !important;
-        border: 1px solid #00e6ff;
-        font-weight: bold;
-        transition: 0.3s all;
+        border-radius: 4px;
+        height: 3em;
+        background-color: transparent !important;
+        color: #00A3FF !important;
+        border: 1px solid #00A3FF !important;
+        font-size: 14px !important;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: 0.4s all ease;
     }
     .stDownloadButton button:hover {
-        background-color: #00e6ff;
-        color: #0e1117 !important;
-        box-shadow: 0 0 12px #00e6ff;
+        background-color: #00A3FF !important;
+        color: #000000 !important;
+        box-shadow: 0 0 20px rgba(0, 163, 255, 0.4);
     }
-    
-    /* Botón de Reinicio Maestro */
+
+    /* Botón de Reinicio: Sutil y Elegante */
     div.stButton > button:first-child {
         width: 100%;
-        border-radius: 10px;
-        background-color: #21262d;
-        color: #ff4b4b !important;
-        border: 1px solid #ff4b4b;
+        border-radius: 4px;
+        background-color: #1A1A1A !important;
+        color: #666666 !important;
+        border: 1px solid #333333 !important;
+        font-size: 12px;
     }
-    
-    /* Ajuste de Tabs en Sidebar */
-    button[data-baseweb="tab"] { color: #ffffff !important; }
+    div.stButton > button:first-child:hover {
+        border-color: #FF4B4B !important;
+        color: #FF4B4B !important;
+    }
+
+    /* Corrección Definitiva File Uploader (Zona Minimalista) */
+    [data-testid="stFileUploadDropzone"] {
+        background-color: #0F0F0F !important;
+        border: 1px dashed #333333 !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stFileUploadDropzone"] div div {
+        color: #666666 !important;
+    }
+
+    /* Estilo de los Chat Messages */
+    [data-testid="stChatMessage"] {
+        background-color: #0F0F0F !important;
+        border-radius: 10px !important;
+        border: 1px solid #1A1A1A !important;
+        margin-bottom: 10px;
+    }
+
+    /* Tabs del Sidebar */
+    button[data-baseweb="tab"] {
+        background-color: transparent !important;
+        border: none !important;
+        color: #666666 !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #00A3FF !important;
+        border-bottom: 2px solid #00A3FF !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -116,8 +145,8 @@ def get_yt_text(url):
 # --- 3. MOTOR DE EXPORTACIÓN OFFICE ---
 def download_word(content, role):
     doc = docx.Document()
-    doc.add_heading(f'Informe Estratégico IkigAI: {role}', 0)
-    doc.add_paragraph(f"Fecha de Emisión: {date.today()} | Normas APA 7").italic = True
+    doc.add_heading(f'Análisis Estratégico: {role}', 0)
+    doc.add_paragraph(f"Generado por IkigAI - {date.today()}").italic = True
     for p in content.split('\n'):
         if p.strip(): doc.add_paragraph(p)
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
@@ -125,13 +154,12 @@ def download_word(content, role):
 def download_pptx(content, role):
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = f"ANÁLISIS: {role.upper()}"
-    slide.placeholders[1].text = f"IkigAI Intelligence Hub\n{date.today()}"
-    points = [p for p in content.split('\n') if len(p.strip()) > 30]
-    for i, p in enumerate(points[:10]):
+    slide.shapes.title.text = role.upper()
+    slide.placeholders[1].text = f"Estrategia Ejecutiva\n{date.today()}"
+    sections = [p for p in content.split('\n\n') if len(p.strip()) > 30]
+    for i, p in enumerate(sections[:10]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Eje Estratégico {i+1}"
-        slide.placeholders[1].text = p[:550]
+        slide.shapes.title.text = f"Pilar Estratégico {i+1}"; slide.placeholders[1].text = p[:550]
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
 # --- 4. LÓGICA DE MEMORIA ---
@@ -140,13 +168,12 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "temp_image" not in st.session_state: st.session_state.temp_image = None
 
-# --- 5. BARRA LATERAL (ORGANIZACIÓN EJECUTIVA) ---
+# --- 5. BARRA LATERAL (DISEÑO MINIMALISTA) ---
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=70)
-    st.title("🧬 IkigAI Engine")
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=50)
+    st.markdown("<h2 style='text-align: center; font-size: 22px; letter-spacing: 2px;'>IKIGAI</h2>", unsafe_allow_html=True)
     
-    # Prioridad 1: Gestión de Sesión
-    if st.button("🗑️ REINICIAR ENGINE"):
+    if st.button("RESET ENGINE"):
         st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
         st.session_state.messages = []
         st.session_state.last_analysis = ""
@@ -154,50 +181,41 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    
-    # Prioridad 2: Perfil Estratégico
-    st.subheader("🎯 Perfil Activo")
+    st.markdown("<p style='font-size: 12px; color: #666;'>PERFIL ESTRATÉGICO</p>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol:", options=list(ROLES.keys()), label_visibility="collapsed")
     st.session_state.rol_actual = rol_activo
     
-    # Prioridad 3: Exportación
     if st.session_state.last_analysis:
         st.divider()
-        st.subheader("💾 Exportar Entregable")
-        st.download_button("📄 Informe Word (APA 7)", 
-                           data=download_word(st.session_state.last_analysis, rol_activo), 
-                           file_name=f"IkigAI_Report_{rol_activo}.docx")
-        st.download_button("📊 Presentación PPTX", 
-                           data=download_pptx(st.session_state.last_analysis, rol_activo), 
-                           file_name=f"IkigAI_Deck_{rol_activo}.pptx")
+        st.markdown("<p style='font-size: 12px; color: #666;'>ENTREGABLES OFFICE</p>", unsafe_allow_html=True)
+        st.download_button("WORD (APA 7)", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.docx")
+        st.download_button("POWERPOINT", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"IkigAI_{rol_activo}.pptx")
 
     st.divider()
-    
-    # Prioridad 4: Ingesta de Datos (Con corrección de fondo blanco)
-    st.subheader("🔌 Fuentes de Datos")
-    t1, t2, t3 = st.tabs(["📄 Doc", "🔗 Link", "🖼️ Img"])
+    st.markdown("<p style='font-size: 12px; color: #666;'>FUENTES DE DATOS</p>", unsafe_allow_html=True)
+    t1, t2, t3 = st.tabs(["DOC", "LINK", "IMG"])
     with t1:
-        up = st.file_uploader("Cargar archivos:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
-        if st.button("🧠 Procesar", use_container_width=True):
+        up = st.file_uploader("Cargar:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
+        if st.button("ANALIZAR DOCUMENTOS", use_container_width=True):
             for f in up:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
                 elif "word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
                 elif "sheet" in f.type: st.session_state.biblioteca[rol_activo] += get_excel_text(f)
-            st.success("Ingesta completa.")
+            st.success("Analizado.")
     with t2:
         uw = st.text_input("URL Web:", placeholder="https://")
         uy = st.text_input("URL YouTube:", placeholder="https://")
-        if st.button("🌐 Conectar", use_container_width=True):
+        if st.button("CONECTAR NODOS", use_container_width=True):
             if uw: st.session_state.biblioteca[rol_activo] += get_web_text(uw)
             if uy: st.session_state.biblioteca[rol_activo] += get_yt_text(uy)
-            st.success("Nodos conectados.")
+            st.success("Conectado.")
     with t3:
-        img_f = st.file_uploader("Imagen:", type=['jpg', 'png'], label_visibility="collapsed", key="img_uploader")
+        img_f = st.file_uploader("Imagen:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f:
             st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
 # --- 6. PANEL CENTRAL ---
-st.header(f"IkigAI: {rol_activo}")
+st.markdown(f"<h3 style='color: #00A3FF !important;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): 
@@ -209,7 +227,7 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     
     with st.chat_message("assistant"):
         model = genai.GenerativeModel('gemini-2.5-flash')
-        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo, ejecutivo. APA 7 obligatorio."
+        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo, ejecutivo. Citas APA 7."
         
         content_to_send = [sys_context, f"Contexto acumulado: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
         if st.session_state.temp_image: content_to_send.append(st.session_state.temp_image)
