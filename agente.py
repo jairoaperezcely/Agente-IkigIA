@@ -15,18 +15,49 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
 st.set_page_config(
-    page_title="IkigAI V1.43 - Executive Design Center", 
+    page_title="IkigAI V1.44 - Executive Design Center", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS para mejorar la estética en móviles y escritorio
+# Estilo CSS para fondo blanco y texto de alto contraste en Sidebar
 st.markdown("""
     <style>
-    .stDownloadButton button { width: 100%; border-radius: 8px; height: 3em; background-color: #f0f2f6; border: 1px solid #d1d8e0; }
-    .stDownloadButton button:hover { background-color: #e0e4eb; border-color: #2E86C1; }
-    [data-testid="stSidebar"] { background-color: #f8f9fa; border-right: 1px solid #e0e0e0; }
+    /* Fondo principal y sidebar blanco */
+    .stApp, [data-testid="stSidebar"] {
+        background-color: #ffffff !important;
+    }
+    
+    /* Texto en barra lateral forzado a negro para visibilidad */
+    [data-testid="stSidebar"] .stText, 
+    [data-testid="stSidebar"] label, 
+    [data-testid="stSidebar"] .stMarkdown p,
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3 {
+        color: #1a1a1a !important;
+    }
+
+    /* Botones de descarga elegantes */
+    .stDownloadButton button {
+        width: 100%;
+        border-radius: 8px;
+        height: 3.5em;
+        background-color: #f8f9fa;
+        color: #1A5276 !important;
+        border: 2px solid #1A5276;
+        font-weight: bold;
+    }
+    .stDownloadButton button:hover {
+        background-color: #1A5276;
+        color: white !important;
+    }
+    
+    /* Input de chat */
+    .stChatInputContainer {
+        padding-bottom: 20px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -88,81 +119,72 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "temp_image" not in st.session_state: st.session_state.temp_image = None
 
-# --- 5. BARRA LATERAL (DISEÑO PREMIUM MÉXICO/COLOMBIA) ---
+# --- 5. BARRA LATERAL (DISEÑO CLEAN & CONTRAST) ---
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=80)
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=60)
     st.title("🧬 IkigAI Engine")
-    st.caption("Executive Design Center | V1.43")
     
     rol_activo = st.selectbox("🎯 Perfil Activo:", list(ROLES.keys()))
     st.session_state.rol_actual = rol_activo
     
-    # SECCIÓN DE EXPORTACIÓN (Prioridad Alta)
+    # EXPORTACIÓN
     if st.session_state.last_analysis:
         st.divider()
-        st.subheader("💾 Exportar Informe")
-        st.download_button("📄 Formato Word (APA 7)", 
+        st.subheader("💾 Exportar")
+        st.download_button("📄 Word (APA 7)", 
                            data=download_word(st.session_state.last_analysis, rol_activo), 
-                           file_name=f"IkigAI_{rol_activo}_{date.today()}.docx")
-        st.download_button("📊 Presentación PPTX", 
+                           file_name=f"IkigAI_{rol_activo}.docx")
+        st.download_button("📊 PowerPoint", 
                            data=download_pptx(st.session_state.last_analysis, rol_activo), 
-                           file_name=f"IkigAI_{rol_activo}_{date.today()}.pptx")
+                           file_name=f"IkigAI_{rol_activo}.pptx")
 
     st.divider()
-    st.subheader("🔌 Fuentes de Datos")
+    st.subheader("🔌 Fuentes")
     tab_files, tab_links, tab_img = st.tabs(["📄 Doc", "🔗 Link", "🖼️ Img"])
     
     with tab_files:
-        up = st.file_uploader("Subir PDF/Docs:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
-        if st.button("🧠 Procesar Archivos", use_container_width=True):
+        up = st.file_uploader("Cargar:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
+        if st.button("🧠 Procesar", use_container_width=True):
             for f in up:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
                 elif "word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
                 elif "sheet" in f.type: st.session_state.biblioteca[rol_activo] += get_excel_text(f)
-            st.success("Datos integrados.")
+            st.success("Listo.")
 
     with tab_links:
-        uw = st.text_input("URL Web:", placeholder="https://...")
-        uy = st.text_input("URL YouTube:", placeholder="https://youtube.com/...")
-        if st.button("🌐 Conectar Fuentes", use_container_width=True):
+        uw = st.text_input("Web:", placeholder="https://")
+        uy = st.text_input("YouTube:", placeholder="https://")
+        if st.button("🌐 Conectar", use_container_width=True):
             if uw: st.session_state.biblioteca[rol_activo] += get_web_text(uw)
             if uy: st.session_state.biblioteca[rol_activo] += get_yt_text(uy)
-            st.success("Links conectados.")
+            st.success("Conectado.")
 
     with tab_img:
-        img_f = st.file_uploader("Analizar Imagen:", type=['jpg', 'jpeg', 'png'], label_visibility="collapsed")
+        img_f = st.file_uploader("Imagen:", type=['jpg', 'jpeg', 'png'], label_visibility="collapsed")
         if img_f:
             st.session_state.temp_image = Image.open(img_f)
             st.image(img_f, caption="Imagen cargada")
 
-# --- 6. PANEL CENTRAL (CHAT EJECUTIVO) ---
+# --- 6. PANEL CENTRAL ---
 st.header(f"IkigAI: {rol_activo}")
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): 
         st.markdown(msg["content"])
-        if msg["role"] == "assistant":
-            # Botón de copiado simple integrado por Markdown para mayor compatibilidad
-            st.button("📋 Copiar respuesta", key=f"btn_{st.session_state.messages.index(msg)}", 
-                      on_click=lambda text=msg["content"]: st.write(f'<script>navigator.clipboard.writeText(`{text}`)</script>', unsafe_allow_html=True))
 
 if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
     
     with st.chat_message("assistant"):
-        # Usamos gemini-1.5-flash por ser el identificador más estable en la API
         model = genai.GenerativeModel('gemini-2.5-flash')
-        sys_context = f"""Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. 
-        Estilo clínico, directo y humano. Sin clichés. Citas y bibliografía estrictamente en APA 7."""
+        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo. APA 7."
         
-        content_to_send = [sys_context, f"Contexto acumulado: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
+        content_to_send = [sys_context, f"Contexto: {st.session_state.biblioteca[rol_activo][:500000]}", pr]
         if st.session_state.temp_image: content_to_send.append(st.session_state.temp_image)
         
         response = model.generate_content(content_to_send)
         st.session_state.last_analysis = response.text
         st.markdown(response.text)
-        
         st.session_state.messages.append({"role": "assistant", "content": response.text})
-        st.session_state.temp_image = None # Limpia imagen tras uso
-        st.rerun() # Actualiza barra lateral para mostrar descargas
+        st.rerun()
