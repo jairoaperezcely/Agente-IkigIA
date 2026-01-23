@@ -2,112 +2,119 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 import docx
-from bs4 import BeautifulSoup
 import requests
+from bs4 import BeautifulSoup
 from youtube_transcript_api import YouTubeTranscriptApi
 import tempfile
-import time
 import os
-from io import BytesIO
-import json
+import time
 from datetime import date
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Agente de Alto Desempeño V10", page_icon="🚀", layout="wide")
+# --- CONFIGURACIÓN Y AUTENTICACIÓN ---
+st.set_page_config(page_title="Coach Alto Desempeño V11", page_icon="📈", layout="wide")
 
-# --- AUTENTICACIÓN AUTOMÁTICA ---
-# Busca la clave en los secretos de Streamlit (Local: .streamlit/secrets.toml | Web: Dashboard de Streamlit)
 if "GOOGLE_API_KEY" in st.secrets:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-    genai.configure(api_key=api_key)
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    st.error("❌ No se encontró la API Key. Configúrala en st.secrets como 'GOOGLE_API_KEY'.")
+    st.error("Configura 'GOOGLE_API_KEY' en los secretos de Streamlit.")
     st.stop()
 
-# --- FUNCIONES DE LECTURA DE TEXTO (PDF/DOCX) ---
-def get_pdf_text(pdf_file):
-    reader = PdfReader(pdf_file)
-    return "".join([page.extract_text() for page in reader.pages])
+# --- FUNCIONES DE EXTRACCIÓN DE CONTENIDO ---
 
-def get_docx_text(docx_file):
-    doc = docx.Document(docx_file)
-    return "\n".join([para.text for para in doc.paragraphs])
+def get_web_content(url):
+    try:
+        response = requests.get(url, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        paragraphs = soup.find_all('p')
+        return "\n".join([p.get_text() for p in paragraphs])
+    except Exception as e:
+        return f"Error al leer web: {e}"
 
-# --- LÓGICA DE MEMORIA Y ESTADO ---
+def get_youtube_transcript(url):
+    try:
+        video_id = url.split("v=")[1].split("&")[0] if "v=" in url else url.split("/")[-1]
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
+        return " ".join([t['text'] for t in transcript])
+    except Exception as e:
+        return f"Error al obtener transcripción de YouTube: {e}"
+
+# --- LÓGICA DE ESTADO ---
 if "messages" not in st.session_state: st.session_state.messages = []
-if "contexto_texto" not in st.session_state: st.session_state.contexto_texto = ""
+if "global_context" not in st.session_state: st.session_state.global_context = ""
 
-# --- BARRA LATERAL (CONTROLES ESTRATÉGICOS) ---
+# --- BARRA LATERAL (ENTRADAS DE DATOS) ---
 with st.sidebar:
-    st.header("🎯 Coach Strategy Panel")
+    st.header("🔌 Conectores de Datos")
     
-    # Selección de Rol con el nuevo perfil integrado
-    rol = st.selectbox("Cambiar Enfoque del Agente:", [
-        "Coach de Alto Desempeño",
-        "Vicedecano Académico", 
-        "Experto en Telesalud",
-        "Mentor de Trading"
-    ])
-    
-    prompts_roles = {
-        "Coach de Alto Desempeño": """Eres un Coach de Élite multidisciplinario. 
-        Tu misión: Maximizar la productividad y sostenibilidad del usuario (Médico/Consultor).
-        - Detecta procrastinación y sesgos en cada entrada.
-        - Desafía creencias limitantes sobre el dinero y el éxito profesional.""",
-        "Vicedecano Académico": "Eres un directivo riguroso de la Universidad Nacional. Basado en normas.",
-        "Experto en Telesalud": "Experto en Salud Digital y normativa colombiana (Ley 1419/Res 2654).",
-        "Mentor de Trading": "Trader Institucional. Enfoque en Smart Money y gestión de riesgo en Commodities."
-    }
+    # 1. Entrada Web
+    web_url = st.text_input("🔗 URL Página Web:")
+    if st.button("Leer Web") and web_url:
+        with st.spinner("Extrayendo texto..."):
+            st.session_state.global_context += f"\n[CONTENIDO WEB]: {get_web_content(web_url)}"
+            st.success("Web cargada.")
 
+    # 2. Entrada YouTube
+    yt_url = st.text_input("🎥 URL YouTube:")
+    if st.button("Leer YouTube") and yt_url:
+        with st.spinner("Procesando transcripción..."):
+            st.session_state.global_context += f"\n[TRANSCRIPCIÓN YT]: {get_youtube_transcript(yt_url)}"
+            st.success("Video cargado.")
+
+    # 3. Subida de Archivos Multimedia (Video/Audio)
+    uploaded_media = st.file_uploader("📁 Video/Audio/Imagen", type=['mp4', 'mp3', 'png', 'jpg'])
+    
     st.divider()
-    temp_val = st.slider("Precisión vs Creatividad:", 0.0, 1.0, 0.3)
-    
-    # Gestión de Archivos
-    uploaded_docs = st.file_uploader("Subir Contexto (PDF/Word)", type=['pdf', 'docx'], accept_multiple_files=True)
-    if uploaded_docs and st.button("🧠 Alimentar Memoria"):
-        texto_acumulado = ""
-        for doc in uploaded_docs:
-            if doc.type == "application/pdf": texto_acumulado += get_pdf_text(doc)
-            else: texto_acumulado += get_docx_text(doc)
-        st.session_state.contexto_texto = texto_acumulado
-        st.success("Contexto actualizado.")
+    if st.button("🗑️ Limpiar Memoria"):
+        st.session_state.global_context = ""
+        st.session_state.messages = []
+        st.rerun()
 
-# --- INTERFAZ DE CHAT ---
-st.title(f"⚡ {rol}")
+# --- CHAT PRINCIPAL ---
+st.title("🤖 Coach de Alto Desempeño Integral")
 
-# Mostrar historial
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-# Entrada de usuario
-if prompt := st.chat_input("Escribe tu reporte o consulta..."):
+if prompt := st.chat_input("¿Cuál es el plan para hoy?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
         try:
-            model = genai.GenerativeModel('gemini-1.5-pro', generation_config={"temperature": temp_val})
+            # Usamos Gemini 1.5 Pro para análisis profundo de video y texto
+            model = genai.GenerativeModel('gemini-1.5-pro')
             
-            # Prompt Maestro Inyectado
-            master_prompt = f"""
-            IDENTIDAD: {prompts_roles[rol]}
-            REGLAS: Sé directo, profesional, evita clichés robóticos. Usa APA 7 para citar si hay documentos.
+            # Construcción del Prompt con el contexto acumulado
+            full_prompt = f"""
+            ROL: Coach Personal de Alto Desempeño.
+            FECHA: {date.today()}
+            CONTEXTO ACUMULADO (Web/YT/Docs): {st.session_state.global_context[-500000:]}
             
-            CONTEXTO DE ARCHIVOS: {st.session_state.contexto_texto[:500000]}
-            
-            ESTRUCTURA DE RESPUESTA SI ERES COACH:
-            1. Diagnóstico de Prioridades/Procrastinación.
-            2. Ejercicio de Pensamiento Crítico o Creativo.
-            3. Desafío de Creencia Financiera (si aplica).
+            INSTRUCCIÓN: Analiza la solicitud basándote en el contexto. 
+            Identifica procrastinación y ofrece una dinámica de pensamiento crítico.
             
             SOLICITUD: {prompt}
             """
             
-            response = model.generate_content(master_prompt)
+            # Manejo de archivo multimedia si existe
+            if uploaded_media:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_media.name)[1]) as tmp:
+                    tmp.write(uploaded_media.read())
+                    file_to_genai = genai.upload_file(path=tmp.name)
+                
+                # Esperar procesamiento del video si es necesario
+                while file_to_genai.state.name == "PROCESSING":
+                    time.sleep(2)
+                    file_to_genai = genai.get_file(file_to_genai.name)
+                
+                response = model.generate_content([file_to_genai, full_prompt])
+            else:
+                response = model.generate_content(full_prompt)
+
             st.markdown(response.text)
             st.session_state.messages.append({"role": "assistant", "content": response.text})
             
         except Exception as e:
-            st.error(f"Error en generación: {e}")
+            st.error(f"Error: {e}")
