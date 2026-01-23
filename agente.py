@@ -15,13 +15,13 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.54 - Executive Command Center", 
+    page_title="IkigAI V1.55 - Final Executive Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS V1.54: Aislamiento de Contenedores y Legibilidad Quirúrgica
+# Estilo CSS Final: Aislamiento total y Legibilidad Extrema
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -32,14 +32,12 @@ st.markdown("""
         font-family: 'Inter', sans-serif !important;
     }
 
-    /* BARRA LATERAL BLINDADA */
+    /* BARRA LATERAL */
     [data-testid="stSidebar"] {
         background-color: #0A0A0A !important;
         border-right: 1px solid #1A1A1A !important;
-        min-width: 300px !important;
     }
     
-    /* Texto en Sidebar forzado a blanco */
     [data-testid="stSidebar"] .stText, 
     [data-testid="stSidebar"] label, 
     [data-testid="stSidebar"] p,
@@ -51,7 +49,6 @@ st.markdown("""
     [data-testid="stChatMessage"] {
         background-color: #050505 !important;
         border: 1px solid #1A1A1A !important;
-        padding: 20px !important;
     }
 
     .stMarkdown p, .stMarkdown li {
@@ -60,14 +57,17 @@ st.markdown("""
         line-height: 1.7 !important;
     }
 
-    /* REFERENCIAS APA 7: Legibilidad Garantizada */
+    /* REFERENCIAS APA 7: Legibilidad Garantizada (Texto en Cian/Azul Claro) */
     blockquote {
-        border-left: 4px solid #00A3FF !important;
+        border-left: 4px solid #00E6FF !important;
         background-color: #0D1117 !important;
-        color: #58A6FF !important;
         padding: 15px !important;
         margin: 15px 0 !important;
-        font-style: italic;
+    }
+    blockquote p {
+        color: #58A6FF !important;
+        font-style: italic !important;
+        font-size: 14px !important;
     }
 
     /* BOTONES DE EXPORTACIÓN */
@@ -78,22 +78,16 @@ st.markdown("""
         color: #00E6FF !important;
         border: 1px solid #00E6FF !important;
         font-weight: 600;
-        margin-top: 10px;
     }
     .stDownloadButton button:hover {
         background-color: #00E6FF !important;
         color: #000000 !important;
-        box-shadow: 0 0 15px rgba(0, 230, 255, 0.4);
     }
 
-    /* BOTÓN RESET */
-    .stButton > button {
-        border-radius: 6px;
-    }
-    
-    /* INPUT DE CHAT FIJO */
-    .stChatInputContainer {
-        background-color: #000000 !important;
+    /* FIX PARA FILE UPLOADER (Fondo Oscuro) */
+    [data-testid="stFileUploadDropzone"] {
+        background-color: #0A0A0A !important;
+        border: 1px dashed #333 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -128,7 +122,7 @@ def get_web_text(url):
 # --- 3. EXPORTACIÓN OFFICE ---
 def download_word(content, role):
     doc = docx.Document()
-    doc.add_heading(f'IkigAI - Informe {role}', 0)
+    doc.add_heading(f'Informe IkigAI: {role}', 0)
     doc.add_paragraph(f"Fecha: {date.today()}").italic = True
     for p in content.split('\n'):
         if p.strip(): doc.add_paragraph(p)
@@ -136,11 +130,17 @@ def download_word(content, role):
 
 def download_pptx(content, role):
     prs = Presentation()
-    slide = prs.slides.add_slide(prs.slides.add_slide(prs.slide_layouts[0]).slide_layout) # Layout básico
+    # Corrección de la lógica de creación de slides
     points = [p for p in content.split('\n') if len(p.strip()) > 30]
+    # Portada
+    slide = prs.slides.add_slide(prs.slide_layouts[0])
+    slide.shapes.title.text = role.upper()
+    slide.placeholders[1].text = f"Análisis Estratégico - {date.today()}"
+    # Contenido
     for i, p in enumerate(points[:8]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Pilar {i+1}"; slide.placeholders[1].text = p[:500]
+        slide.shapes.title.text = f"Eje {i+1}"
+        slide.placeholders[1].text = p[:550]
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
 # --- 4. LÓGICA DE MEMORIA ---
@@ -148,8 +148,9 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL (ESTRUCTURA FIJA) ---
-with st.sidebar: st.title("IkigAI Engine")
+# --- 5. BARRA LATERAL ---
+with st.sidebar:
+    st.title("🧬 IkigAI Engine")
     
     if st.button("🗑️ REINICIAR SESIÓN"):
         st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
@@ -159,7 +160,7 @@ with st.sidebar: st.title("IkigAI Engine")
 
     st.divider()
     st.subheader("🎯 Perfil")
-    rol_activo = st.radio("Selección:", options=list(ROLES.keys()), label_visibility="collapsed")
+    rol_activo = st.radio("Selección:", options=list(ROLES.keys()))
     
     if st.session_state.last_analysis:
         st.divider()
@@ -171,7 +172,7 @@ with st.sidebar: st.title("IkigAI Engine")
     st.subheader("🔌 Datos")
     t1, t2, t3 = st.tabs(["DOC", "URL", "IMG"])
     with t1:
-        up = st.file_uploader("Subir archivos:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
+        up = st.file_uploader("Cargar archivos:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
         if st.button("🧠 PROCESAR", use_container_width=True):
             for f in up:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
@@ -205,4 +206,3 @@ if pr := st.chat_input("¿Qué analizamos hoy, Doctor?"):
         st.markdown(response.text)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.rerun()
-
