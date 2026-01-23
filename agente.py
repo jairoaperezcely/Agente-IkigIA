@@ -11,8 +11,8 @@ import os
 from PIL import Image
 from datetime import date
 
-# --- 1. CONFIGURACIÓN E IDENTIDAD TOTAL (8 ROLES) ---
-st.set_page_config(page_title="IkigAI V1.11 - El Octágono de Liderazgo", page_icon="🧬", layout="wide")
+# --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
+st.set_page_config(page_title="IkigAI V1.12 - Sistema de Liderazgo Integral", page_icon="🧬", layout="wide")
 
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -20,16 +20,16 @@ else:
     st.error("🔑 Configure su API Key en st.secrets.")
     st.stop()
 
-# DICCIONARIO DEFINITIVO DE LOS 8 ROLES
+# DICCIONARIO COMPLETO DE LOS 8 ROLES
 ROLES = {
     "Coach de Alto Desempeño": "Foco en ROI cognitivo, bienestar y eliminación de procastinación oculta. Desafío de creencias financieras.",
     "Director Centro Telemedicina": "Estratega en Salud Digital e IA. Foco en innovación, sostenibilidad y Hospital Virtual en la UNAL.",
     "Vicedecano Académico": "Gestión administrativa UNAL, normativa académica y liderazgo institucional en la Facultad de Medicina.",
     "Director de UCI": "Rigor clínico, seguridad del paciente en el HUN y medicina basada en datos en cuidado crítico.",
-    "Investigador Científico": "Metodología de investigación, análisis de evidencia, redacción científica (Scopus/WoS) y gestión de proyectos de ciencia y tecnología.",
+    "Investigador Científico": "Metodología, análisis de evidencia, redacción científica (Scopus/WoS) y gestión de proyectos de CTI.",
     "Consultor Salud Digital": "Estratega para BID/MinSalud. Foco en territorio, salud pública e interculturalidad.",
     "Profesor Universitario": "Pedagogía disruptiva, mentoría y diseño curricular médico para el país y sus territorios.",
-    "Estratega de Trading": "Análisis técnico, gestión de riesgo y psicología de la decisión bajo incertidumbre (Wyckoff, Smart Money)."
+    "Estratega de Trading": "Análisis técnico, gestión de riesgo y psicología de la decisión bajo incertidumbre."
 }
 
 # --- 2. FUNCIONES DE LECTURA MULTIFUENTE ---
@@ -73,7 +73,7 @@ with st.sidebar:
     st.divider()
     st.subheader(f"🔌 Fuentes para {rol_activo}")
     
-    tab_files, tab_links, tab_vision = st.tabs(["📄 Archivos", "🔗 Links", "👁️ Visión"])
+    tab_files, tab_links, tab_images = st.tabs(["📄 Archivos", "🔗 Links", "🖼️ Imágenes"])
     
     with tab_files:
         up_files = st.file_uploader("Leer PDF, Word, Excel:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True)
@@ -92,11 +92,11 @@ with st.sidebar:
             if url_y: st.session_state.biblioteca[rol_activo] += get_yt_text(url_y)
             st.success("Fuentes externas leídas.")
 
-    with tab_vision:
-        img_file = st.file_uploader("Leer imagen (Radiografía, Gráfico, Captura):", type=['jpg', 'jpeg', 'png'])
+    with tab_images:
+        img_file = st.file_uploader("Leer imagen (Clínica, Gráfico, Captura):", type=['jpg', 'jpeg', 'png'])
         if img_file:
             st.session_state.temp_image = Image.open(img_file)
-            st.image(st.session_state.temp_image, caption="Imagen para análisis", use_container_width=True)
+            st.image(st.session_state.temp_image, caption="Imagen seleccionada", use_container_width=True)
 
     if st.button("🗑️ Reiniciar Sesión"):
         st.session_state.messages = []
@@ -107,10 +107,7 @@ st.header(f"IkigAI: {rol_activo}")
 
 # Módulo de ROI Cognitivo
 with st.expander("🚀 Análisis de Prioridades (ROI)"):
-    tareas = st.text_area("Objetivos de hoy:", placeholder="Escriba sus tareas para priorizar...")
-    if st.button("Calcular Estrategia"):
-        # Se procesa mediante el prompt principal
-        pass
+    tareas = st.text_area("Objetivos de hoy:", placeholder="Escriba sus tareas para priorizar bajo este rol...")
 
 # Chat Multimodal e Integral
 for msg in st.session_state.messages:
@@ -121,13 +118,14 @@ if prompt := st.chat_input("¿Qué analizamos hoy, Doctor?"):
     with st.chat_message("user"): st.markdown(prompt)
 
     with st.chat_message("assistant"):
+        # Usamos 1.5 Pro por su ventana de contexto y capacidad de razonamiento superior
         model = genai.GenerativeModel('gemini-1.5-pro')
         
         system_p = f"""
         IDENTIDAD: Actúa como IkigAI en modo {rol_activo}. {ROLES[rol_activo]}
         BIBLIOTECA LEÍDA: {st.session_state.biblioteca[rol_activo][:500000]}
         REGLAS: Estilo ejecutivo, clínico, directo. Sin clichés. Cita en APA 7.
-        SI EL ROL ES INVESTIGADOR: Prioriza validez científica, metodología y rigor bibliográfico.
+        ANÁLISIS DE IMÁGENES: Si hay una imagen presente, interprétala con rigor profesional según tu rol activo.
         """
         
         inputs = [system_p, prompt]
@@ -137,4 +135,4 @@ if prompt := st.chat_input("¿Qué analizamos hoy, Doctor?"):
         res = model.generate_content(inputs)
         st.markdown(res.text)
         st.session_state.messages.append({"role": "assistant", "content": res.text})
-        st.session_state.temp_image = None
+        st.session_state.temp_image = None # Reset tras respuesta
