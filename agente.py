@@ -15,13 +15,13 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
 st.set_page_config(
-    page_title="IkigAI V1.48 - Executive Design Center", 
+    page_title="IkigAI V1.49 - Executive Strategy Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS para modo oscuro, visibilidad y botones
+# Estilo CSS para modo oscuro profundo y diseño de botones
 st.markdown("""
     <style>
     .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
@@ -29,10 +29,8 @@ st.markdown("""
         color: #ffffff !important;
     }
     
-    [data-testid="stSidebar"] .stText, 
-    [data-testid="stSidebar"] label, 
-    [data-testid="stSidebar"] .stMarkdown p,
-    [data-testid="stSidebar"] h1, h2, h3 {
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] .stMarkdown p,
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
         color: #ffffff !important;
     }
 
@@ -47,19 +45,11 @@ st.markdown("""
         margin-bottom: 5px;
     }
     
-    /* Botón de Reinicio Rojo */
-    .stButton button[kind="secondary"] {
+    /* Botón de Reinicio Estándar con estilo forzado */
+    div.stButton > button {
         width: 100%;
-        background-color: #441111;
-        color: #ff4b4b;
-        border: 1px solid #ff4b4b;
+        border-radius: 8px;
     }
-    .stButton button[kind="secondary"]:hover {
-        background-color: #ff4b4b;
-        color: white;
-    }
-
-    button[data-baseweb="tab"] { color: #ffffff !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -95,10 +85,10 @@ def get_yt_text(url):
         return " ".join([t['text'] for t in YouTubeTranscriptApi.get_transcript(v_id, languages=['es', 'en'])])
     except: return "Error en YouTube."
 
-# --- 3. MOTOR DE EXPORTACIÓN ---
+# --- 3. MOTOR DE EXPORTACIÓN OFFICE ---
 def download_word(content, role):
     doc = docx.Document()
-    doc.add_heading(f'Entregable IkigAI: {role}', 0)
+    doc.add_heading(f'Informe Estratégico: {role}', 0)
     doc.add_paragraph(f"Fecha: {date.today()} | APA 7").italic = True
     for p in content.split('\n'):
         if p.strip(): doc.add_paragraph(p)
@@ -115,20 +105,13 @@ def download_pptx(content, role):
         slide.shapes.title.text = f"Eje {i+1}"; slide.placeholders[1].text = p[:500]
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
-# --- 4. LÓGICA DE MEMORIA E INICIALIZACIÓN ---
+# --- 4. LÓGICA DE MEMORIA ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "temp_image" not in st.session_state: st.session_state.temp_image = None
 
-def reset_engine():
-    st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
-    st.session_state.messages = []
-    st.session_state.last_analysis = ""
-    st.session_state.temp_image = None
-    st.rerun()
-
-# --- 5. BARRA LATERAL ---
+# --- 5. BARRA LATERAL (RADIO BUTTONS) ---
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=60)
     st.title("🧬 IkigAI Engine")
@@ -148,7 +131,7 @@ with st.sidebar:
     tab_files, tab_links, tab_img = st.tabs(["📄 Doc", "🔗 Link", "🖼️ Img"])
     with tab_files:
         up = st.file_uploader("Cargar:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
-        if st.button("🧠 Procesar", use_container_width=True):
+        if st.button("🧠 Leer"):
             for f in up:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
                 elif "word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
@@ -157,7 +140,7 @@ with st.sidebar:
     with tab_links:
         uw = st.text_input("URL Web:", placeholder="https://")
         uy = st.text_input("YouTube:", placeholder="https://")
-        if st.button("🌐 Conectar", use_container_width=True):
+        if st.button("🌐 Conectar"):
             if uw: st.session_state.biblioteca[rol_activo] += get_web_text(uw)
             if uy: st.session_state.biblioteca[rol_activo] += get_yt_text(uy)
             st.success("Conectado.")
@@ -166,9 +149,14 @@ with st.sidebar:
         if img_f:
             st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
+    # REINICIO MAESTRO (Versión de alta compatibilidad)
     st.divider()
-    if st.button("🗑️ Reiniciar Sesión", kind="secondary", use_container_width=True):
-        reset_engine()
+    if st.button("🗑️ Reiniciar Sesión"):
+        st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
+        st.session_state.messages = []
+        st.session_state.last_analysis = ""
+        st.session_state.temp_image = None
+        st.rerun()
 
 # --- 6. PANEL CENTRAL ---
 st.header(f"IkigAI: {rol_activo}")
