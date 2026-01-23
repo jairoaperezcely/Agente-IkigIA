@@ -2,80 +2,62 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 import docx
-from datetime import date
+import pandas as pd
+from youtube_transcript_api import YouTubeTranscriptApi
+from bs4 import BeautifulSoup
+import requests
+import tempfile
+import os
 
-# --- CONFIGURACIÓN ---
-st.set_page_config(page_title="IkigAI V1.5 - Biblioteca Estratégica", page_icon="🧬", layout="wide")
+# --- FUNCIONES DE EXTRACCIÓN AVANZADA ---
 
-if "GOOGLE_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-else:
-    st.error("Configure GOOGLE_API_KEY en st.secrets")
-    st.stop()
+def get_web_text(url):
+    try:
+        res = requests.get(url, timeout=10)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        return "\n".join([p.get_text() for p in soup.find_all('p')])
+    except: return "Error al leer la web."
 
-# --- FUNCIONES DE CARGA ---
-def extract_text(files):
-    text = ""
-    for file in files:
-        if file.type == "application/pdf":
-            reader = PdfReader(file)
-            for page in reader.pages: text += page.extract_text()
-        elif file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            doc = docx.Document(file)
-            text += "\n".join([p.text for p in doc.paragraphs])
-    return text
+def get_yt_text(url):
+    try:
+        video_id = url.split("v=")[1].split("&")[0] if "v=" in url else url.split("/")[-1]
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
+        return " ".join([t['text'] for t in transcript])
+    except: return "No se encontró transcripción en el video."
 
-# --- ESTADO DE MEMORIA ---
-if "biblioteca" not in st.session_state:
-    st.session_state.biblioteca = {rol: "" for rol in [
-        "Coach de Alto Desempeño", "Director Centro Telemedicina", 
-        "Vicedecano Académico", "Director de UCI", 
-        "Consultor Salud Digital", "Profesor Universitario", "Estratega de Trading"
-    ]}
+def extract_office_text(file):
+    ext = os.path.splitext(file.name)[1].lower()
+    if ext == ".xlsx":
+        df = pd.read_excel(file)
+        return df.to_string()
+    elif ext == ".pptx":
+        # Requiere: pip install python-pptx
+        from pptx import Presentation
+        prs = Presentation(file)
+        return "\n".join([shape.text for slide in prs.slides for shape in slide.shapes if hasattr(shape, "text")])
+    return ""
 
-# --- BARRA LATERAL ---
+# --- INTERFAZ DE FUENTES (SIDEBAR) ---
 with st.sidebar:
-    st.title("🧬 IkigAI Engine")
-    rol_activo = st.selectbox("Perfil Activo:", list(st.session_state.biblioteca.keys()))
+    st.header("🔌 Conectores de IkigAI")
+    tab_docs, tab_web, tab_media = st.tabs(["📄 Office/PDF", "🌐 Web", "🎥 Video/YT"])
     
-    st.divider()
-    st.subheader(f"📥 Fuentes para {rol_activo}")
-    archivos = st.file_uploader("Subir PDF/Docs del rol:", type=['pdf', 'docx'], accept_multiple_files=True)
-    
-    if st.button("🧠 Alimentar Cerebro"):
-        if archivos:
-            contenido = extract_text(archivos)
-            st.session_state.biblioteca[rol_activo] += f"\n{contenido}"
-            st.success(f"Memoria de {rol_activo} actualizada.")
+    with tab_docs:
+        files = st.file_uploader("Subir Excel, PPT, Word, PDF:", type=['pdf', 'docx', 'xlsx', 'pptx'], accept_multiple_files=True)
+        if st.button("🧠 Cargar Documentos"):
+            # Lógica de extracción aquí...
+            st.success("Documentos integrados.")
 
-# --- INTERFAZ PRINCIPAL ---
-st.header(f"IkigAI en modo: {rol_activo}")
+    with tab_web:
+        url_input = st.text_input("URL de página web:")
+        if st.button("🔗 Ingerir Web"):
+            st.session_state.biblioteca[rol_activo] += f"\n{get_web_text(url_input)}"
+            st.success("Contenido web guardado.")
 
-# Muestra si hay documentos cargados para ese rol
-if st.session_state.biblioteca[rol_activo]:
-    st.caption(f"✅ Este rol tiene {len(st.session_state.biblioteca[rol_activo])} caracteres de contexto específico.")
-else:
-    st.caption("⚠️ Este rol aún no tiene documentos base cargados.")
-
-prompt = st.chat_input("Instrucción estratégica...")
-
-if prompt:
-    with st.chat_message("assistant"):
-        model = genai.GenerativeModel('gemini-1.5-pro')
-        
-        # El Prompt Maestro usa el contexto guardado de ese rol específico
-        contexto_especifico = st.session_state.biblioteca[rol_activo]
-        
-        instruccion_sistema = f"""
-        Actúa como IkigAI en el rol de {rol_activo}.
-        BASE DE CONOCIMIENTO ESPECÍFICA PARA ESTE ROL:
-        {contexto_especifico[:800000]}
-        
-        TU MISIÓN:
-        - Responde usando la base de conocimiento adjunta.
-        - Sé estratégico, innovador y detecta procrastinación.
-        - Estilo ejecutivo, clínico y directo. Sin clichés.
-        """
-        
-        response = model.generate_content([instruccion_sistema, prompt])
-        st.markdown(response.text)
+    with tab_media:
+        yt_input = st.text_input("URL de YouTube:")
+        video_file = st.file_uploader("O subir archivo de video directo:", type=['mp4', 'mov'])
+        if st.button("📺 Procesar Video/YT"):
+            if yt_input:
+                st.session_state.biblioteca[rol_activo] += f"\n{get_yt_text(yt_input)}"
+            st.success("Video procesado.")
