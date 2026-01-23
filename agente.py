@@ -15,48 +15,57 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD (8 ROLES) ---
 st.set_page_config(
-    page_title="IkigAI V1.44 - Executive Design Center", 
+    page_title="IkigAI V1.45 - Deep Dark Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS para fondo blanco y texto de alto contraste en Sidebar
+# Estilo CSS para modo oscuro profundo y alto contraste
 st.markdown("""
     <style>
-    /* Fondo principal y sidebar blanco */
-    .stApp, [data-testid="stSidebar"] {
-        background-color: #ffffff !important;
+    /* Fondo principal y sidebar en gris oscuro/negro */
+    .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
+        background-color: #0e1117 !important;
+        color: #ffffff !important;
     }
     
-    /* Texto en barra lateral forzado a negro para visibilidad */
+    /* Forzar texto blanco en toda la aplicación */
     [data-testid="stSidebar"] .stText, 
     [data-testid="stSidebar"] label, 
     [data-testid="stSidebar"] .stMarkdown p,
     [data-testid="stSidebar"] h1, 
     [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3 {
-        color: #1a1a1a !important;
+    [data-testid="stSidebar"] h3,
+    .stMarkdown, p, h1, h2, h3 {
+        color: #ffffff !important;
     }
 
-    /* Botones de descarga elegantes */
+    /* Estilo de los Tabs en el Sidebar */
+    button[data-baseweb="tab"] {
+        color: #ffffff !important;
+    }
+
+    /* Botones de descarga con estética Neon-Medical */
     .stDownloadButton button {
         width: 100%;
         border-radius: 8px;
         height: 3.5em;
-        background-color: #f8f9fa;
-        color: #1A5276 !important;
-        border: 2px solid #1A5276;
+        background-color: #1f2937;
+        color: #00d4ff !important;
+        border: 1px solid #00d4ff;
         font-weight: bold;
+        transition: 0.3s;
     }
     .stDownloadButton button:hover {
-        background-color: #1A5276;
-        color: white !important;
+        background-color: #00d4ff;
+        color: #0e1117 !important;
+        box-shadow: 0 0 15px #00d4ff;
     }
     
-    /* Input de chat */
+    /* Input de chat adaptado */
     .stChatInputContainer {
-        padding-bottom: 20px;
+        background-color: #0e1117 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -119,7 +128,7 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "temp_image" not in st.session_state: st.session_state.temp_image = None
 
-# --- 5. BARRA LATERAL (DISEÑO CLEAN & CONTRAST) ---
+# --- 5. BARRA LATERAL (DISEÑO DARK PREMIUM) ---
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Universidad_Nacional_de_Colombia_Logo.svg/1200px-Universidad_Nacional_de_Colombia_Logo.svg.png", width=60)
     st.title("🧬 IkigAI Engine")
@@ -127,7 +136,7 @@ with st.sidebar:
     rol_activo = st.selectbox("🎯 Perfil Activo:", list(ROLES.keys()))
     st.session_state.rol_actual = rol_activo
     
-    # EXPORTACIÓN
+    # EXPORTACIÓN (Visibilidad garantizada en blanco sobre oscuro)
     if st.session_state.last_analysis:
         st.divider()
         st.subheader("💾 Exportar")
