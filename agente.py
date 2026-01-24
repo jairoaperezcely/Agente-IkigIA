@@ -135,11 +135,11 @@ with st.sidebar:
     st.divider()
     st.markdown("<div class='section-tag'>MEMORIA DE TURNO</div>", unsafe_allow_html=True)
     if st.session_state.messages:
-        st.download_button("💾 GUARDAR TURNO", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
+        st.download_button("💾 GUARDAR SESION", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
     
     archivo_memoria = st.file_uploader("RECUPERAR TURNO:", type=['json'], label_visibility="collapsed")
     if archivo_memoria:
-        if st.button("🔌 RECONECTAR CEREBRO"):
+        if st.button("🔌 RECONECTAR SESION"):
             cargar_sesion(archivo_memoria.getvalue().decode("utf-8"))
             st.success("Memoria recuperada.")
             st.rerun()
@@ -202,3 +202,4 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
         st.markdown(response.text)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.rerun()
+
