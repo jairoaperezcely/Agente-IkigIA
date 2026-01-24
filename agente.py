@@ -166,26 +166,73 @@ with st.sidebar:
         except:
             st.session_state.biblioteca[rol_activo] = raw_text[:30000]
 
-# --- 6. PANEL CENTRAL: SELECCIÓN MULTIPLE PARA EXPORTACIÓN ---
+# --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
-
-# Inicializar pool de exportación si no existe
-if "export_pool" not in st.session_state:
-    st.session_state.export_pool = []
 
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
+        # 1. LECTURA SIEMPRE DISPONIBLE (Markdown Limpio)
         st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
-            # Checkbox para incluir en el Word final
-            seleccionar = st.checkbox("📥 Incluir en Manual (Word)", key=f"sel_{i}")
-            if seleccionar:
+            # 2. SELECCIÓN PARA EL MANUAL (Checkbox)
+            # Verificamos si el índice está en el pool para mantener el estado visual
+            is_selected = i in st.session_state.export_pool
+            if st.checkbox(f"📥 Incluir en Manual (Word)", key=f"sel_{i}", value=is_selected):
                 if i not in st.session_state.export_pool:
                     st.session_state.export_pool.append(i)
             else:
                 if i in st.session_state.export_pool:
                     st.session_state.export_pool.remove(i)
 
-            with st.expander("🛠️ GESTIONAR ENTREGABLE", expanded=False):
-                # ... (resto de la lógica de copiar/editar que ya tiene)
+            # 3. GESTIÓN INDIVIDUAL (Copiar/Editar)
+            with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
+                t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
+                
+                with t_copy:
+                    st.code(msg["content"], language=None)
+                    st.caption("Toque el icono superior derecho para copiar.")
+                
+                with t_edit:
+                    # Editor con altura optimizada
+                    texto_editado = st.text_area(
+                        "Modifique el borrador aquí:", 
+                        value=msg["content"], 
+                        height=400, 
+                        key=f"edit_{i}",
+                        label_visibility="collapsed"
+                    )
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # Botón de fijado visual y ancho (Mobile Ready)
+                    if st.button("✅ FIJAR CAMBIOS EN ESTE BLOQUE", key=f"save_{i}", use_container_width=True):
+                        # Actualizamos el mensaje en el historial para que la exportación use la versión editada
+                        st.session_state.messages[i]["content"] = texto_editado
+                        st.session_state.last_analysis = texto_editado
+                        st.toast("✅ Cambios guardados y sincronizados.")
+        
+        st.markdown("---")
+
+# Captura de nuevo input
+if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
+    st.session_state.messages.append({"role": "user", "content": pr})
+    with st.chat_message("user"):
+        st.markdown(pr)
+    
+    with st.chat_message("assistant"):
+        with st.spinner("Generando contenido con rigor académico..."):
+            try:
+                # MOTOR: Gemini 2.5 Flash
+                model = genai.GenerativeModel('gemini-2.5-flash')
+                sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. APA 7."
+                lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
+                
+                response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
+                
+                # Guardamos y mostramos
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
+                st.session_state.last_analysis = response.text
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error de conexión con Gemini: {e}")
