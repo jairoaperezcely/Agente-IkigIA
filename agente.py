@@ -316,52 +316,59 @@ with st.sidebar:
 # --- MEJORA DEL CHAT INPUT EN EL BLOQUE CSS ---
 st.markdown("""
     <style>
-    /* 1. ELIMINAR CAJAS DE MENSAJES (Efecto burbuja) */
-    [data-testid="stChatMessage"] {
-        background-color: transparent !important; /* Elimina el fondo de la caja */
-        border: none !important;
-        padding-left: 0 !important;
-        margin-bottom: -10px !important;
-    }
-
-    /* 2. BARRA DE ENTRADA ESTILO GEMINI (Sobriedad Absoluta) */
-    .stChatInputContainer {
-        padding: 20px 0 !important;
+    /* 1. ELIMINACIÓN AGRESIVA DE CAJAS Y FONDOS DE CHAT */
+    div[data-testid="stChatMessage"] {
         background-color: transparent !important;
         border: none !important;
+        box-shadow: none !important;
+        padding-left: 0 !important;
+        margin-top: -15px !important;
+    }
+    
+    /* Eliminar el borde y fondo de la respuesta del asistente */
+    div[data-testid="stChatMessageContent"] {
+        background-color: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+
+    /* 2. BARRA DE ENTRADA ESTILO GEMINI (Mínimo Impacto Visual) */
+    div[data-testid="stChatInput"] {
+        border-radius: 28px !important;
+        border: 1px solid #3C4043 !important;
+        background-color: #1E1F20 !important;
+    }
+    
+    .stChatInputContainer {
+        border: none !important;
+        background-color: transparent !important;
     }
 
     .stChatInput textarea {
-        background-color: #1E1F20 !important; /* Gris profundo Gemini */
-        border: 1px solid #3C4043 !important;
-        border-radius: 28px !important;
+        background-color: transparent !important;
         color: #E3E3E3 !important;
-        padding: 14px 24px !important;
         font-family: 'Segoe UI', sans-serif !important;
-        box-shadow: none !important;
+        padding: 10px 15px !important;
     }
 
-    .stChatInput textarea:focus {
-        border-color: #A8C7FA !important; /* Enfoque sutil */
+    /* 3. LIMPIEZA DE INTERFAZ GENERAL */
+    .main {
+        background-color: #0E1117 !important;
+    }
+    
+    /* Ocultar avatares para mayor sobriedad académica */
+    div[data-testid="stChatMessageAvatarAssistant"], 
+    div[data-testid="stChatMessageAvatarUser"] {
+        display: none !important;
     }
 
-    /* 3. LIMPIEZA DE AVATARES (Opcional, para más sobriedad) */
-    [data-testid="stChatMessageAvatarAssistant"], 
-    [data-testid="stChatMessageAvatarUser"] {
-        display: none !important; /* Oculta los iconos para dejar solo el texto técnico */
-    }
-
-    /* 4. AJUSTE DE FUENTE PARA RIGOR ACADÉMICO */
+    /* 4. TEXTO CON RIGOR ACADÉMICO */
     .stMarkdown p {
-        font-family: 'Segoe UI', Tahoma, sans-serif !important;
+        font-family: 'Arial', sans-serif !important;
         font-size: 16px !important;
         line-height: 1.6 !important;
         color: #E3E3E3 !important;
-    }
-    
-    /* 5. OCULTAR ELEMENTOS DISTRACTORES DE STREAMLIT */
-    #MainMenu, footer, header {
-        visibility: hidden !important;
+        text-align: justify;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -430,6 +437,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
