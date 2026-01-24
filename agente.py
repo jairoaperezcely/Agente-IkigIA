@@ -17,13 +17,13 @@ import json
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.75 - Pure Executive Hub", 
+    page_title="IkigAI V1.76 - Pure Executive Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS: Zen Minimalista con Contraste Quirúrgico
+# Estilo CSS V1.76
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -32,8 +32,6 @@ st.markdown("""
     [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, h2, h3 { color: #FFFFFF !important; }
     [data-testid="stChatMessage"] { background-color: #050505 !important; border: 1px solid #1A1A1A !important; }
     .stMarkdown p, .stMarkdown li { color: #FFFFFF !important; font-size: 16px !important; line-height: 1.7 !important; }
-    blockquote { border-left: 4px solid #00E6FF !important; background-color: #0D1117 !important; padding: 15px !important; margin: 15px 0 !important; }
-    blockquote p { color: #58A6FF !important; font-style: italic !important; font-size: 14px !important; }
     .stDownloadButton button, .stButton button { width: 100%; border-radius: 4px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; }
     .stDownloadButton button:hover, .stButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
     .section-tag { font-size: 11px; color: #666; letter-spacing: 1.5px; margin: 15px 0 5px 0; font-weight: 600; }
@@ -57,15 +55,23 @@ ROLES = {
     "Estratega de Trading": "Gestión de riesgo y SMC."
 }
 
-# --- 2. FUNCIONES DE LECTURA Y PERSISTENCIA ---
+# --- 2. FUNCIONES DE LECTURA Y PERSISTENCIA OPTIMIZADA ---
 def get_pdf_text(f): return "".join([p.extract_text() for p in PdfReader(f).pages])
 def get_docx_text(f): return "\n".join([p.text for p in docx.Document(f).paragraphs])
 def get_excel_text(f): return pd.read_excel(f).to_string()
 
 def exportar_sesion():
+    # Sincronizamos las ediciones manuales antes de exportar
+    mensajes_finales = []
+    for i, msg in enumerate(st.session_state.messages):
+        nuevo_msg = msg.copy()
+        if msg["role"] == "assistant" and f"edit_{i}" in st.session_state:
+            nuevo_msg["content"] = st.session_state[f"edit_{i}"]
+        mensajes_finales.append(nuevo_msg)
+    
     data = {
         "biblioteca": st.session_state.biblioteca,
-        "messages": st.session_state.messages,
+        "messages": mensajes_finales,
         "last_analysis": st.session_state.last_analysis
     }
     return json.dumps(data, indent=4)
@@ -85,24 +91,20 @@ def clean_markdown(text):
 def download_word(content, role):
     doc = docx.Document()
     section = doc.sections[0]
-    section.left_margin = Inches(1)
-    section.right_margin = Inches(1)
+    section.left_margin = Inches(1); section.right_margin = Inches(1)
     header = doc.add_heading(f'INFORME ESTRATÉGICO: {role.upper()}', 0)
     header.alignment = 1
-    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.75 Executive Analysis")
+    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.76 Executive Analysis")
     doc.add_paragraph("_" * 50)
-    lines = content.split('\n')
-    for line in lines:
+    for line in content.split('\n'):
         clean_line = line.strip()
         if not clean_line: continue
         if clean_line.startswith('#'):
-            level = clean_line.count('#')
-            doc.add_heading(clean_line.replace('#', '').strip(), level=min(level, 3))
+            doc.add_heading(clean_line.replace('#', '').strip(), level=min(clean_line.count('#'), 3))
         elif clean_line.startswith(('*', '-', '•')):
             doc.add_paragraph(clean_line[1:].strip(), style='List Bullet')
         else:
-            p = doc.add_paragraph(clean_line)
-            p.alignment = 3
+            p = doc.add_paragraph(clean_line); p.alignment = 3
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
 def download_pptx(content, role):
@@ -114,8 +116,7 @@ def download_pptx(content, role):
     for i, segment in enumerate(segments[:15]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
         slide.shapes.title.text = f"Eje {i+1}"
-        body = slide.placeholders[1]
-        body.text = (segment[:447] + '...') if len(segment) > 450 else segment
+        slide.placeholders[1].text = (segment[:447] + '...') if len(segment) > 450 else segment
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
 # --- 4. LÓGICA DE MEMORIA ---
@@ -128,7 +129,6 @@ with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
     
-    # CONTROL DE SESIÓN SUPERIOR
     st.divider()
     col1, col2 = st.columns(2)
     with col1:
@@ -139,7 +139,6 @@ with st.sidebar:
         if st.session_state.messages:
             st.download_button("💾 GUARDAR", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
     
-    # RECUPERACIÓN DE TURNO
     archivo_memoria = st.file_uploader("RECUPERAR TURNO:", type=['json'], label_visibility="collapsed")
     if archivo_memoria:
         if st.button("🔌 RECONECTAR SESION", use_container_width=True):
@@ -154,8 +153,10 @@ with st.sidebar:
     if st.session_state.get("last_analysis"):
         st.divider()
         st.markdown("<div class='section-tag'>EXPORTAR ENTREGABLES</div>", unsafe_allow_html=True)
-        st.download_button("📄 Word", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
-        st.download_button("📊 Powerpoint", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
+        # Aquí exportamos usando la última edición si existe
+        export_text = st.session_state.last_analysis
+        st.download_button("📄 Word", data=download_word(export_text, rol_activo), file_name=f"Report_{rol_activo}.docx")
+        st.download_button("📊 Powerpoint", data=download_pptx(export_text, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
 
     st.divider()
     st.markdown("<div class='section-tag'>FUENTES DE DATOS</div>", unsafe_allow_html=True)
@@ -168,11 +169,11 @@ with st.sidebar:
                 if f.type == "application/pdf": raw_text += get_pdf_text(f)
                 elif "word" in f.type: raw_text += get_docx_text(f)
                 else: raw_text += get_excel_text(f)
-            with st.spinner("Refinando contexto estratégico..."):
+            with st.spinner("Refinando..."):
                 refiner = genai.GenerativeModel('gemini-1.5-flash')
-                summary_prompt = f"Actúa como Secretario Técnico. Extrae solo datos duros, métricas y decisiones estratégicas. Elimina ruido. Contexto: {raw_text[:40000]}"
+                summary_prompt = f"Actúa como Secretario Técnico. Extrae datos duros y decisiones. Contexto: {raw_text[:40000]}"
                 st.session_state.biblioteca[rol_activo] = refiner.generate_content(summary_prompt).text
-            st.success("Contexto Refinado.")
+            st.success("Listo.")
     with t2:
         uw = st.text_input("Link:", placeholder="https://")
         if st.button("🔗 CONECTAR", use_container_width=True):
@@ -188,10 +189,17 @@ st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_all
 
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
         if msg["role"] == "assistant":
-            with st.expander("📥 Portapapeles (Copiar texto limpio)"):
-                st.code(msg["content"], language=None)
+            st.markdown(msg["content"])
+            with st.expander("📝 REVISIÓN Y PORTAPAPELES (Editable)"):
+                texto_editable = st.text_area("Edite antes de copiar:", value=msg["content"], height=250, key=f"edit_{i}", label_visibility="collapsed")
+                st.code(texto_editable, language=None)
+                # Sincronizamos con el estado global de análisis para exportación
+                if st.button("✅ GUARDAR CAMBIOS EN ESTA RESPUESTA", key=f"save_{i}"):
+                    st.session_state.last_analysis = texto_editable
+                    st.toast("Cambios guardados para exportación.")
+        else:
+            st.markdown(msg["content"])
 
 if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": pr})
