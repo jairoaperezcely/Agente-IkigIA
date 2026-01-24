@@ -134,12 +134,12 @@ with st.sidebar:
     st.markdown("<div class='section-tag'>SESIÓN</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🗑️ REINICIAR"):
+        if st.button("🗑️ Reiniciar"):
             for key in list(st.session_state.keys()): del st.session_state[key]
             st.rerun()
     with col2:
         st.download_button(
-            label="💾 GUARDAR SESION",
+            label="💾 Guardar",
             data=exportar_sesion(),
             file_name=f"IkigAI_Turno_{date.today()}.json",
             mime="application/json",
@@ -227,3 +227,4 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
         st.session_state.last_analysis = response.text
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.rerun()
+
