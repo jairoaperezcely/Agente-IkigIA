@@ -177,4 +177,3 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
         st.markdown(response.text)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.rerun()
-
