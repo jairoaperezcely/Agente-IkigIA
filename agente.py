@@ -117,7 +117,7 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
 
-# --- 5. BARRA LATERAL ---
+# --- 5. BARRA LATERAL: CONTROL DE ENTREGABLES Y COMPILADOR ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
@@ -131,40 +131,48 @@ with st.sidebar:
             st.session_state.export_pool = []
             st.rerun()
     with col2:
-        st.download_button(label="💾 Guardar", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
+        st.download_button(
+            label="💾 Guardar",
+            data=exportar_sesion(),
+            file_name=f"IkigAI_Turno_{date.today()}.json",
+            mime="application/json"
+        )
     
-    archivo_memoria = st.file_uploader("RECUPERAR TURNO:", type=['json'], label_visibility="collapsed")
-    if archivo_memoria:
-        if st.button("🔌 RECONECTAR", use_container_width=True):
-            cargar_sesion(archivo_memoria.getvalue().decode("utf-8"))
-            st.rerun()
-
     st.divider()
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
     
-    # Exportación Compilada
+    # --- BLOQUE DINÁMICO DE EXPORTACIÓN ---
+    # Aparece si hay al menos un mensaje seleccionado
     if st.session_state.export_pool:
         st.divider()
-        st.markdown(f"<div class='section-tag'>COMPILADOR ({len(st.session_state.export_pool)} BLOQUES)</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-tag'>ENTREGABLES ({len(st.session_state.export_pool)} BLOQUES)</div>", unsafe_allow_html=True)
+        
+        # 1. Generación de Word Compilado
         word_data = download_word_compilado(st.session_state.export_pool, st.session_state.messages, rol_activo)
-        st.download_button("📄 Exportar Manual (Word)", data=word_data, file_name=f"Manual_Amazonia_{rol_activo}.docx", use_container_width=True)
+        st.download_button(
+            "📄 Generar Manual (Word)", 
+            data=word_data, 
+            file_name=f"Manual_Amazonia_{rol_activo}.docx", 
+            use_container_width=True
+        )
+        
+        # 2. Generación de PPT Compilado (Ajustado para usar los bloques seleccionados)
+        # Unimos el contenido seleccionado para el PPT
+        contenido_pptx = "\n\n".join([st.session_state.messages[idx]["content"] for idx in st.session_state.export_pool])
+        ppt_data = download_pptx(contenido_pptx, rol_activo)
+        st.download_button(
+            "📊 Generar Deck (PPT)", 
+            data=ppt_data, 
+            file_name=f"Presentacion_Amazonia_{rol_activo}.pptx", 
+            use_container_width=True
+        )
+    else:
+        st.info("Seleccione bloques en el chat (📥) para habilitar la exportación.")
 
     st.divider()
-    st.markdown("<div class='section-tag'>FUENTES</div>", unsafe_allow_html=True)
-    up = st.file_uploader("Subir DOCS:", type=['pdf', 'docx'], accept_multiple_files=True, label_visibility="collapsed")
-    if st.button("🧠 PROCESAR", use_container_width=True):
-        raw_text = ""
-        for f in up:
-            if f.type == "application/pdf": raw_text += get_pdf_text(f)
-            else: raw_text += get_docx_text(f)
-        try:
-            refiner = genai.GenerativeModel('gemini-2.5-flash')
-            summary_prompt = f"Actúa como Secretario Técnico. Extrae datos clave. Contexto: {raw_text[:40000]}"
-            st.session_state.biblioteca[rol_activo] = refiner.generate_content(summary_prompt).text
-            st.success("Contexto integrado.")
-        except:
-            st.session_state.biblioteca[rol_activo] = raw_text[:30000]
+    st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
+    # ... (resto de su código de pestañas DOC, URL, IMG)
 
 # --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
@@ -236,3 +244,4 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
                 st.rerun()
             except Exception as e:
                 st.error(f"Error de conexión con Gemini: {e}")
+
