@@ -128,18 +128,21 @@ with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
     
-    if st.button("🗑️ REINICIAR"):
-        for key in list(st.session_state.keys()): del st.session_state[key]
-        st.rerun()
-
+    # CONTROL DE SESIÓN SUPERIOR
     st.divider()
-    st.markdown("<div class='section-tag'>MEMORIA DE TURNO</div>", unsafe_allow_html=True)
-    if st.session_state.messages:
-        st.download_button("💾 GUARDAR SESION", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🗑️ REINICIAR"):
+            for key in list(st.session_state.keys()): del st.session_state[key]
+            st.rerun()
+    with col2:
+        if st.session_state.messages:
+            st.download_button("💾 GUARDAR", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
     
+    # RECUPERACIÓN DE TURNO
     archivo_memoria = st.file_uploader("RECUPERAR TURNO:", type=['json'], label_visibility="collapsed")
     if archivo_memoria:
-        if st.button("🔌 RECONECTAR SESION"):
+        if st.button("🔌 RECONECTAR SESION", use_container_width=True):
             cargar_sesion(archivo_memoria.getvalue().decode("utf-8"))
             st.success("Memoria recuperada.")
             st.rerun()
@@ -202,4 +205,3 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
         st.markdown(response.text)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.rerun()
-
