@@ -17,13 +17,13 @@ import json
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.81 - Executive Workstation", 
+    page_title="IkigAI V1.83 - Executive Workstation", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS Zen: Enfoque en Lectura y Contraste
+# Estilo CSS Zen: Enfoque en Lectura, Contraste y Ergonomía Móvil
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -35,9 +35,8 @@ st.markdown("""
     .stDownloadButton button, .stButton button { width: 100%; border-radius: 4px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; }
     .stDownloadButton button:hover, .stButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
     .section-tag { font-size: 11px; color: #666; letter-spacing: 1.5px; margin: 15px 0 5px 0; font-weight: 600; }
-    /* Estilo para el área de herramientas */
-    .stExpander { border: 1px solid #1A1A1A !important; background-color: #050505 !important; }
-    textarea { background-color: #0D1117 !important; color: #FFFFFF !important; border: 1px solid #00E6FF !important; font-family: 'Courier New', monospace !important; }
+    .stExpander { border: 1px solid #1A1A1A !important; background-color: #050505 !important; border-radius: 8px !important; }
+    textarea { background-color: #0D1117 !important; color: #FFFFFF !important; border: 1px solid #00E6FF !important; font-family: 'Courier New', monospace !important; font-size: 14px !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -70,7 +69,11 @@ def exportar_sesion():
         if msg["role"] == "assistant" and f"edit_{i}" in st.session_state:
             nuevo_msg["content"] = st.session_state[f"edit_{i}"]
         mensajes_finales.append(nuevo_msg)
-    data = {"biblioteca": st.session_state.biblioteca, "messages": mensajes_finales, "last_analysis": st.session_state.last_analysis}
+    data = {
+        "biblioteca": st.session_state.biblioteca, 
+        "messages": mensajes_finales, 
+        "last_analysis": st.session_state.last_analysis
+    }
     return json.dumps(data, indent=4)
 
 def cargar_sesion(json_data):
@@ -91,7 +94,7 @@ def download_word(content, role):
     section.left_margin = Inches(1); section.right_margin = Inches(1)
     header = doc.add_heading(f'INFORME ESTRATÉGICO: {role.upper()}', 0)
     header.alignment = 1
-    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.81 Analysis")
+    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.83 Executive Hub")
     doc.add_paragraph("_" * 50)
     for line in content.split('\n'):
         clean_line = line.strip()
@@ -116,12 +119,12 @@ def download_pptx(content, role):
         slide.placeholders[1].text = (segment[:447] + '...') if len(segment) > 450 else segment
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
-# --- 4. LÓGICA DE MEMORIA ---
+# --- 4. LÓGICA DE ESTADO ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL ---
+# --- 5. BARRA LATERAL (Panel de Control) ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
@@ -140,77 +143,81 @@ with st.sidebar:
     if archivo_memoria:
         if st.button("🔌 RECONECTAR SESION", use_container_width=True):
             cargar_sesion(archivo_memoria.getvalue().decode("utf-8"))
-            st.success("Memoria recuperada.")
+            st.success("Cerebro reconectado.")
             st.rerun()
 
     st.divider()
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
-    rol_activo = st.radio("Rol:", options=list(ROLES.keys()), label_visibility="collapsed")
+    rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
     
     if st.session_state.get("last_analysis"):
         st.divider()
         st.markdown("<div class='section-tag'>EXPORTAR ENTREGABLES</div>", unsafe_allow_html=True)
-        st.download_button("📄 Word", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
-        st.download_button("📊 Powerpoint", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
+        st.download_button("📄 Generar Word", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
+        st.download_button("📊 Generar Deck PPT", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
 
     st.divider()
-    st.markdown("<div class='section-tag'>FUENTES DE DATOS</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
     t1, t2, t3 = st.tabs(["DOC", "URL", "IMG"])
     with t1:
-        up = st.file_uploader("Upload:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
+        up = st.file_uploader("Subir archivos:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
         if st.button("🧠 PROCESAR", use_container_width=True):
             raw_text = ""
             for f in up:
                 if f.type == "application/pdf": raw_text += get_pdf_text(f)
                 elif "word" in f.type: raw_text += get_docx_text(f)
                 else: raw_text += get_excel_text(f)
-            with st.spinner("Refinando..."):
+            with st.spinner("Extrayendo inteligencia..."):
                 refiner = genai.GenerativeModel('gemini-1.5-flash')
-                summary_prompt = f"Actúa como Secretario Técnico. Extrae datos duros y decisiones. Contexto: {raw_text[:40000]}"
+                summary_prompt = f"Actúa como Secretario Técnico. Extrae datos clave y decisiones estratégicas. Contexto: {raw_text[:40000]}"
                 st.session_state.biblioteca[rol_activo] = refiner.generate_content(summary_prompt).text
-            st.success("Listo.")
+            st.success("Contexto integrado.")
     with t2:
-        uw = st.text_input("Link:", placeholder="https://")
+        uw = st.text_input("URL:", placeholder="https://")
         if st.button("🔗 CONECTAR", use_container_width=True):
             r = requests.get(uw, timeout=10)
             st.session_state.biblioteca[rol_activo] += BeautifulSoup(r.text, 'html.parser').get_text()
-            st.success("Conectado.")
+            st.success("Web integrada.")
     with t3:
-        img_f = st.file_uploader("Image:", type=['jpg', 'png'], label_visibility="collapsed")
+        img_f = st.file_uploader("Imagen:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
-# --- 6. PANEL CENTRAL: ERGONOMÍA MÓVIL Y EJECUTIVA ---
+# --- 6. PANEL CENTRAL: WORKSTATION ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
 
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
-        # 1. LECTURA SIEMPRE DISPONIBLE
         st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
-            # 2. ESPACIO DE TRABAJO (Expander más visual)
             with st.expander("🛠️ GESTIONAR ENTREGABLE", expanded=False):
-                t_copy, t_edit = st.tabs(["📋 COPIAR RÁPIDO", "📝 EDITAR CONTENIDO"])
-                
+                t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
                 with t_copy:
                     st.code(msg["content"], language=None)
-                    st.caption("Toque el icono superior derecho para copiar al portapapeles.")
-                
+                    st.caption("Icono superior derecho para copiar.")
                 with t_edit:
-                    # Editor con altura optimizada para scroll móvil
                     texto_editado = st.text_area(
-                        "Edite el borrador aquí:", 
+                        "Editor de alta fidelidad:", 
                         value=msg["content"], 
                         height=450, 
                         key=f"edit_{i}",
                         label_visibility="collapsed"
                     )
-                    
-                    st.markdown("<br>", unsafe_allow_html=True) # Espacio para el pulgar
-                    
-                    # BOTÓN DE FIJADO AL FINAL (Grande y Visual)
-                    if st.button("✅ FIJAR CAMBIOS Y ACTUALIZAR WORD", key=f"save_{i}", use_container_width=True):
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("✅ FIJAR PARA EXPORTACIÓN", key=f"save_{i}", use_container_width=True):
                         st.session_state.last_analysis = texto_editado
-                        st.toast("✅ Cambios sincronizados con éxito.")
-        
+                        st.toast("✅ Sincronizado correctamente.")
         st.markdown("---")
+
+if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
+    st.session_state.messages.append({"role": "user", "content": pr})
+    with st.chat_message("user"): st.markdown(pr)
+    with st.chat_message("assistant"):
+        # Usamos el modelo más avanzado solicitado
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo directo, clínico, ejecutivo. APA 7."
+        lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
+        response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
+        st.session_state.last_analysis = response.text
+        st.session_state.messages.append({"role": "assistant", "content": response.text})
+        st.rerun()
