@@ -80,7 +80,7 @@ def cargar_sesion(json_data):
     st.session_state.messages = data["messages"]
     st.session_state.last_analysis = data["last_analysis"]
 
-# --- 3. MOTOR DE EXPORTACIÓN DINÁMICO E INTELIGENTE (V1.88) ---
+# --- 3. MOTOR DE EXPORTACIÓN TÉCNICO-CIENTÍFICO (V1.89) ---
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import re
@@ -89,57 +89,70 @@ from datetime import date
 from pptx import Presentation
 
 def clean_markdown(text):
-    """Limpia asteriscos y símbolos de títulos para exportación limpia."""
+    """Limpia asteriscos y residuos de markdown para rigor clínico."""
     text = re.sub(r'\*+', '', text)
     text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
     return text.strip()
 
-def extraer_titulo_dinamico(messages, indices_seleccionados, default_role):
-    """Analiza el contenido seleccionado para extraer el mejor título posible."""
+def extraer_titulo_tecnico(messages, indices_seleccionados):
+    """Extrae exclusivamente el título técnico evitando saludos o intros de la IA."""
     if not indices_seleccionados:
-        return f"REPORTE ESTRATÉGICO: {default_role.upper()}"
+        return "MANUAL TÉCNICO DE TELESALUD AMAZONÍA"
     
-    # Tomamos el primer bloque seleccionado
     primer_contenido = messages[indices_seleccionados[0]]["content"]
     lineas = [l.strip() for l in primer_contenido.split('\n') if l.strip()]
     
     for linea in lineas:
-        # Buscamos la primera línea que parezca un título (que empiece con # o sea corta y en mayúsculas)
+        # Filtro: Ignora intros típicas de la IA como "Como IkigAI...", "Presento...", etc.
+        if any(x in linea.upper() for x in ["COMO IKIGAI", "PRESENTO", "A CONTINUACIÓN", "HOLA", "DOCTOR"]):
+            continue
+        # Captura la primera línea que no sea un saludo, limpiando el formato Markdown
         titulo_limpio = re.sub(r'^#+\s*', '', linea)
-        if len(titulo_limpio) > 3:
+        if len(titulo_limpio) > 5:
             return titulo_limpio.upper()
             
-    return f"MANUAL TÉCNICO: {default_role.upper()}"
+    return "MANUAL DE PROCESOS Y PROCEDIMIENTOS OPERATIVOS"
 
 def download_word_compilado(indices_seleccionados, messages, role):
-    """Genera Word con portada y títulos dinámicos en Arial 11."""
+    """Genera Word Técnico bajo estándares APA 7 y autoría fija."""
     doc = docx.Document()
     style = doc.styles['Normal']
     style.font.name = 'Arial'
     style.font.size = Pt(11)
     
-    # Márgenes técnicos internacionales
     section = doc.sections[0]
     for m in ['left', 'right', 'top', 'bottom']:
         setattr(section, f'{m}_margin', Inches(1))
     
-    titulo_dinamico = extraer_titulo_dinamico(messages, indices_seleccionados, role)
+    # Lógica de Título Técnico
+    titulo_principal = extraer_titulo_tecnico(messages, indices_seleccionados)
 
-    # PORTADA DINÁMICA
-    header = doc.add_heading(titulo_dinamico, 0)
+    # PORTADA ACADÉMICA
+    header = doc.add_heading(titulo_principal, 0)
     header.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for run in header.runs:
         run.font.name = 'Arial'
         run.font.size = Pt(16)
-        run.font.color.rgb = RGBColor(0, 32, 96)
+        run.font.color.rgb = RGBColor(0, 32, 96) # Azul Oxford Institucional
     
-    doc.add_paragraph(f"Documento Técnico: {role}").alignment = 1
-    doc.add_paragraph(f"Generado por IkigAI Executive Workstation | {date.today()}").alignment = 1
-    doc.add_paragraph("_" * 75).alignment = 1
+    doc.add_paragraph("").add_run() # Espacio
+    autor = doc.add_paragraph()
+    run_autor = autor.add_run("Jairo Antonio Pérez Cely")
+    run_autor.bold = True
+    run_autor.font.size = Pt(12)
+    autor.alignment = 1
+    
+    doc.add_paragraph("Director Centro de Telemedicina e IA - UNAL").alignment = 1
+    doc.add_paragraph(f"Fecha de Edición: {date.today()}").alignment = 1
+    doc.add_paragraph("_" * 60).alignment = 1
     
     for idx in sorted(indices_seleccionados):
         content = messages[idx]["content"]
-        for line in content.split('\n'):
+        # Filtrar el saludo inicial de cada bloque si existe
+        lineas_bloque = content.split('\n')
+        for line in lineas_bloque:
+            if any(x in line.upper() for x in ["COMO IKIGAI", "PRESENTO", "DOCTOR"]): continue
+            
             clean_line = re.sub(r'\*+', '', line).strip()
             if not clean_line: continue
             
@@ -158,32 +171,28 @@ def download_word_compilado(indices_seleccionados, messages, role):
     
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
-def download_pptx(content, role, titulo_sugerido=""):
-    """Genera PPT con título dinámico y estructura técnica."""
+def download_pptx(content, role):
+    """Genera Deck con limpieza de intros conversacionales."""
     prs = Presentation()
-    clean_content = clean_markdown(content)
+    clean_text = clean_markdown(content)
+    # Filtrar párrafos introductorios de la IA
+    lineas = [l for l in clean_text.split('\n') if not any(x in l.upper() for x in ["COMO IKIGAI", "PRESENTO"])]
     
-    # Si no hay título sugerido, lo extraemos del contenido
-    if not titulo_sugerido:
-        lineas = [l.strip() for l in clean_content.split('\n') if l.strip()]
-        titulo_slide = lineas[0].upper() if lineas else f"REPORTE: {role.upper()}"
-    else:
-        titulo_slide = titulo_sugerido.upper()
+    titulo_slide = lineas[0].upper() if lineas else "INFORME TÉCNICO"
 
     # Slide de Título
     slide = prs.slides.add_slide(prs.slide_layouts[0])
     slide.shapes.title.text = titulo_slide[:70]
-    slide.placeholders[1].text = f"Análisis de Implementación\n{role} | {date.today()}"
+    slide.placeholders[1].text = f"Jairo Antonio Pérez Cely\nCentro de Telemedicina e IA | {date.today()}"
     
-    # Slides de Contenido
-    segments = [s.strip() for s in re.split(r'\n|\. ', clean_content) if len(s.strip()) > 30]
-    for i, segment in enumerate(segments[1:11]):
+    # Contenido (Slides 1-10)
+    segments = [s.strip() for s in lineas[1:] if len(s.strip()) > 30]
+    for i, segment in enumerate(segments[:10]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Eje Técnico {i+1}"
+        slide.shapes.title.text = f"Eje de Análisis {i+1}"
         slide.placeholders[1].text = (segment[:447] + '...') if len(segment) > 450 else segment
         
-    bio = BytesIO(); prs.save(bio); return bio.getvalue()
-    
+    bio = BytesIO(); prs.save(bio); return bio.getvalue()    
 # --- 4. LÓGICA DE ESTADO ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
@@ -356,6 +365,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
