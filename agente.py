@@ -179,42 +179,38 @@ with st.sidebar:
         img_f = st.file_uploader("Image:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
-# --- 6. PANEL CENTRAL: LECTURA CON HERRAMIENTAS ---
+# --- 6. PANEL CENTRAL: ERGONOMÍA MÓVIL Y EJECUTIVA ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
 
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
-        # Prioridad de Lectura: Markdown Limpio
+        # 1. LECTURA SIEMPRE DISPONIBLE
         st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
-            # Acciones bajo demanda
-            with st.expander("🛠️ ACCIONES (Copiar / Editar)"):
-                t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
+            # 2. ESPACIO DE TRABAJO (Expander más visual)
+            with st.expander("🛠️ GESTIONAR ENTREGABLE", expanded=False):
+                t_copy, t_edit = st.tabs(["📋 COPIAR RÁPIDO", "📝 EDITAR CONTENIDO"])
+                
                 with t_copy:
                     st.code(msg["content"], language=None)
-                    st.caption("👆 Haga clic en el ícono superior para copiar.")
+                    st.caption("Toque el icono superior derecho para copiar al portapapeles.")
+                
                 with t_edit:
+                    # Editor con altura optimizada para scroll móvil
                     texto_editado = st.text_area(
-                        "Modifique el borrador:", 
+                        "Edite el borrador aquí:", 
                         value=msg["content"], 
-                        height=300, 
+                        height=450, 
                         key=f"edit_{i}",
                         label_visibility="collapsed"
                     )
-                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}"):
+                    
+                    st.markdown("<br>", unsafe_allow_html=True) # Espacio para el pulgar
+                    
+                    # BOTÓN DE FIJADO AL FINAL (Grande y Visual)
+                    if st.button("✅ FIJAR CAMBIOS Y ACTUALIZAR WORD", key=f"save_{i}", use_container_width=True):
                         st.session_state.last_analysis = texto_editado
-                        st.toast("Sincronizado.")
+                        st.toast("✅ Cambios sincronizados con éxito.")
+        
         st.markdown("---")
-
-if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
-    st.session_state.messages.append({"role": "user", "content": pr})
-    with st.chat_message("user"): st.markdown(pr)
-    with st.chat_message("assistant"):
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo, ejecutivo. APA 7."
-        lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
-        response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
-        st.session_state.last_analysis = response.text
-        st.session_state.messages.append({"role": "assistant", "content": response.text})
-        st.rerun()
