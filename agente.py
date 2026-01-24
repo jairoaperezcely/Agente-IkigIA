@@ -124,7 +124,7 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL (Panel de Control) ---
+# --- 5. BARRA LATERAL (Panel de Control Corregido) ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
@@ -137,7 +137,8 @@ with st.sidebar:
             st.rerun()
     with col2:
         if st.session_state.messages:
-            st.download_button("💾 GUARDAR", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
+            # RESTAURADO: Botón Guardar Sesión
+            st.download_button("💾 GUARDAR SESION", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
     
     archivo_memoria = st.file_uploader("RECUPERAR TURNO:", type=['json'], label_visibility="collapsed")
     if archivo_memoria:
@@ -153,8 +154,8 @@ with st.sidebar:
     if st.session_state.get("last_analysis"):
         st.divider()
         st.markdown("<div class='section-tag'>EXPORTAR ENTREGABLES</div>", unsafe_allow_html=True)
-        st.download_button("📄 Generar Word", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
-        st.download_button("📊 Generar Deck PPT", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
+        st.download_button("📄 Word", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
+        st.download_button("📊 PPT", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
 
     st.divider()
     st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
@@ -204,16 +205,16 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                         label_visibility="collapsed"
                     )
                     st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("✅ FIJAR PARA EXPORTACIÓN", key=f"save_{i}", use_container_width=True):
+                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
                         st.session_state.last_analysis = texto_editado
-                        st.toast("✅ Sincronizado correctamente.")
+                        st.toast("✅ Sincronizado.")
         st.markdown("---")
 
 if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
     with st.chat_message("assistant"):
-        # Usamos el modelo más avanzado solicitado
+        # ACTUALIZADO: Gemini 2.0 Flash
         model = genai.GenerativeModel('gemini-2.5-flash')
         sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo directo, clínico, ejecutivo. APA 7."
         lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
