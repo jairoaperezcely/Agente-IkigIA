@@ -312,19 +312,19 @@ with st.sidebar:
     st.divider()
     st.caption(f"IkigAI V1.87 | {date.today()}")
     
-# --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR ---
-# --- MEJORA DEL CHAT INPUT EN EL BLOQUE CSS ---
+# --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR (V1.96) ---
+# Inyección de estilo para transparencia total y rescate de navegación
 st.markdown("""
     <style>
-    /* 1. ELIMINAR CAJAS DE MENSAJES (Efecto burbuja) */
+    /* 1. ELIMINAR CAJAS DE MENSAJES (Efecto Lienzo Continuo) */
     [data-testid="stChatMessage"] {
-        background-color: transparent !important; /* Elimina el fondo de la caja */
+        background-color: transparent !important;
         border: none !important;
         padding-left: 0 !important;
         margin-bottom: -10px !important;
     }
 
-    /* 2. BARRA DE ENTRADA ESTILO GEMINI (Sobriedad Absoluta) */
+    /* 2. BARRA DE ENTRADA ESTILO GEMINI */
     .stChatInputContainer {
         padding: 20px 0 !important;
         background-color: transparent !important;
@@ -332,7 +332,7 @@ st.markdown("""
     }
 
     .stChatInput textarea {
-        background-color: #1E1F20 !important; /* Gris profundo Gemini */
+        background-color: #1E1F20 !important;
         border: 1px solid #3C4043 !important;
         border-radius: 28px !important;
         color: #E3E3E3 !important;
@@ -341,39 +341,40 @@ st.markdown("""
         box-shadow: none !important;
     }
 
-    .stChatInput textarea:focus {
-        border-color: #A8C7FA !important; /* Enfoque sutil */
+    /* 3. RESCATE DE CONTROLES DE NAVEGACIÓN (BOTÓN SIDEBAR) */
+    /* Mantenemos ocultos el pie de página, pero dejamos el header funcional para no perder la viñeta */
+    footer { visibility: hidden !important; }
+    header { background-color: rgba(0,0,0,0) !important; }
+    
+    /* Estilo del botón de colapso para que sea visible en el lienzo negro */
+    button[data-testid="stSidebarCollapseButton"] {
+        background-color: #1A1A1A !important;
+        color: #00E6FF !important;
+        border: 1px solid #333 !important;
     }
 
-    /* 3. LIMPIEZA DE AVATARES (Opcional, para más sobriedad) */
+    /* 4. AJUSTE DE FUENTE Y AVATARES */
     [data-testid="stChatMessageAvatarAssistant"], 
     [data-testid="stChatMessageAvatarUser"] {
-        display: none !important; /* Oculta los iconos para dejar solo el texto técnico */
+        display: none !important;
     }
 
-    /* 4. AJUSTE DE FUENTE PARA RIGOR ACADÉMICO */
     .stMarkdown p {
         font-family: 'Segoe UI', Tahoma, sans-serif !important;
         font-size: 16px !important;
         line-height: 1.6 !important;
         color: #E3E3E3 !important;
     }
-    
-    /* 5. OCULTAR ELEMENTOS DISTRACTORES DE STREAMLIT */
-    #MainMenu, footer, header {
-        visibility: hidden !important;
-    }
     </style>
 """, unsafe_allow_html=True)
 
+# Renderizado de Mensajes con Lógica de Edición y Selección
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
-        # 1. LECTURA SIEMPRE DISPONIBLE (Markdown Limpio)
         st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
-            # 2. SELECCIÓN PARA EL MANUAL (Checkbox)
-            # Verificamos si el índice está en el pool para mantener el estado visual
+            # Selección para el Manual
             is_selected = i in st.session_state.export_pool
             if st.checkbox(f"📥 Incluir en Manual (Word)", key=f"sel_{i}", value=is_selected):
                 if i not in st.session_state.export_pool:
@@ -382,16 +383,14 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                 if i in st.session_state.export_pool:
                     st.session_state.export_pool.remove(i)
 
-            # 3. GESTIÓN INDIVIDUAL (Copiar/Editar)
+            # Gestión de Bloque: Copiar y Editar
             with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
                 t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
                 
                 with t_copy:
                     st.code(msg["content"], language=None)
-                    st.caption("Toque el icono superior derecho para copiar.")
                 
                 with t_edit:
-                    # Editor con altura optimizada
                     texto_editado = st.text_area(
                         "Modifique el borrador aquí:", 
                         value=msg["content"], 
@@ -400,18 +399,14 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                         label_visibility="collapsed"
                     )
                     
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    
-                    # Botón de fijado visual y ancho (Mobile Ready)
-                    if st.button("✅ FIJAR CAMBIOS EN ESTE BLOQUE", key=f"save_{i}", use_container_width=True):
-                        # Actualizamos el mensaje en el historial para que la exportación use la versión editada
+                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
                         st.session_state.messages[i]["content"] = texto_editado
                         st.session_state.last_analysis = texto_editado
-                        st.toast("✅ Cambios guardados y sincronizados.")
+                        st.toast("✅ Cambios sincronizados.")
         
         st.markdown("---")
 
-# Captura de nuevo input
+# Captura de nuevo input con modelo 2.5 Flash
 if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"):
@@ -419,14 +414,14 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
     
     with st.chat_message("assistant"):
         try:
+            # Mantenemos su preferencia de modelo 2.5 Flash
             model = genai.GenerativeModel('gemini-2.5-flash')
-            sys_context = f"Rol: {rol_activo}. {ROLES[rol_activo]}. Rigor académico APA 7."
+            sys_context = f"Rol: {rol_activo}. {ROLES[rol_activo]}. Rigor académico APA 7. Autor: Jairo Pérez Cely."
             lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
             
             response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
             
-            # Guardamos en historial pero NO marcamos para exportar automáticamente
             st.session_state.messages.append({"role": "assistant", "content": response.text})
             st.rerun()
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Error en la conexión técnica: {e}")
