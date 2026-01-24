@@ -80,110 +80,109 @@ def cargar_sesion(json_data):
     st.session_state.messages = data["messages"]
     st.session_state.last_analysis = data["last_analysis"]
 
-# --- 3. MOTOR DE EXPORTACIÓN COMPILADA (V1.87) ---
-from docx.shared import Pt, RGBColor
+# --- 3. MOTOR DE EXPORTACIÓN DINÁMICO E INTELIGENTE (V1.88) ---
+from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+import re
+from io import BytesIO
+from datetime import date
+from pptx import Presentation
+
+def clean_markdown(text):
+    """Limpia asteriscos y símbolos de títulos para exportación limpia."""
+    text = re.sub(r'\*+', '', text)
+    text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
+    return text.strip()
+
+def extraer_titulo_dinamico(messages, indices_seleccionados, default_role):
+    """Analiza el contenido seleccionado para extraer el mejor título posible."""
+    if not indices_seleccionados:
+        return f"REPORTE ESTRATÉGICO: {default_role.upper()}"
+    
+    # Tomamos el primer bloque seleccionado
+    primer_contenido = messages[indices_seleccionados[0]]["content"]
+    lineas = [l.strip() for l in primer_contenido.split('\n') if l.strip()]
+    
+    for linea in lineas:
+        # Buscamos la primera línea que parezca un título (que empiece con # o sea corta y en mayúsculas)
+        titulo_limpio = re.sub(r'^#+\s*', '', linea)
+        if len(titulo_limpio) > 3:
+            return titulo_limpio.upper()
+            
+    return f"MANUAL TÉCNICO: {default_role.upper()}"
 
 def download_word_compilado(indices_seleccionados, messages, role):
+    """Genera Word con portada y títulos dinámicos en Arial 11."""
     doc = docx.Document()
-    
-    # Configuración de Estilo Base (Arial 11)
     style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Arial'
-    font.size = Pt(11)
+    style.font.name = 'Arial'
+    style.font.size = Pt(11)
     
-    # Configuración de márgenes técnicos (2.54 cm)
+    # Márgenes técnicos internacionales
     section = doc.sections[0]
-    for margin in ['left', 'right', 'top', 'bottom']:
-        setattr(section, f'{margin}_margin', Inches(1))
+    for m in ['left', 'right', 'top', 'bottom']:
+        setattr(section, f'{m}_margin', Inches(1))
     
-    # LÓGICA DE TÍTULO DINÁMICO SEGÚN CONTENIDO
-    # Extraemos el contenido del primer bloque seleccionado para el título
-    primer_bloque = messages[indices_seleccionados[0]]["content"] if indices_seleccionados else ""
-    lineas = [l.strip() for l in primer_bloque.split('\n') if l.strip()]
-    # Si la primera línea empieza con # (Markdown), la limpiamos
-    titulo_texto = re.sub(r'^#+\s*', '', lineas[0]) if lineas else "MANUAL TÉCNICO DE TELESALUD"
+    titulo_dinamico = extraer_titulo_dinamico(messages, indices_seleccionados, role)
 
-    # PORTADA TÉCNICA
-    header = doc.add_heading(titulo_texto.upper(), 0)
+    # PORTADA DINÁMICA
+    header = doc.add_heading(titulo_dinamico, 0)
     header.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for run in header.runs:
         run.font.name = 'Arial'
         run.font.size = Pt(16)
-        run.font.color.rgb = RGBColor(0, 32, 96) # Azul Ejecutivo
+        run.font.color.rgb = RGBColor(0, 32, 96)
     
-    doc.add_paragraph(f"Perfil Emisor: {role.upper()}").alignment = 1
-    doc.add_paragraph(f"Fecha de Generación: {date.today()}").alignment = 1
+    doc.add_paragraph(f"Documento Técnico: {role}").alignment = 1
+    doc.add_paragraph(f"Generado por IkigAI Executive Workstation | {date.today()}").alignment = 1
     doc.add_paragraph("_" * 75).alignment = 1
     
     for idx in sorted(indices_seleccionados):
         content = messages[idx]["content"]
-        # Evitamos repetir el título que ya pusimos en la portada si es la primera línea
-        lineas_bloque = content.split('\n')
-        
-        for i, line in enumerate(lineas_bloque):
+        for line in content.split('\n'):
             clean_line = re.sub(r'\*+', '', line).strip()
             if not clean_line: continue
             
-            # Gestión de Títulos Internos
             if line.startswith('#'):
-                level = line.count('#')
-                h = doc.add_heading(clean_line, level=min(level, 3))
-                h.paragraph_format.space_before = Pt(18)
+                h = doc.add_heading(clean_line, level=min(line.count('#'), 3))
                 for run in h.runs: run.font.name = 'Arial'
-            
-            # Listas con Sangría Técnica (0.63 cm)
             elif line.strip().startswith(('*', '-', '•')) or re.match(r'^\d+\.', line.strip()):
                 style_name = 'List Number' if re.match(r'^\d+\.', line.strip()) else 'List Bullet'
-                text_only = re.sub(r'^[\*\-\•\d\.]+\s*', '', clean_line)
-                p = doc.add_paragraph(text_only, style=style_name)
+                p = doc.add_paragraph(re.sub(r'^[\*\-\•\d\.]+\s*', '', clean_line), style=style_name)
                 p.paragraph_format.left_indent = Inches(0.25)
-            
-            # Cuerpo de Texto Justificado
             else:
                 p = doc.add_paragraph(clean_line)
                 p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 p.paragraph_format.space_after = Pt(12)
-        
         doc.add_page_break()
     
-    bio = BytesIO()
-    doc.save(bio)
-    return bio.getvalue()
-    
-def download_pptx(content, role):
-    """Genera una presentación con título dinámico basado en la primera línea."""
+    bio = BytesIO(); doc.save(bio); return bio.getvalue()
+
+def download_pptx(content, role, titulo_sugerido=""):
+    """Genera PPT con título dinámico y estructura técnica."""
     prs = Presentation()
     clean_content = clean_markdown(content)
     
-    # Segmentación para slides (basado en párrafos o puntos)
-    segments = [s.strip() for s in re.split(r'\n|\. ', clean_content) if len(s.strip()) > 25]
-    
-    # EXTRACCIÓN DINÁMICA DEL TÍTULO
-    lineas = [l.strip() for l in clean_content.split('\n') if l.strip()]
-    titulo_dinamico = lineas[0] if lineas else f"REPORTE: {role.upper()}"
-    titulo_slide = (titulo_dinamico[:70] + '...') if len(titulo_dinamico) > 73 else titulo_dinamico
+    # Si no hay título sugerido, lo extraemos del contenido
+    if not titulo_sugerido:
+        lineas = [l.strip() for l in clean_content.split('\n') if l.strip()]
+        titulo_slide = lineas[0].upper() if lineas else f"REPORTE: {role.upper()}"
+    else:
+        titulo_slide = titulo_sugerido.upper()
 
     # Slide de Título
-    slide_layout = prs.slide_layouts[0]
-    slide = prs.slides.add_slide(slide_layout)
-    slide.shapes.title.text = titulo_slide.upper()
-    slide.placeholders[1].text = f"Perfil de Gestión: {role}\nIkigAI Executive Hub | {date.today()}"
+    slide = prs.slides.add_slide(prs.slide_layouts[0])
+    slide.shapes.title.text = titulo_slide[:70]
+    slide.placeholders[1].text = f"Análisis de Implementación\n{role} | {date.today()}"
     
-    # Slides de Contenido (Máximo 15)
-    for i, segment in enumerate(segments[1:16]):
-        bullet_layout = prs.slide_layouts[1]
-        slide = prs.slides.add_slide(bullet_layout)
-        slide.shapes.title.text = f"Análisis Estratégico {i+1}"
+    # Slides de Contenido
+    segments = [s.strip() for s in re.split(r'\n|\. ', clean_content) if len(s.strip()) > 30]
+    for i, segment in enumerate(segments[1:11]):
+        slide = prs.slides.add_slide(prs.slide_layouts[1])
+        slide.shapes.title.text = f"Eje Técnico {i+1}"
+        slide.placeholders[1].text = (segment[:447] + '...') if len(segment) > 450 else segment
         
-        body_shape = slide.placeholders[1]
-        tf = body_shape.text_frame
-        tf.text = (segment[:447] + '...') if len(segment) > 450 else segment
-        
-    bio = BytesIO()
-    prs.save(bio)
-    return bio.getvalue()
+    bio = BytesIO(); prs.save(bio); return bio.getvalue()
     
 # --- 4. LÓGICA DE ESTADO ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
@@ -357,6 +356,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
