@@ -17,13 +17,13 @@ import json
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.76 - Pure Executive Hub", 
+    page_title="IkigAI V1.78 - Pure Executive Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS V1.76
+# Estilo CSS Zen V1.78
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -35,6 +35,7 @@ st.markdown("""
     .stDownloadButton button, .stButton button { width: 100%; border-radius: 4px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; }
     .stDownloadButton button:hover, .stButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
     .section-tag { font-size: 11px; color: #666; letter-spacing: 1.5px; margin: 15px 0 5px 0; font-weight: 600; }
+    textarea { background-color: #0D1117 !important; color: #FFFFFF !important; border: 1px solid #1A1A1A !important; font-family: 'Courier New', monospace !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -55,25 +56,19 @@ ROLES = {
     "Estratega de Trading": "Gestión de riesgo y SMC."
 }
 
-# --- 2. FUNCIONES DE LECTURA Y PERSISTENCIA OPTIMIZADA ---
+# --- 2. FUNCIONES DE LECTURA Y PERSISTENCIA ---
 def get_pdf_text(f): return "".join([p.extract_text() for p in PdfReader(f).pages])
 def get_docx_text(f): return "\n".join([p.text for p in docx.Document(f).paragraphs])
 def get_excel_text(f): return pd.read_excel(f).to_string()
 
 def exportar_sesion():
-    # Sincronizamos las ediciones manuales antes de exportar
     mensajes_finales = []
     for i, msg in enumerate(st.session_state.messages):
         nuevo_msg = msg.copy()
         if msg["role"] == "assistant" and f"edit_{i}" in st.session_state:
             nuevo_msg["content"] = st.session_state[f"edit_{i}"]
         mensajes_finales.append(nuevo_msg)
-    
-    data = {
-        "biblioteca": st.session_state.biblioteca,
-        "messages": mensajes_finales,
-        "last_analysis": st.session_state.last_analysis
-    }
+    data = {"biblioteca": st.session_state.biblioteca, "messages": mensajes_finales, "last_analysis": st.session_state.last_analysis}
     return json.dumps(data, indent=4)
 
 def cargar_sesion(json_data):
@@ -94,7 +89,7 @@ def download_word(content, role):
     section.left_margin = Inches(1); section.right_margin = Inches(1)
     header = doc.add_heading(f'INFORME ESTRATÉGICO: {role.upper()}', 0)
     header.alignment = 1
-    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.76 Executive Analysis")
+    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.78 Executive Analysis")
     doc.add_paragraph("_" * 50)
     for line in content.split('\n'):
         clean_line = line.strip()
@@ -153,10 +148,8 @@ with st.sidebar:
     if st.session_state.get("last_analysis"):
         st.divider()
         st.markdown("<div class='section-tag'>EXPORTAR ENTREGABLES</div>", unsafe_allow_html=True)
-        # Aquí exportamos usando la última edición si existe
-        export_text = st.session_state.last_analysis
-        st.download_button("📄 Word", data=download_word(export_text, rol_activo), file_name=f"Report_{rol_activo}.docx")
-        st.download_button("📊 Powerpoint", data=download_pptx(export_text, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
+        st.download_button("📄 Word", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
+        st.download_button("📊 Powerpoint", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
 
     st.divider()
     st.markdown("<div class='section-tag'>FUENTES DE DATOS</div>", unsafe_allow_html=True)
@@ -171,7 +164,7 @@ with st.sidebar:
                 else: raw_text += get_excel_text(f)
             with st.spinner("Refinando..."):
                 refiner = genai.GenerativeModel('gemini-1.5-flash')
-                summary_prompt = f"Actúa como Secretario Técnico. Extrae datos duros y decisiones. Contexto: {raw_text[:40000]}"
+                summary_prompt = f"Actúa como Secretario Técnico. Extrae datos duros y decisiones estratégicas. Contexto: {raw_text[:40000]}"
                 st.session_state.biblioteca[rol_activo] = refiner.generate_content(summary_prompt).text
             st.success("Listo.")
     with t2:
@@ -184,34 +177,36 @@ with st.sidebar:
         img_f = st.file_uploader("Image:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
-# --- 6. PANEL CENTRAL: WORKSTATION DE UN SOLO PASO ---
+# --- 6. PANEL CENTRAL: WORKSTATION ÚNICA ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
 
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
         if msg["role"] == "assistant":
-            # Visualización rápida en Markdown
-            st.markdown(msg["content"])
-            
-            # Editor Directo (Sin expanders, flujo continuo)
-            st.markdown("<div style='margin-top: -15px; margin-bottom: 5px; font-size: 12px; color: #444;'>EDITOR ESTRATÉGICO / PORTAPAPELES:</div>", unsafe_allow_html=True)
-            
-            texto_editado = st.text_area(
-                "Edición Directa:",
+            # Única Ventana de Trabajo
+            texto_vivo = st.text_area(
+                label="📝 Borrador Estratégico (Edite y copie directamente):",
                 value=msg["content"],
-                height=300,
-                key=f"edit_{i}",
-                label_visibility="collapsed"
+                height=450,
+                key=f"edit_{i}"
             )
-            
-            # Acciones de Cierre de Turno
-            c1, c2 = st.columns([1, 4])
-            with c1:
-                if st.button("✅ FIJAR", key=f"save_{i}"):
-                    st.session_state.last_analysis = texto_editado
-                    st.toast("Sincronizado para exportación y memoria")
-            with c2:
-                # El bloque de código facilita el copiado con un solo clic nativo
-                st.code(texto_editado, language=None)
+            # Sincronización atómica
+            if st.button("✅ FIJAR CAMBIOS PARA EXPORTACIÓN", key=f"save_{i}"):
+                st.session_state.last_analysis = texto_vivo
+                st.toast("Sincronizado.")
+            st.markdown("---")
         else:
             st.markdown(msg["content"])
+
+if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
+    st.session_state.messages.append({"role": "user", "content": pr})
+    with st.chat_message("user"): st.markdown(pr)
+    with st.chat_message("assistant"):
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo, ejecutivo. APA 7."
+        lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
+        response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
+        st.session_state.last_analysis = response.text
+        st.markdown(response.text) # Mostramos una vez para feedback visual inmediato
+        st.session_state.messages.append({"role": "assistant", "content": response.text})
+        st.rerun()
