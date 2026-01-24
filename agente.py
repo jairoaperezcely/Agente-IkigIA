@@ -114,21 +114,6 @@ def download_word_compilado(indices_seleccionados, messages, role):
         doc.add_page_break()
     
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
-
-def download_pptx(content, role):
-    """Genera una presentación basada en el contenido compilado."""
-    prs = Presentation()
-    # Limpieza previa del contenido para evitar símbolos de markdown en las slides
-    clean_content = clean_markdown(content)
-    
-    # Segmentación por párrafos o frases largas para crear slides
-    segments = [s.strip() for s in re.split(r'\n|\. ', clean_content) if len(s.strip()) > 25]
-    
-    # Slide de Título
-    slide_layout = prs.slide_layouts[0]
-    slide = prs.slides.add_slide(slide_layout)
-    slide.shapes.title.text = f"MODELO ESTRATÉGICO: {role.upper()}"
-    slide.placeholders[1].text = f"Manual de Telesalud - Región Amazónica\nGenerado por IkigAI | {date.today()}"
     
     # Slides de Contenido (Máximo 15 para evitar saturación)
     for i, segment in enumerate(segments[:15]):
@@ -317,5 +302,6 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
