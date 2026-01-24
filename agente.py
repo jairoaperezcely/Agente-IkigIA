@@ -89,32 +89,56 @@ def clean_markdown(text):
 
 def download_word_compilado(indices_seleccionados, messages, role):
     doc = docx.Document()
-    section = doc.sections[0]
-    section.left_margin = Inches(1); section.right_margin = Inches(1)
     
-    header = doc.add_heading(f'MANUAL ACADÉMICO: {role.upper()}', 0)
+    # Configuración de márgenes estándar APA 7 (2.54 cm)
+    section = doc.sections[0]
+    section.left_margin = Inches(1)
+    section.right_margin = Inches(1)
+    section.top_margin = Inches(1)
+    section.bottom_margin = Inches(1)
+    
+    # Encabezado Ejecutivo
+    header = doc.add_heading(f'MANUAL DE IMPLEMENTACIÓN: {role.upper()}', 0)
     header.alignment = 1
-    doc.add_paragraph(f"Fecha: {date.today()} | Compilado IkigAI V1.87")
+    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.87 Premium Export")
     doc.add_paragraph("_" * 50)
     
     for idx in sorted(indices_seleccionados):
         content = messages[idx]["content"]
         for line in content.split('\n'):
+            # Limpieza de residuos de markdown
             clean_line = re.sub(r'\*+', '', line).strip()
             if not clean_line: continue
             
+            # Gestión de Títulos con niveles de Word
             if line.startswith('#'):
                 level = line.count('#')
-                doc.add_heading(clean_line, level=min(level, 3))
-            elif line.startswith(('*', '-', '•')):
-                doc.add_paragraph(clean_line.lstrip('*-• ').strip(), style='List Bullet')
+                h = doc.add_heading(clean_line, level=min(level, 3))
+                h.paragraph_format.space_before = Pt(12)
+                h.paragraph_format.space_after = Pt(6)
+            
+            # Gestión Profesional de Viñetas y Sangrías
+            elif line.strip().startswith(('*', '-', '•')) or re.match(r'^\d+\.', line.strip()):
+                # Identifica si es lista desordenada o numerada
+                style = 'List Number' if re.match(r'^\d+\.', line.strip()) else 'List Bullet'
+                # Limpia el prefijo para dejar solo el texto
+                text_only = re.sub(r'^[\*\-\•\d\.]+\s*', '', clean_line)
+                p = doc.add_paragraph(text_only, style=style)
+                p.paragraph_format.left_indent = Inches(0.5) # Sangría de viñeta
+                p.paragraph_format.space_after = Pt(4)
+            
+            # Párrafos Normales con Justificación Completa
             else:
                 p = doc.add_paragraph(clean_line)
-                p.alignment = 3
+                p.alignment = 3  # Justificado
+                p.paragraph_format.line_spacing = 1.15
+                p.paragraph_format.space_after = Pt(10)
+        
         doc.add_page_break()
     
-    bio = BytesIO(); doc.save(bio); return bio.getvalue()
-
+    bio = BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
 def download_pptx(content, role):
     """Genera una presentación con título dinámico basado en la primera línea."""
     prs = Presentation()
@@ -320,6 +344,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
