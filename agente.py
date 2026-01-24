@@ -184,7 +184,7 @@ with st.sidebar:
         # Word Compilado
         word_data = download_word_compilado(st.session_state.export_pool, st.session_state.messages, rol_activo)
         st.download_button(
-            "📄 Generar Manual (Word)", 
+            "📄 Generar Word", 
             data=word_data, 
             file_name=f"Manual_{rol_activo}.docx", 
             use_container_width=True
@@ -194,7 +194,7 @@ with st.sidebar:
         contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(st.session_state.export_pool)])
         ppt_data = download_pptx(contenido_para_ppt, rol_activo)
         st.download_button(
-            "📊 Generar Deck (PPT)", 
+            "📊 Generar PPT", 
             data=ppt_data, 
             file_name=f"Presentacion_{rol_activo}.pptx", 
             use_container_width=True
@@ -317,4 +317,5 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
