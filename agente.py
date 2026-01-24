@@ -80,7 +80,7 @@ def cargar_sesion(json_data):
     st.session_state.messages = data["messages"]
     st.session_state.last_analysis = data["last_analysis"]
 
-# --- 3. MOTOR DE EXPORTACIÓN COMPILADA ---
+# --- 3. MOTOR DE EXPORTACIÓN COMPILADA (V1.87) ---
 def clean_markdown(text):
     """Limpia asteriscos y símbolos de títulos para exportación limpia."""
     text = re.sub(r'\*+', '', text)
@@ -94,7 +94,7 @@ def download_word_compilado(indices_seleccionados, messages, role):
     
     header = doc.add_heading(f'MANUAL ACADÉMICO: {role.upper()}', 0)
     header.alignment = 1
-    doc.add_paragraph(f"Fecha: {date.today()} | Compilado IkigAI V1.86")
+    doc.add_paragraph(f"Fecha: {date.today()} | Compilado IkigAI V1.87")
     doc.add_paragraph("_" * 50)
     
     for idx in sorted(indices_seleccionados):
@@ -114,14 +114,32 @@ def download_word_compilado(indices_seleccionados, messages, role):
         doc.add_page_break()
     
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
+
+def download_pptx(content, role):
+    """Genera una presentación con título dinámico basado en la primera línea."""
+    prs = Presentation()
+    clean_content = clean_markdown(content)
     
-    # Slides de Contenido (Máximo 15 para evitar saturación)
-    for i, segment in enumerate(segments[:15]):
+    # Segmentación para slides (basado en párrafos o puntos)
+    segments = [s.strip() for s in re.split(r'\n|\. ', clean_content) if len(s.strip()) > 25]
+    
+    # EXTRACCIÓN DINÁMICA DEL TÍTULO
+    lineas = [l.strip() for l in clean_content.split('\n') if l.strip()]
+    titulo_dinamico = lineas[0] if lineas else f"REPORTE: {role.upper()}"
+    titulo_slide = (titulo_dinamico[:70] + '...') if len(titulo_dinamico) > 73 else titulo_dinamico
+
+    # Slide de Título
+    slide_layout = prs.slide_layouts[0]
+    slide = prs.slides.add_slide(slide_layout)
+    slide.shapes.title.text = titulo_slide.upper()
+    slide.placeholders[1].text = f"Perfil de Gestión: {role}\nIkigAI Executive Hub | {date.today()}"
+    
+    # Slides de Contenido (Máximo 15)
+    for i, segment in enumerate(segments[1:16]):
         bullet_layout = prs.slide_layouts[1]
         slide = prs.slides.add_slide(bullet_layout)
-        slide.shapes.title.text = f"Eje Estratégico {i+1}"
+        slide.shapes.title.text = f"Análisis Estratégico {i+1}"
         
-        # Ajuste de texto para que quepa en la diapositiva
         body_shape = slide.placeholders[1]
         tf = body_shape.text_frame
         tf.text = (segment[:447] + '...') if len(segment) > 450 else segment
@@ -302,6 +320,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
