@@ -81,6 +81,12 @@ def cargar_sesion(json_data):
     st.session_state.last_analysis = data["last_analysis"]
 
 # --- 3. MOTOR DE EXPORTACIÓN COMPILADA ---
+def clean_markdown(text):
+    """Limpia asteriscos y símbolos de títulos para exportación limpia."""
+    text = re.sub(r'\*+', '', text)
+    text = re.sub(r'^#+\s*', '', text)
+    return text.strip()
+
 def download_word_compilado(indices_seleccionados, messages, role):
     doc = docx.Document()
     section = doc.sections[0]
@@ -91,9 +97,8 @@ def download_word_compilado(indices_seleccionados, messages, role):
     doc.add_paragraph(f"Fecha: {date.today()} | Compilado IkigAI V1.86")
     doc.add_paragraph("_" * 50)
     
-    for idx in indices_seleccionados:
+    for idx in sorted(indices_seleccionados):
         content = messages[idx]["content"]
-        # Limpieza de asteriscos
         for line in content.split('\n'):
             clean_line = re.sub(r'\*+', '', line).strip()
             if not clean_line: continue
@@ -106,11 +111,40 @@ def download_word_compilado(indices_seleccionados, messages, role):
             else:
                 p = doc.add_paragraph(clean_line)
                 p.alignment = 3
-        # Salto de página entre bloques para rigor de manual
         doc.add_page_break()
     
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
+def download_pptx(content, role):
+    """Genera una presentación basada en el contenido compilado."""
+    prs = Presentation()
+    # Limpieza previa del contenido para evitar símbolos de markdown en las slides
+    clean_content = clean_markdown(content)
+    
+    # Segmentación por párrafos o frases largas para crear slides
+    segments = [s.strip() for s in re.split(r'\n|\. ', clean_content) if len(s.strip()) > 25]
+    
+    # Slide de Título
+    slide_layout = prs.slide_layouts[0]
+    slide = prs.slides.add_slide(slide_layout)
+    slide.shapes.title.text = f"MODELO ESTRATÉGICO: {role.upper()}"
+    slide.placeholders[1].text = f"Manual de Telesalud - Región Amazónica\nGenerado por IkigAI | {date.today()}"
+    
+    # Slides de Contenido (Máximo 15 para evitar saturación)
+    for i, segment in enumerate(segments[:15]):
+        bullet_layout = prs.slide_layouts[1]
+        slide = prs.slides.add_slide(bullet_layout)
+        slide.shapes.title.text = f"Eje Estratégico {i+1}"
+        
+        # Ajuste de texto para que quepa en la diapositiva
+        body_shape = slide.placeholders[1]
+        tf = body_shape.text_frame
+        tf.text = (segment[:447] + '...') if len(segment) > 450 else segment
+        
+    bio = BytesIO()
+    prs.save(bio)
+    return bio.getvalue()
+    
 # --- 4. LÓGICA DE ESTADO ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
@@ -244,4 +278,5 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
                 st.rerun()
             except Exception as e:
                 st.error(f"Error de conexión con Gemini: {e}")
+
 
