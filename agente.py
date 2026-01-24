@@ -111,7 +111,7 @@ with st.sidebar:
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
     
     # Reinicio Atómico
-    if st.button("🗑️ REINICIAR ENGINE"):
+    if st.button("🗑️ REINICIAR"):
         for key in list(st.session_state.keys()): del st.session_state[key]
         st.rerun()
 
@@ -122,7 +122,7 @@ with st.sidebar:
     if st.session_state.get("last_analysis"):
         st.divider()
         st.markdown("<p style='font-size: 11px; color: #666;'>EXPORTAR ENTREGABLES</p>", unsafe_allow_html=True)
-        st.download_button("📄 WORD (CLEAN)", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
+        st.download_button("📄 WORD", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
         st.download_button("📊 POWERPOINT", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
 
     st.divider()
@@ -161,3 +161,4 @@ if pr := st.chat_input("Instrucción estratégica..."):
         st.markdown(response.text)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.rerun()
+
