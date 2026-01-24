@@ -316,42 +316,52 @@ with st.sidebar:
 # --- MEJORA DEL CHAT INPUT EN EL BLOQUE CSS ---
 st.markdown("""
     <style>
-    /* 1. Limpieza total del contenedor de entrada */
+    /* 1. ELIMINAR CAJAS DE MENSAJES (Efecto burbuja) */
+    [data-testid="stChatMessage"] {
+        background-color: transparent !important; /* Elimina el fondo de la caja */
+        border: none !important;
+        padding-left: 0 !important;
+        margin-bottom: -10px !important;
+    }
+
+    /* 2. BARRA DE ENTRADA ESTILO GEMINI (Sobriedad Absoluta) */
     .stChatInputContainer {
-        padding: 10px 0 !important;
+        padding: 20px 0 !important;
         background-color: transparent !important;
         border: none !important;
     }
 
-    /* 2. Estilo de la caja de texto (Estilo Gemini) */
     .stChatInput textarea {
-        background-color: #1E1F20 !important; /* El color exacto de Gemini */
+        background-color: #1E1F20 !important; /* Gris profundo Gemini */
         border: 1px solid #3C4043 !important;
         border-radius: 28px !important;
         color: #E3E3E3 !important;
-        padding: 12px 20px !important;
-        font-family: 'Segoe UI', Roboto, sans-serif !important;
-        line-height: 1.5 !important;
+        padding: 14px 24px !important;
+        font-family: 'Segoe UI', sans-serif !important;
+        box-shadow: none !important;
     }
 
-    /* 3. Comportamiento al hacer clic (Focus) */
     .stChatInput textarea:focus {
-        border-color: #A8C7FA !important; /* Azul suave de enfoque */
-        box-shadow: none !important;
+        border-color: #A8C7FA !important; /* Enfoque sutil */
     }
 
-    /* 4. Ocultar bordes dobles innecesarios del widget */
-    div[data-testid="stChatInput"] {
-        border: none !important;
-        background: none !important;
-        box-shadow: none !important;
+    /* 3. LIMPIEZA DE AVATARES (Opcional, para más sobriedad) */
+    [data-testid="stChatMessageAvatarAssistant"], 
+    [data-testid="stChatMessageAvatarUser"] {
+        display: none !important; /* Oculta los iconos para dejar solo el texto técnico */
+    }
+
+    /* 4. AJUSTE DE FUENTE PARA RIGOR ACADÉMICO */
+    .stMarkdown p {
+        font-family: 'Segoe UI', Tahoma, sans-serif !important;
+        font-size: 16px !important;
+        line-height: 1.6 !important;
+        color: #E3E3E3 !important;
     }
     
-    /* 5. Ajuste de los mensajes para que no tengan márgenes excesivos */
-    .stChatMessage {
-        background-color: transparent !important;
-        padding-top: 5px !important;
-        padding-bottom: 5px !important;
+    /* 5. OCULTAR ELEMENTOS DISTRACTORES DE STREAMLIT */
+    #MainMenu, footer, header {
+        visibility: hidden !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -420,6 +430,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
