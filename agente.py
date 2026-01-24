@@ -316,27 +316,42 @@ with st.sidebar:
 # --- MEJORA DEL CHAT INPUT EN EL BLOQUE CSS ---
 st.markdown("""
     <style>
-    /* Input de Chat estilo Minimalista/Gemini */
-    .stChatInput {
-        border-radius: 24px !important;
-        border: 1px solid #303030 !important;
-        background-color: #1E1E1E !important;
-        padding: 4px 12px !important;
+    /* 1. Limpieza total del contenedor de entrada */
+    .stChatInputContainer {
+        padding: 10px 0 !important;
+        background-color: transparent !important;
+        border: none !important;
     }
-    .stChatInput:focus-within {
-        border-color: #4285F4 !important; /* Azul Google */
+
+    /* 2. Estilo de la caja de texto (Estilo Gemini) */
+    .stChatInput textarea {
+        background-color: #1E1F20 !important; /* El color exacto de Gemini */
+        border: 1px solid #3C4043 !important;
+        border-radius: 28px !important;
+        color: #E3E3E3 !important;
+        padding: 12px 20px !important;
+        font-family: 'Segoe UI', Roboto, sans-serif !important;
+        line-height: 1.5 !important;
+    }
+
+    /* 3. Comportamiento al hacer clic (Focus) */
+    .stChatInput textarea:focus {
+        border-color: #A8C7FA !important; /* Azul suave de enfoque */
         box-shadow: none !important;
     }
-    /* Limpieza de márgenes del contenedor */
-    .stChatInputContainer {
-        padding-bottom: 30px !important;
-        background-color: transparent !important;
+
+    /* 4. Ocultar bordes dobles innecesarios del widget */
+    div[data-testid="stChatInput"] {
+        border: none !important;
+        background: none !important;
+        box-shadow: none !important;
     }
-    /* Estilo del texto dentro del input */
-    .stChatInput textarea {
-        color: #E3E3E3 !important;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
-        font-size: 16px !important;
+    
+    /* 5. Ajuste de los mensajes para que no tengan márgenes excesivos */
+    .stChatMessage {
+        background-color: transparent !important;
+        padding-top: 5px !important;
+        padding-bottom: 5px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -405,6 +420,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
