@@ -89,12 +89,43 @@ def clean_markdown(text):
 
 def download_word(content, role):
     doc = docx.Document()
-    doc.add_heading(f'IkigAI Strategy: {role}', 0)
-    for line in content.split('\n'):
-        if line.strip():
-            if line.startswith('#'): doc.add_heading(clean_markdown(line), level=2)
-            else: doc.add_paragraph(clean_markdown(line))
-    bio = BytesIO(); doc.save(bio); return bio.getvalue()
+    
+    # Configuración de márgenes y estilo clínico
+    section = doc.sections[0]
+    section.left_margin = Inches(1)
+    section.right_margin = Inches(1)
+
+    # Encabezado de Alto Nivel
+    header = doc.add_heading(f'INFORME ESTRATÉGICO: {role.upper()}', 0)
+    header.alignment = 1 # Centrado
+    
+    doc.add_paragraph(f"Fecha de emisión: {date.today()} | Generado por: IkigAI V1.73")
+    doc.add_paragraph("_" * 50)
+
+    # Procesamiento inteligente de bloques
+    lines = content.split('\n')
+    for line in lines:
+        clean_line = line.strip()
+        if not clean_line:
+            continue
+            
+        # Detección de Títulos (Markdown # o ##)
+        if clean_line.startswith('#'):
+            level = clean_line.count('#')
+            doc.add_heading(clean_line.replace('#', '').strip(), level=min(level, 3))
+        
+        # Detección de Listas/Bullet Points
+        elif clean_line.startswith(('*', '-', '•')):
+            p = doc.add_paragraph(clean_line[1:].strip(), style='List Bullet')
+        
+        # Párrafo Estándar
+        else:
+            p = doc.add_paragraph(clean_line)
+            p.alignment = 3 # Justificado
+
+    bio = BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
 
 def download_pptx(content, role):
     prs = Presentation()
@@ -177,3 +208,4 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
         st.markdown(response.text)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.rerun()
+
