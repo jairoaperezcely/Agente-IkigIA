@@ -175,38 +175,34 @@ with st.sidebar:
     st.divider()
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
-    
-    # --- BLOQUE DINÁMICO DE EXPORTACIÓN ---
-    # Aparece si hay al menos un mensaje seleccionado
+    # --- BLOQUE DINÁMICO DE EXPORTACIÓN (V1.87) ---
     if st.session_state.export_pool:
         st.divider()
         st.markdown(f"<div class='section-tag'>ENTREGABLES ({len(st.session_state.export_pool)} BLOQUES)</div>", unsafe_allow_html=True)
         
-        # 1. Generación de Word Compilado
+        # Filtrar mensajes seleccionados
+        mensajes_a_exportar = [st.session_state.messages[idx] for idx in sorted(st.session_state.export_pool)]
+        
+        # 1. Generación de Word Compilado (Solo lo seleccionado)
         word_data = download_word_compilado(st.session_state.export_pool, st.session_state.messages, rol_activo)
         st.download_button(
-            "📄 Generar Manual (Word)", 
+            "📄 Exportar Manual Seleccionado", 
             data=word_data, 
-            file_name=f"Manual_Amazonia_{rol_activo}.docx", 
+            file_name=f"Manual_{rol_activo}.docx", 
             use_container_width=True
         )
         
-        # 2. Generación de PPT Compilado (Ajustado para usar los bloques seleccionados)
-        # Unimos el contenido seleccionado para el PPT
-        contenido_pptx = "\n\n".join([st.session_state.messages[idx]["content"] for idx in st.session_state.export_pool])
+        # 2. Generación de PPT (Solo lo seleccionado)
+        contenido_pptx = "\n\n".join([msg["content"] for msg in mensajes_a_exportar])
         ppt_data = download_pptx(contenido_pptx, rol_activo)
         st.download_button(
-            "📊 Generar Deck (PPT)", 
+            "📊 Exportar Deck Seleccionado", 
             data=ppt_data, 
-            file_name=f"Presentacion_Amazonia_{rol_activo}.pptx", 
+            file_name=f"Presentacion_{rol_activo}.pptx", 
             use_container_width=True
         )
     else:
-        st.info("Seleccione bloques en el chat (📥) para habilitar la exportación.")
-
-    st.divider()
-    st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
-    # ... (resto de su código de pestañas DOC, URL, IMG)
+        st.info("Seleccione bloques con 📥 para activar la exportación.")
 
 # --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
@@ -263,20 +259,15 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
         st.markdown(pr)
     
     with st.chat_message("assistant"):
-        with st.spinner("Generando contenido con rigor académico..."):
-            try:
-                # MOTOR: Gemini 2.5 Flash
-                model = genai.GenerativeModel('gemini-2.5-flash')
-                sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. APA 7."
-                lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
-                
-                response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
-                
-                # Guardamos y mostramos
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
-                st.session_state.last_analysis = response.text
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error de conexión con Gemini: {e}")
-
-
+        try:
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            sys_context = f"Rol: {rol_activo}. {ROLES[rol_activo]}. Rigor académico APA 7."
+            lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
+            
+            response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
+            
+            # Guardamos en historial pero NO marcamos para exportar automáticamente
+            st.session_state.messages.append({"role": "assistant", "content": response.text})
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error: {e}")
