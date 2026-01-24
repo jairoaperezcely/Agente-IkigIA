@@ -16,13 +16,13 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.64 - Advanced Reset Hub", 
+    page_title="IkigAI V1.65 - Executive Suite", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS V1.64: Zen Funcional y Botón de Reinicio Refinado
+# Estilo CSS V1.65: Estética Zen Pura y Contraste Quirúrgico
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -36,20 +36,12 @@ st.markdown("""
     .stDownloadButton button { width: 100%; border-radius: 4px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; }
     .stDownloadButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
     
-    /* Botón Reset: Estilo de Alerta Sutil */
+    /* Botón Reset: Rojo Alerta Sutil */
     div.stButton > button {
-        width: 100%;
-        border-radius: 4px;
-        background-color: #1a0000 !important;
-        color: #ff4b4b !important;
-        border: 1px solid #441111 !important;
-        transition: 0.3s;
+        width: 100%; border-radius: 4px; background-color: #1a0000 !important;
+        color: #ff4b4b !important; border: 1px solid #441111 !important;
     }
-    div.stButton > button:hover {
-        background-color: #ff4b4b !important;
-        color: #ffffff !important;
-        border: 1px solid #ff4b4b !important;
-    }
+    div.stButton > button:hover { background-color: #ff4b4b !important; color: #ffffff !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -91,10 +83,8 @@ def download_word(content, role):
     doc.add_heading(f'IkigAI Strategy: {role}', 0)
     for line in content.split('\n'):
         if line.strip():
-            if line.startswith('#'):
-                doc.add_heading(clean_markdown(line), level=2)
-            else:
-                doc.add_paragraph(clean_markdown(line))
+            if line.startswith('#'): doc.add_heading(clean_markdown(line), level=2)
+            else: doc.add_paragraph(clean_markdown(line))
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
 def download_pptx(content, role):
@@ -105,9 +95,8 @@ def download_pptx(content, role):
     slide.placeholders[1].text = f"Estrategia Ejecutiva IkigAI\n{date.today()}"
     for i, segment in enumerate(segments[:15]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Eje Estratégico {i+1}"
-        body = slide.placeholders[1]
-        body.text = (segment[:447] + '...') if len(segment) > 450 else segment
+        slide.shapes.title.text = f"Eje {i+1}"
+        slide.placeholders[1].text = (segment[:447] + '...') if len(segment) > 450 else segment
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
 # --- 4. LÓGICA DE MEMORIA ---
@@ -115,16 +104,15 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL ---
+# --- 5. BARRA LATERAL (ESTÉTICA V1.59 PURA) ---
 with st.sidebar:
+    # Identidad Zen V1.59
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
     
-    # REINICIO MEJORADO
+    # Reinicio Atómico
     if st.button("🗑️ REINICIAR ENGINE"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.toast("Sistema reiniciado con éxito", icon="✅")
+        for key in list(st.session_state.keys()): del st.session_state[key]
         st.rerun()
 
     st.divider()
@@ -134,7 +122,7 @@ with st.sidebar:
     if st.session_state.get("last_analysis"):
         st.divider()
         st.markdown("<p style='font-size: 11px; color: #666;'>EXPORTAR ENTREGABLES</p>", unsafe_allow_html=True)
-        st.download_button("📄 WORD (APA 7)", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
+        st.download_button("📄 WORD (CLEAN)", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
         st.download_button("📊 POWERPOINT", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
 
     st.divider()
@@ -146,7 +134,7 @@ with st.sidebar:
             for f in up:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
                 elif "word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
-            st.success("Analizado.")
+            st.success("Listo.")
     with t2:
         uw = st.text_input("URL:", placeholder="https://")
         if st.button("🔗 CONECTAR", use_container_width=True):
@@ -158,17 +146,16 @@ with st.sidebar:
 
 # --- 6. PANEL CENTRAL ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
-
 for msg in st.session_state.get("messages", []):
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-if pr := st.chat_input("¿Instrucción estratégica, Doctor?"):
+if pr := st.chat_input("Instrucción estratégica..."):
     if "messages" not in st.session_state: st.session_state.messages = []
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
     with st.chat_message("assistant"):
         model = genai.GenerativeModel('gemini-2.5-flash')
-        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo, ejecutivo. APA 7."
+        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo. APA 7."
         response = model.generate_content([sys_context, f"Contexto: {st.session_state.get('biblioteca', {}).get(rol_activo, '')[:500000]}", pr])
         st.session_state.last_analysis = response.text
         st.markdown(response.text)
