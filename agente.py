@@ -17,13 +17,13 @@ import json
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.78 - Pure Executive Hub", 
+    page_title="IkigAI V1.80 - Pure Executive Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS Zen V1.78
+# Estilo CSS Zen V1.80
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -35,7 +35,8 @@ st.markdown("""
     .stDownloadButton button, .stButton button { width: 100%; border-radius: 4px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; }
     .stDownloadButton button:hover, .stButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
     .section-tag { font-size: 11px; color: #666; letter-spacing: 1.5px; margin: 15px 0 5px 0; font-weight: 600; }
-    textarea { background-color: #0D1117 !important; color: #FFFFFF !important; border: 1px solid #1A1A1A !important; font-family: 'Courier New', monospace !important; }
+    /* Estilo para el modo edición */
+    textarea { background-color: #0D1117 !important; color: #FFFFFF !important; border: 1px solid #00E6FF !important; font-family: 'Courier New', monospace !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -77,7 +78,7 @@ def cargar_sesion(json_data):
     st.session_state.messages = data["messages"]
     st.session_state.last_analysis = data["last_analysis"]
 
-# --- 3. MOTOR DE LIMPIEZA Y EXPORTACIÓN ---
+# --- 3. MOTOR DE EXPORTACIÓN ---
 def clean_markdown(text):
     text = re.sub(r'\*+', '', text)
     text = re.sub(r'^#+\s*', '', text)
@@ -89,7 +90,7 @@ def download_word(content, role):
     section.left_margin = Inches(1); section.right_margin = Inches(1)
     header = doc.add_heading(f'INFORME ESTRATÉGICO: {role.upper()}', 0)
     header.alignment = 1
-    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.78 Executive Analysis")
+    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.80 Executive Analysis")
     doc.add_paragraph("_" * 50)
     for line in content.split('\n'):
         clean_line = line.strip()
@@ -164,7 +165,7 @@ with st.sidebar:
                 else: raw_text += get_excel_text(f)
             with st.spinner("Refinando..."):
                 refiner = genai.GenerativeModel('gemini-1.5-flash')
-                summary_prompt = f"Actúa como Secretario Técnico. Extrae datos duros y decisiones estratégicas. Contexto: {raw_text[:40000]}"
+                summary_prompt = f"Actúa como Secretario Técnico. Extrae datos duros y decisiones. Contexto: {raw_text[:40000]}"
                 st.session_state.biblioteca[rol_activo] = refiner.generate_content(summary_prompt).text
             st.success("Listo.")
     with t2:
@@ -177,24 +178,30 @@ with st.sidebar:
         img_f = st.file_uploader("Image:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
-# --- 6. PANEL CENTRAL: WORKSTATION ÚNICA ---
+# --- 6. PANEL CENTRAL: VENTANA ÚNICA DINÁMICA ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
 
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
         if msg["role"] == "assistant":
-            # Única Ventana de Trabajo
-            texto_vivo = st.text_area(
-                label="📝 Borrador Estratégico (Edite y copie directamente):",
-                value=msg["content"],
-                height=450,
-                key=f"edit_{i}"
-            )
-            # Sincronización atómica
-            if st.button("✅ FIJAR CAMBIOS PARA EXPORTACIÓN", key=f"save_{i}"):
-                st.session_state.last_analysis = texto_vivo
-                st.toast("Sincronizado.")
-            st.markdown("---")
+            # Interruptor de Modo
+            modo_edicion = st.checkbox("📝 MODO EDICIÓN", key=f"tog_{i}", value=False)
+            
+            if modo_edicion:
+                texto_final = st.text_area(
+                    "EDITOR ESTRATÉGICO:",
+                    value=msg["content"],
+                    height=450,
+                    key=f"edit_{i}",
+                    label_visibility="collapsed"
+                )
+                if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}"):
+                    st.session_state.last_analysis = texto_final
+                    st.toast("Sincronizado.")
+            else:
+                # MODO COPIADO (Un solo clic nativo de st.code)
+                st.code(msg["content"], language=None)
+                st.caption("👆 Use el icono de la esquina superior derecha del bloque para copiar.")
         else:
             st.markdown(msg["content"])
 
@@ -207,6 +214,5 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
         lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
         response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
         st.session_state.last_analysis = response.text
-        st.markdown(response.text) # Mostramos una vez para feedback visual inmediato
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.rerun()
