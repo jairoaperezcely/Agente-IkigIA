@@ -23,7 +23,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS Zen: Enfoque en Lectura, Contraste y Ergonomía Móvil
+# Estilo CSS Zen: Contraste Quirúrgico y Ergonomía Móvil
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -124,7 +124,7 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL (Panel de Control Corregido) ---
+# --- 5. BARRA LATERAL (Panel de Control) ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
@@ -136,9 +136,14 @@ with st.sidebar:
             for key in list(st.session_state.keys()): del st.session_state[key]
             st.rerun()
     with col2:
-        if st.session_state.messages:
-            # RESTAURADO: Botón Guardar Sesión
-            st.download_button("💾 GUARDAR SESION", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
+        # Botón de Guardado siempre visible
+        st.download_button(
+            label="💾 GUARDAR SESION",
+            data=exportar_sesion(),
+            file_name=f"IkigAI_Turno_{date.today()}.json",
+            mime="application/json",
+            key="save_session_v183"
+        )
     
     archivo_memoria = st.file_uploader("RECUPERAR TURNO:", type=['json'], label_visibility="collapsed")
     if archivo_memoria:
@@ -168,17 +173,17 @@ with st.sidebar:
                 if f.type == "application/pdf": raw_text += get_pdf_text(f)
                 elif "word" in f.type: raw_text += get_docx_text(f)
                 else: raw_text += get_excel_text(f)
-            with st.spinner("Extrayendo inteligencia..."):
+            with st.spinner("Analizando fuentes..."):
                 refiner = genai.GenerativeModel('gemini-1.5-flash')
-                summary_prompt = f"Actúa como Secretario Técnico. Extrae datos clave y decisiones estratégicas. Contexto: {raw_text[:40000]}"
+                summary_prompt = f"Actúa como Secretario Técnico. Extrae datos clave. Contexto: {raw_text[:40000]}"
                 st.session_state.biblioteca[rol_activo] = refiner.generate_content(summary_prompt).text
-            st.success("Contexto integrado.")
+            st.success("Contexto listo.")
     with t2:
         uw = st.text_input("URL:", placeholder="https://")
         if st.button("🔗 CONECTAR", use_container_width=True):
             r = requests.get(uw, timeout=10)
             st.session_state.biblioteca[rol_activo] += BeautifulSoup(r.text, 'html.parser').get_text()
-            st.success("Web integrada.")
+            st.success("Web conectada.")
     with t3:
         img_f = st.file_uploader("Imagen:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
@@ -188,17 +193,21 @@ st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_all
 
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
+        # 1. LECTURA SIEMPRE DISPONIBLE (Markdown Limpio)
         st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
+            # 2. ESPACIO DE TRABAJO (Expander con Copiar y Editar)
             with st.expander("🛠️ GESTIONAR ENTREGABLE", expanded=False):
                 t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
+                
                 with t_copy:
                     st.code(msg["content"], language=None)
                     st.caption("Icono superior derecho para copiar.")
+                
                 with t_edit:
                     texto_editado = st.text_area(
-                        "Editor de alta fidelidad:", 
+                        "Editor ejecutivo:", 
                         value=msg["content"], 
                         height=450, 
                         key=f"edit_{i}",
@@ -207,16 +216,16 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                     st.markdown("<br>", unsafe_allow_html=True)
                     if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
                         st.session_state.last_analysis = texto_editado
-                        st.toast("✅ Sincronizado.")
+                        st.toast("✅ Sincronizado para exportación.")
         st.markdown("---")
 
 if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
     with st.chat_message("assistant"):
-        # ACTUALIZADO: Gemini 2.0 Flash
+        # MOTOR ACTUALIZADO: Gemini 2.5 Flash
         model = genai.GenerativeModel('gemini-2.5-flash')
-        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo directo, clínico, ejecutivo. APA 7."
+        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. APA 7."
         lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
         response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
         st.session_state.last_analysis = response.text
