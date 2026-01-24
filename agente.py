@@ -17,7 +17,7 @@ import json
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.85 - Executive Workstation", 
+    page_title="IkigAI V1.86 - Executive Workstation", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
@@ -37,6 +37,8 @@ st.markdown("""
     .section-tag { font-size: 11px; color: #666; letter-spacing: 1.5px; margin: 15px 0 5px 0; font-weight: 600; }
     .stExpander { border: 1px solid #1A1A1A !important; background-color: #050505 !important; border-radius: 8px !important; }
     textarea { background-color: #0D1117 !important; color: #FFFFFF !important; border: 1px solid #00E6FF !important; font-family: 'Courier New', monospace !important; font-size: 14px !important; }
+    /* Estilo Checkbox de Selección */
+    .stCheckbox { background-color: #111; padding: 5px; border-radius: 5px; border: 1px solid #333; margin-top: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -78,57 +80,42 @@ def cargar_sesion(json_data):
     st.session_state.messages = data["messages"]
     st.session_state.last_analysis = data["last_analysis"]
 
-# --- 3. MOTOR DE EXPORTACIÓN (Limpieza Quirúrgica) ---
-def clean_markdown(text):
-    text = re.sub(r'\*+', '', text)
-    text = re.sub(r'^#+\s*', '', text)
-    return text.strip()
-
-def download_word(content, role):
+# --- 3. MOTOR DE EXPORTACIÓN COMPILADA ---
+def download_word_compilado(indices_seleccionados, messages, role):
     doc = docx.Document()
     section = doc.sections[0]
     section.left_margin = Inches(1); section.right_margin = Inches(1)
     
-    header = doc.add_heading(f'INFORME ESTRATÉGICO: {role.upper()}', 0)
+    header = doc.add_heading(f'MANUAL ACADÉMICO: {role.upper()}', 0)
     header.alignment = 1
-    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.85 Executive Hub")
+    doc.add_paragraph(f"Fecha: {date.today()} | Compilado IkigAI V1.86")
     doc.add_paragraph("_" * 50)
     
-    for line in content.split('\n'):
-        clean_line = re.sub(r'\*+', '', line).strip()
-        if not clean_line: continue
-        
-        if line.startswith('#'):
-            level = line.count('#')
-            doc.add_heading(clean_line, level=min(level, 3))
-        elif line.startswith(('*', '-', '•')):
-            doc.add_paragraph(clean_line.lstrip('*-• ').strip(), style='List Bullet')
-        else:
-            p = doc.add_paragraph(clean_line)
-            p.alignment = 3
+    for idx in indices_seleccionados:
+        content = messages[idx]["content"]
+        # Limpieza de asteriscos
+        for line in content.split('\n'):
+            clean_line = re.sub(r'\*+', '', line).strip()
+            if not clean_line: continue
+            
+            if line.startswith('#'):
+                level = line.count('#')
+                doc.add_heading(clean_line, level=min(level, 3))
+            elif line.startswith(('*', '-', '•')):
+                doc.add_paragraph(clean_line.lstrip('*-• ').strip(), style='List Bullet')
+            else:
+                p = doc.add_paragraph(clean_line)
+                p.alignment = 3
+        # Salto de página entre bloques para rigor de manual
+        doc.add_page_break()
     
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
-
-def download_pptx(content, role):
-    prs = Presentation()
-    clean_content = clean_markdown(content)
-    segments = [s.strip() for s in re.split(r'\n|\. ', clean_content) if len(s.strip()) > 25]
-    
-    slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = role.upper()
-    slide.placeholders[1].text = f"Estrategia Ejecutiva IkigAI\n{date.today()}"
-    
-    for i, segment in enumerate(segments[:15]):
-        slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Eje {i+1}"
-        slide.placeholders[1].text = (segment[:447] + '...') if len(segment) > 450 else segment
-    
-    bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
 # --- 4. LÓGICA DE ESTADO ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
+if "export_pool" not in st.session_state: st.session_state.export_pool = []
 
 # --- 5. BARRA LATERAL ---
 with st.sidebar:
@@ -140,92 +127,65 @@ with st.sidebar:
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🗑️ Reiniciar"):
-            for key in list(st.session_state.keys()): del st.session_state[key]
+            st.session_state.messages = []
+            st.session_state.export_pool = []
             st.rerun()
     with col2:
         st.download_button(label="💾 Guardar", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
     
     archivo_memoria = st.file_uploader("RECUPERAR TURNO:", type=['json'], label_visibility="collapsed")
     if archivo_memoria:
-        if st.button("🔌 RECONECTAR SESION", use_container_width=True):
+        if st.button("🔌 RECONECTAR", use_container_width=True):
             cargar_sesion(archivo_memoria.getvalue().decode("utf-8"))
-            st.success("Turno recuperado.")
             st.rerun()
 
     st.divider()
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
     
-    if st.session_state.get("last_analysis"):
+    # Exportación Compilada
+    if st.session_state.export_pool:
         st.divider()
-        st.markdown("<div class='section-tag'>EXPORTAR ENTREGABLES</div>", unsafe_allow_html=True)
-        st.download_button("📄 Word", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
-        st.download_button("📊 PPT", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
+        st.markdown(f"<div class='section-tag'>COMPILADOR ({len(st.session_state.export_pool)} BLOQUES)</div>", unsafe_allow_html=True)
+        word_data = download_word_compilado(st.session_state.export_pool, st.session_state.messages, rol_activo)
+        st.download_button("📄 Exportar Manual (Word)", data=word_data, file_name=f"Manual_Amazonia_{rol_activo}.docx", use_container_width=True)
 
     st.divider()
-    st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
-    t1, t2, t3 = st.tabs(["DOC", "URL", "IMG"])
-    with t1:
-        up = st.file_uploader("Subir archivos:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
-        if st.button("🧠 PROCESAR", use_container_width=True):
-            raw_text = ""
-            for f in up:
-                if f.type == "application/pdf": raw_text += get_pdf_text(f)
-                elif "word" in f.type: raw_text += get_docx_text(f)
-                else: raw_text += get_excel_text(f)
-            with st.spinner("Analizando fuentes..."):
-                try:
-                    # AJUSTE: Motor 2.5 Flash para Refinado
-                    refiner = genai.GenerativeModel('gemini-2.5-flash')
-                    summary_prompt = f"Actúa como Secretario Técnico. Extrae datos clave. Contexto: {raw_text[:40000]}"
-                    st.session_state.biblioteca[rol_activo] = refiner.generate_content(summary_prompt).text
-                    st.success("Contexto integrado.")
-                except Exception:
-                    st.warning("Backup: Cargando texto crudo.")
-                    st.session_state.biblioteca[rol_activo] = raw_text[:30000]
-    with t2:
-        uw = st.text_input("URL:", placeholder="https://")
-        if st.button("🔗 CONECTAR", use_container_width=True):
-            try:
-                r = requests.get(uw, timeout=10)
-                st.session_state.biblioteca[rol_activo] += BeautifulSoup(r.text, 'html.parser').get_text()
-                st.success("Web integrada.")
-            except: st.error("Error de conexión.")
-    with t3:
-        img_f = st.file_uploader("Imagen:", type=['jpg', 'png'], label_visibility="collapsed")
-        if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
+    st.markdown("<div class='section-tag'>FUENTES</div>", unsafe_allow_html=True)
+    up = st.file_uploader("Subir DOCS:", type=['pdf', 'docx'], accept_multiple_files=True, label_visibility="collapsed")
+    if st.button("🧠 PROCESAR", use_container_width=True):
+        raw_text = ""
+        for f in up:
+            if f.type == "application/pdf": raw_text += get_pdf_text(f)
+            else: raw_text += get_docx_text(f)
+        try:
+            refiner = genai.GenerativeModel('gemini-2.5-flash')
+            summary_prompt = f"Actúa como Secretario Técnico. Extrae datos clave. Contexto: {raw_text[:40000]}"
+            st.session_state.biblioteca[rol_activo] = refiner.generate_content(summary_prompt).text
+            st.success("Contexto integrado.")
+        except:
+            st.session_state.biblioteca[rol_activo] = raw_text[:30000]
 
-# --- 6. PANEL CENTRAL ---
+# --- 6. PANEL CENTRAL: SELECCIÓN MULTIPLE PARA EXPORTACIÓN ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
+
+# Inicializar pool de exportación si no existe
+if "export_pool" not in st.session_state:
+    st.session_state.export_pool = []
 
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+        
         if msg["role"] == "assistant":
-            with st.expander("🛠️ GESTIONAR ENTREGABLE", expanded=False):
-                t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
-                with t_copy:
-                    st.code(msg["content"], language=None)
-                with t_edit:
-                    texto_editado = st.text_area("Edición ejecutiva:", value=msg["content"], height=450, key=f"edit_{i}", label_visibility="collapsed")
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
-                        st.session_state.last_analysis = texto_editado
-                        st.toast("✅ Sincronizado.")
-        st.markdown("---")
+            # Checkbox para incluir en el Word final
+            seleccionar = st.checkbox("📥 Incluir en Manual (Word)", key=f"sel_{i}")
+            if seleccionar:
+                if i not in st.session_state.export_pool:
+                    st.session_state.export_pool.append(i)
+            else:
+                if i in st.session_state.export_pool:
+                    st.session_state.export_pool.remove(i)
 
-if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
-    st.session_state.messages.append({"role": "user", "content": pr})
-    with st.chat_message("user"): st.markdown(pr)
-    with st.chat_message("assistant"):
-        try:
-            # AJUSTE: Motor 2.5 Flash para Chat
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. APA 7."
-            lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
-            response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
-            st.session_state.last_analysis = response.text
-            st.session_state.messages.append({"role": "assistant", "content": response.text})
-            st.rerun()
-        except Exception as e:
-            st.error(f"Error de API: {e}")
+            with st.expander("🛠️ GESTIONAR ENTREGABLE", expanded=False):
+                # ... (resto de la lógica de copiar/editar que ya tiene)
