@@ -13,10 +13,11 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 import os
 import re
+import json
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.74 - Pure Executive Hub", 
+    page_title="IkigAI V1.75 - Pure Executive Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
@@ -56,10 +57,24 @@ ROLES = {
     "Estratega de Trading": "Gestión de riesgo y SMC."
 }
 
-# --- 2. FUNCIONES DE LECTURA ---
+# --- 2. FUNCIONES DE LECTURA Y PERSISTENCIA ---
 def get_pdf_text(f): return "".join([p.extract_text() for p in PdfReader(f).pages])
 def get_docx_text(f): return "\n".join([p.text for p in docx.Document(f).paragraphs])
 def get_excel_text(f): return pd.read_excel(f).to_string()
+
+def exportar_sesion():
+    data = {
+        "biblioteca": st.session_state.biblioteca,
+        "messages": st.session_state.messages,
+        "last_analysis": st.session_state.last_analysis
+    }
+    return json.dumps(data, indent=4)
+
+def cargar_sesion(json_data):
+    data = json.loads(json_data)
+    st.session_state.biblioteca = data["biblioteca"]
+    st.session_state.messages = data["messages"]
+    st.session_state.last_analysis = data["last_analysis"]
 
 # --- 3. MOTOR DE LIMPIEZA Y EXPORTACIÓN ---
 def clean_markdown(text):
@@ -74,7 +89,7 @@ def download_word(content, role):
     section.right_margin = Inches(1)
     header = doc.add_heading(f'INFORME ESTRATÉGICO: {role.upper()}', 0)
     header.alignment = 1
-    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.74 Executive Analysis")
+    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.75 Executive Analysis")
     doc.add_paragraph("_" * 50)
     lines = content.split('\n')
     for line in lines:
@@ -118,6 +133,18 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
+    st.markdown("<div class='section-tag'>MEMORIA DE TURNO</div>", unsafe_allow_html=True)
+    if st.session_state.messages:
+        st.download_button("💾 GUARDAR TURNO", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
+    
+    archivo_memoria = st.file_uploader("RECUPERAR TURNO:", type=['json'], label_visibility="collapsed")
+    if archivo_memoria:
+        if st.button("🔌 RECONECTAR CEREBRO"):
+            cargar_sesion(archivo_memoria.getvalue().decode("utf-8"))
+            st.success("Memoria recuperada.")
+            st.rerun()
+
+    st.divider()
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol:", options=list(ROLES.keys()), label_visibility="collapsed")
     
@@ -138,7 +165,6 @@ with st.sidebar:
                 if f.type == "application/pdf": raw_text += get_pdf_text(f)
                 elif "word" in f.type: raw_text += get_docx_text(f)
                 else: raw_text += get_excel_text(f)
-            
             with st.spinner("Refinando contexto estratégico..."):
                 refiner = genai.GenerativeModel('gemini-1.5-flash')
                 summary_prompt = f"Actúa como Secretario Técnico. Extrae solo datos duros, métricas y decisiones estratégicas. Elimina ruido. Contexto: {raw_text[:40000]}"
