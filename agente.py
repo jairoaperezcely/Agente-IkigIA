@@ -16,13 +16,13 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.62 - Zen Executive Hub", 
+    page_title="IkigAI V1.63 - Functional Zen Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS V1.62: Estética Zen y Contraste Quirúrgico
+# Estilo CSS V1.63: Estética Zen con Jerarquía Funcional
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -104,20 +104,15 @@ def download_word(content, role):
 
 def download_pptx(content, role):
     prs = Presentation()
-    # Fragmentación por oraciones completas para evitar desbordes
     segments = [clean_markdown(s) for s in re.split(r'\n|\. ', content) if len(s.strip()) > 25]
-    
     slide = prs.slides.add_slide(prs.slide_layouts[0])
     slide.shapes.title.text = role.upper()
     slide.placeholders[1].text = f"Estrategia Ejecutiva IkigAI\n{date.today()}"
-    
     for i, segment in enumerate(segments[:15]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
         slide.shapes.title.text = f"Eje Estratégico {i+1}"
         body = slide.placeholders[1]
-        # Garantía de márgenes (máx 450 chars)
         body.text = (segment[:447] + '...') if len(segment) > 450 else segment
-        
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
 # --- 4. LÓGICA DE MEMORIA ---
@@ -125,9 +120,9 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL (IDENTIDAD V1.59 RESTAURADA) ---
+# --- 5. BARRA LATERAL (IDENTIDAD V1.59 + ETIQUETAS) ---
 with st.sidebar:
-    # Identidad Ikigai V1.59 (ADN + IKIGAI Centrado)
+    # Identidad Preservada
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
     st.caption("<p style='text-align: center; color: #666;'>Reason for Being | Strategy Hub</p>", unsafe_allow_html=True)
@@ -139,14 +134,18 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
+    st.markdown("<p style='font-size: 12px; color: #666; letter-spacing: 1px;'>PERFIL ESTRATÉGICO</p>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol Activo:", options=list(ROLES.keys()), label_visibility="collapsed")
     
     if st.session_state.last_analysis:
         st.divider()
-        st.download_button("📄 WORD (CLEAN)", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
-        st.download_button("📊 PPTX (CLEAN)", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
+        # Restauración de Título de Sección
+        st.markdown("<p style='font-size: 12px; color: #666; letter-spacing: 1px;'>EXPORTAR ENTREGABLES</p>", unsafe_allow_html=True)
+        st.download_button("📄 WORD (APA 7)", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
+        st.download_button("📊 POWERPOINT", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
 
     st.divider()
+    st.markdown("<p style='font-size: 12px; color: #666; letter-spacing: 1px;'>FUENTES DE DATOS</p>", unsafe_allow_html=True)
     t1, t2, t3 = st.tabs(["DOC", "URL", "IMG"])
     with t1:
         up = st.file_uploader("Upload:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
@@ -154,9 +153,9 @@ with st.sidebar:
             for f in up:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
                 elif "word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
-            st.success("Listo.")
+            st.success("Analizado.")
     with t2:
-        uw = st.text_input("Link:", placeholder="https://")
+        uw = st.text_input("URL:", placeholder="https://")
         if st.button("🔗 CONECTAR", use_container_width=True):
             if uw: st.session_state.biblioteca[rol_activo] += get_web_text(uw)
             st.success("Conectado.")
