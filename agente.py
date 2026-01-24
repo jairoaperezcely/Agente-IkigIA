@@ -316,22 +316,27 @@ with st.sidebar:
 # --- MEJORA DEL CHAT INPUT EN EL BLOQUE CSS ---
 st.markdown("""
     <style>
-    /* Estilo para la caja de chat fija al fondo */
+    /* Input de Chat estilo Minimalista/Gemini */
+    .stChatInput {
+        border-radius: 24px !important;
+        border: 1px solid #303030 !important;
+        background-color: #1E1E1E !important;
+        padding: 4px 12px !important;
+    }
+    .stChatInput:focus-within {
+        border-color: #4285F4 !important; /* Azul Google */
+        box-shadow: none !important;
+    }
+    /* Limpieza de márgenes del contenedor */
     .stChatInputContainer {
-        padding-bottom: 20px !important;
+        padding-bottom: 30px !important;
         background-color: transparent !important;
     }
+    /* Estilo del texto dentro del input */
     .stChatInput textarea {
-        background-color: #0A0A0A !important;
-        border: 1px solid #1A1A1A !important;
-        color: #00E6FF !important;
-        border-radius: 8px !important;
-        font-family: 'Inter', sans-serif !important;
-    }
-    /* Efecto Glow al escribir */
-    .stChatInput textarea:focus {
-        border-color: #00A3FF !important;
-        box-shadow: 0 0 10px rgba(0, 163, 255, 0.2) !important;
+        color: #E3E3E3 !important;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        font-size: 16px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -400,6 +405,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
