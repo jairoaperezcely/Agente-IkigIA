@@ -16,13 +16,13 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.60 - Precision Suite", 
+    page_title="IkigAI V1.61 - Strategic Command", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS: Deep Dark Zen
+# Estilo CSS: Deep Dark Zen - Consistencia de Marca
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -85,20 +85,20 @@ def download_word(content, role):
 
 def download_pptx(content, role):
     prs = Presentation()
-    # Fragmentación: dividimos por puntos o párrafos cortos
-    segments = [clean_markdown(s) for s in re.split(r'\n|\.', content) if len(s.strip()) > 30]
+    # Fragmentación optimizada para no saturar diapositivas
+    segments = [clean_markdown(s) for s in re.split(r'\n|\. ', content) if len(s.strip()) > 25]
     
-    # Portada
+    # Portada con Identidad IkigAI
     slide = prs.slides.add_slide(prs.slide_layouts[0])
     slide.shapes.title.text = role.upper()
     slide.placeholders[1].text = f"Estrategia Ejecutiva IkigAI\n{date.today()}"
     
-    # Slides con control de desborde (máximo 450 caracteres por slide)
-    for i, segment in enumerate(segments[:12]):
+    # Slides con Margen de Seguridad
+    for i, segment in enumerate(segments[:15]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
         slide.shapes.title.text = f"Eje Estratégico {i+1}"
         body = slide.placeholders[1]
-        # Si el segmento es muy largo, se trunca para no salir de márgenes
+        # Límite estricto de caracteres para evitar desbordes
         body.text = (segment[:447] + '...') if len(segment) > 450 else segment
         
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
@@ -108,10 +108,12 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL ---
+# --- 5. BARRA LATERAL (IDENTIDAD PRESERVADA) ---
 with st.sidebar:
+    # Identidad IkigAI Engine
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #666; font-size: 12px;'>ENGINE V1.61</p>", unsafe_allow_html=True)
     
     if st.button("RESET ENGINE"):
         st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
@@ -120,29 +122,29 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    rol_activo = st.radio("Rol:", options=list(ROLES.keys()))
+    rol_activo = st.radio("PERFIL:", options=list(ROLES.keys()), label_visibility="collapsed")
     
     if st.session_state.last_analysis:
         st.divider()
-        st.download_button("📄 WORD LIMPIO", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
-        st.download_button("📊 PPTX AJUSTADO", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
+        st.download_button("📄 WORD (CLEAN)", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
+        st.download_button("📊 PPTX (SAFE MARGIN)", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
 
     st.divider()
     t1, t2, t3 = st.tabs(["DOC", "URL", "IMG"])
     with t1:
-        up = st.file_uploader("Cargar:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True)
+        up = st.file_uploader("Upload:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
         if st.button("🧠 PROCESAR", use_container_width=True):
             for f in up:
                 if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
                 elif "word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
             st.success("Listo.")
     with t2:
-        uw = st.text_input("URL:", placeholder="https://")
+        uw = st.text_input("Link:", placeholder="https://")
         if st.button("🔗 CONECTAR", use_container_width=True):
             if uw: st.session_state.biblioteca[rol_activo] += get_web_text(uw)
             st.success("Conectado.")
     with t3:
-        img_f = st.file_uploader("Imagen:", type=['jpg', 'png'])
+        img_f = st.file_uploader("Image:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
 # --- 6. PANEL CENTRAL ---
@@ -151,7 +153,7 @@ st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_all
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-if pr := st.chat_input("Instrucción estratégica..."):
+if pr := st.chat_input("Estrategia en curso..."):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
     with st.chat_message("assistant"):
