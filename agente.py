@@ -80,7 +80,7 @@ def cargar_sesion(json_data):
     st.session_state.messages = data["messages"]
     st.session_state.last_analysis = data["last_analysis"]
 
-# --- 3. MOTOR DE EXPORTACIÓN TÉCNICO-CIENTÍFICO (V1.89) ---
+# --- 3. MOTOR DE EXPORTACIÓN TÉCNICO-CIENTÍFICO DINÁMICO (V1.93) ---
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import re
@@ -89,110 +89,124 @@ from datetime import date
 from pptx import Presentation
 
 def clean_markdown(text):
-    """Limpia asteriscos y residuos de markdown para rigor clínico."""
+    """Limpia asteriscos y residuos de markdown para rigor profesional."""
     text = re.sub(r'\*+', '', text)
     text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
     return text.strip()
 
-def extraer_titulo_tecnico(messages, indices_seleccionados):
-    """Extrae exclusivamente el título técnico evitando saludos o intros de la IA."""
+def extraer_titulo_dictado(messages, indices_seleccionados):
+    """Detecta títulos dictados en mayúsculas o con encabezado #."""
     if not indices_seleccionados:
-        return "MANUAL TÉCNICO DE TELESALUD AMAZONÍA"
+        return "MANUAL TÉCNICO DE TELESALUD"
     
     primer_contenido = messages[indices_seleccionados[0]]["content"]
     lineas = [l.strip() for l in primer_contenido.split('\n') if l.strip()]
     
     for linea in lineas:
-        # Filtro: Ignora intros típicas de la IA como "Como IkigAI...", "Presento...", etc.
-        if any(x in linea.upper() for x in ["COMO IKIGAI", "PRESENTO", "A CONTINUACIÓN", "HOLA", "DOCTOR"]):
+        # Filtro de ruido conversacional: ignora saludos de la IA
+        if any(x in linea.upper() for x in ["COMO IKIGAI", "PRESENTO", "DOCTOR", "HOLA", "ESTIMADO"]):
             continue
-        # Captura la primera línea que no sea un saludo, limpiando el formato Markdown
+        
+        # Captura la primera línea sustancial (limpiando formato de título markdown)
         titulo_limpio = re.sub(r'^#+\s*', '', linea)
         if len(titulo_limpio) > 5:
+            # Si el usuario lo dictó, vendrá en la estructura inicial del bloque
             return titulo_limpio.upper()
             
-    return "MANUAL DE PROCESOS Y PROCEDIMIENTOS OPERATIVOS"
+    return "DOCUMENTO ESTRATÉGICO DE GESTIÓN"
 
 def download_word_compilado(indices_seleccionados, messages, role):
-    """Genera Word Técnico bajo estándares APA 7 y autoría fija."""
+    """Genera Word Técnico con Portada Académica y Estándares APA 7."""
     doc = docx.Document()
+    
+    # --- CONFIGURACIÓN DE EXCELENCIA (Arial 11 / Justificado) ---
     style = doc.styles['Normal']
     style.font.name = 'Arial'
     style.font.size = Pt(11)
+    style.paragraph_format.space_after = Pt(12)
+    style.paragraph_format.line_spacing = 1.15
     
     section = doc.sections[0]
     for m in ['left', 'right', 'top', 'bottom']:
-        setattr(section, f'{m}_margin', Inches(1))
+        setattr(section, f'{m}_margin', Inches(1)) # Márgenes de 2.54cm
     
-    # Lógica de Título Técnico
-    titulo_principal = extraer_titulo_tecnico(messages, indices_seleccionados)
+    # Detección del título dictado o inferido
+    titulo_final = extraer_titulo_dictado(messages, indices_seleccionados)
 
-    # PORTADA ACADÉMICA
-    header = doc.add_heading(titulo_principal, 0)
-    header.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    for run in header.runs:
+    # PORTADA ACADÉMICA Y AUTORÍA FIJA
+    t = doc.add_heading(titulo_final, 0)
+    t.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for run in t.runs:
         run.font.name = 'Arial'
         run.font.size = Pt(16)
-        run.font.color.rgb = RGBColor(0, 32, 96) # Azul Oxford Institucional
-    
+        run.font.color.rgb = RGBColor(0, 32, 96) # Azul Oxford Ejecutivo
+
     doc.add_paragraph("").add_run() # Espacio
-    autor = doc.add_paragraph()
-    run_autor = autor.add_run("Jairo Antonio Pérez Cely")
-    run_autor.bold = True
-    run_autor.font.size = Pt(12)
-    autor.alignment = 1
+    autor_p = doc.add_paragraph()
+    run_a = autor_p.add_run("Jairo Antonio Pérez Cely")
+    run_a.bold = True
+    run_a.font.size = Pt(12)
+    autor_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
-    doc.add_paragraph("Director Centro de Telemedicina e IA - UNAL").alignment = 1
-    doc.add_paragraph(f"Fecha de Edición: {date.today()}").alignment = 1
-    doc.add_paragraph("_" * 60).alignment = 1
+    # Identidad Profesional Polivalente
+    doc.add_paragraph("Estratega en Salud Digital, Innovación y Alta Gerencia").alignment = 1
+    doc.add_paragraph(f"Generado por IkigAI Executive Hub | {date.today()}").alignment = 1
+    doc.add_paragraph("_" * 65).alignment = 1
     
     for idx in sorted(indices_seleccionados):
         content = messages[idx]["content"]
-        # Filtrar el saludo inicial de cada bloque si existe
-        lineas_bloque = content.split('\n')
-        for line in lineas_bloque:
+        lineas = content.split('\n')
+        
+        for line in lineas:
+            # Limpieza de metadatos conversacionales de la IA
             if any(x in line.upper() for x in ["COMO IKIGAI", "PRESENTO", "DOCTOR"]): continue
             
             clean_line = re.sub(r'\*+', '', line).strip()
             if not clean_line: continue
             
             if line.startswith('#'):
-                h = doc.add_heading(clean_line, level=min(line.count('#'), 3))
+                level = line.count('#')
+                h = doc.add_heading(clean_line, level=min(level, 3))
+                h.paragraph_format.keep_with_next = True # Control de viudas/huérfanas
+                h.paragraph_format.space_before = Pt(18)
                 for run in h.runs: run.font.name = 'Arial'
+            
             elif line.strip().startswith(('*', '-', '•')) or re.match(r'^\d+\.', line.strip()):
                 style_name = 'List Number' if re.match(r'^\d+\.', line.strip()) else 'List Bullet'
                 p = doc.add_paragraph(re.sub(r'^[\*\-\•\d\.]+\s*', '', clean_line), style=style_name)
                 p.paragraph_format.left_indent = Inches(0.25)
+            
             else:
                 p = doc.add_paragraph(clean_line)
                 p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                p.paragraph_format.space_after = Pt(12)
-        doc.add_page_break()
+        
+        doc.add_page_break() # Salto de página entre secciones del manual
     
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
 def download_pptx(content, role):
-    """Genera Deck con limpieza de intros conversacionales."""
+    """Genera Presentación Ejecutiva con Título Dinámico Dictado."""
     prs = Presentation()
     clean_text = clean_markdown(content)
-    # Filtrar párrafos introductorios de la IA
-    lineas = [l for l in clean_text.split('\n') if not any(x in l.upper() for x in ["COMO IKIGAI", "PRESENTO"])]
     
-    titulo_slide = lineas[0].upper() if lineas else "INFORME TÉCNICO"
+    # Filtrar párrafos introductorios y capturar título
+    lineas = [l for l in clean_text.split('\n') if not any(x in l.upper() for x in ["COMO IKIGAI", "PRESENTO", "DOCTOR"])]
+    titulo_slide = lineas[0].upper() if lineas else "INFORME ESTRATÉGICO"
 
     # Slide de Título
     slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = titulo_slide[:70]
-    slide.placeholders[1].text = f"Jairo Antonio Pérez Cely\nCentro de Telemedicina e IA | {date.today()}"
+    slide.shapes.title.text = titulo_slide[:75]
+    slide.placeholders[1].text = f"Autor: Jairo Antonio Pérez Cely\nEstrategia e Innovación | {date.today()}"
     
-    # Contenido (Slides 1-10)
-    segments = [s.strip() for s in lineas[1:] if len(s.strip()) > 30]
-    for i, segment in enumerate(segments[:10]):
+    # Slides de Contenido Técnico (Bullet points automáticos)
+    segments = [s.strip() for s in lineas[1:] if len(s.strip()) > 35]
+    for i, segment in enumerate(segments[:12]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
         slide.shapes.title.text = f"Eje de Análisis {i+1}"
-        slide.placeholders[1].text = (segment[:447] + '...') if len(segment) > 450 else segment
+        body = slide.placeholders[1]
+        body.text = (segment[:447] + '...') if len(segment) > 450 else segment
         
-    bio = BytesIO(); prs.save(bio); return bio.getvalue()    
+    bio = BytesIO(); prs.save(bio); return bio.getvalue()
 # --- 4. LÓGICA DE ESTADO ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
@@ -365,6 +379,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
