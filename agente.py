@@ -17,7 +17,7 @@ import json
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.83 - Executive Workstation", 
+    page_title="IkigAI V1.85 - Executive Workstation", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
@@ -69,11 +69,7 @@ def exportar_sesion():
         if msg["role"] == "assistant" and f"edit_{i}" in st.session_state:
             nuevo_msg["content"] = st.session_state[f"edit_{i}"]
         mensajes_finales.append(nuevo_msg)
-    data = {
-        "biblioteca": st.session_state.biblioteca, 
-        "messages": mensajes_finales, 
-        "last_analysis": st.session_state.last_analysis
-    }
+    data = {"biblioteca": st.session_state.biblioteca, "messages": mensajes_finales, "last_analysis": st.session_state.last_analysis}
     return json.dumps(data, indent=4)
 
 def cargar_sesion(json_data):
@@ -82,7 +78,7 @@ def cargar_sesion(json_data):
     st.session_state.messages = data["messages"]
     st.session_state.last_analysis = data["last_analysis"]
 
-# --- 3. MOTOR DE EXPORTACIÓN ---
+# --- 3. MOTOR DE EXPORTACIÓN (Limpieza Quirúrgica) ---
 def clean_markdown(text):
     text = re.sub(r'\*+', '', text)
     text = re.sub(r'^#+\s*', '', text)
@@ -92,31 +88,41 @@ def download_word(content, role):
     doc = docx.Document()
     section = doc.sections[0]
     section.left_margin = Inches(1); section.right_margin = Inches(1)
+    
     header = doc.add_heading(f'INFORME ESTRATÉGICO: {role.upper()}', 0)
     header.alignment = 1
-    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.83 Executive Hub")
+    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.85 Executive Hub")
     doc.add_paragraph("_" * 50)
+    
     for line in content.split('\n'):
-        clean_line = line.strip()
+        clean_line = re.sub(r'\*+', '', line).strip()
         if not clean_line: continue
-        if clean_line.startswith('#'):
-            doc.add_heading(clean_line.replace('#', '').strip(), level=min(clean_line.count('#'), 3))
-        elif clean_line.startswith(('*', '-', '•')):
-            doc.add_paragraph(clean_line[1:].strip(), style='List Bullet')
+        
+        if line.startswith('#'):
+            level = line.count('#')
+            doc.add_heading(clean_line, level=min(level, 3))
+        elif line.startswith(('*', '-', '•')):
+            doc.add_paragraph(clean_line.lstrip('*-• ').strip(), style='List Bullet')
         else:
-            p = doc.add_paragraph(clean_line); p.alignment = 3
+            p = doc.add_paragraph(clean_line)
+            p.alignment = 3
+    
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
 def download_pptx(content, role):
     prs = Presentation()
-    segments = [clean_markdown(s) for s in re.split(r'\n|\. ', content) if len(s.strip()) > 25]
+    clean_content = clean_markdown(content)
+    segments = [s.strip() for s in re.split(r'\n|\. ', clean_content) if len(s.strip()) > 25]
+    
     slide = prs.slides.add_slide(prs.slide_layouts[0])
     slide.shapes.title.text = role.upper()
     slide.placeholders[1].text = f"Estrategia Ejecutiva IkigAI\n{date.today()}"
+    
     for i, segment in enumerate(segments[:15]):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
         slide.shapes.title.text = f"Eje {i+1}"
         slide.placeholders[1].text = (segment[:447] + '...') if len(segment) > 450 else segment
+    
     bio = BytesIO(); prs.save(bio); return bio.getvalue()
 
 # --- 4. LÓGICA DE ESTADO ---
@@ -124,13 +130,12 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL (Panel de Control) ---
+# --- 5. BARRA LATERAL ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
     
     st.divider()
-    # Título de sección solicitado
     st.markdown("<div class='section-tag'>SESIÓN</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
@@ -138,19 +143,13 @@ with st.sidebar:
             for key in list(st.session_state.keys()): del st.session_state[key]
             st.rerun()
     with col2:
-        st.download_button(
-            label="💾 Guardar",
-            data=exportar_sesion(),
-            file_name=f"IkigAI_Turno_{date.today()}.json",
-            mime="application/json",
-            key="save_session_v183_final"
-        )
+        st.download_button(label="💾 Guardar", data=exportar_sesion(), file_name=f"IkigAI_Turno_{date.today()}.json", mime="application/json")
     
     archivo_memoria = st.file_uploader("RECUPERAR TURNO:", type=['json'], label_visibility="collapsed")
     if archivo_memoria:
         if st.button("🔌 RECONECTAR SESION", use_container_width=True):
             cargar_sesion(archivo_memoria.getvalue().decode("utf-8"))
-            st.success("Cerebro reconectado.")
+            st.success("Turno recuperado.")
             st.rerun()
 
     st.divider()
@@ -174,58 +173,59 @@ with st.sidebar:
                 if f.type == "application/pdf": raw_text += get_pdf_text(f)
                 elif "word" in f.type: raw_text += get_docx_text(f)
                 else: raw_text += get_excel_text(f)
-            with st.spinner("Refinando contexto..."):
-                refiner = genai.GenerativeModel('gemini-2.5-flash')
-                summary_prompt = f"Actúa como Secretario Técnico. Extrae datos clave. Contexto: {raw_text[:40000]}"
-                st.session_state.biblioteca[rol_activo] = refiner.generate_content(summary_prompt).text
-            st.success("Listo.")
+            with st.spinner("Analizando fuentes..."):
+                try:
+                    # AJUSTE: Motor 2.5 Flash para Refinado
+                    refiner = genai.GenerativeModel('gemini-2.5-flash')
+                    summary_prompt = f"Actúa como Secretario Técnico. Extrae datos clave. Contexto: {raw_text[:40000]}"
+                    st.session_state.biblioteca[rol_activo] = refiner.generate_content(summary_prompt).text
+                    st.success("Contexto integrado.")
+                except Exception:
+                    st.warning("Backup: Cargando texto crudo.")
+                    st.session_state.biblioteca[rol_activo] = raw_text[:30000]
     with t2:
         uw = st.text_input("URL:", placeholder="https://")
         if st.button("🔗 CONECTAR", use_container_width=True):
-            r = requests.get(uw, timeout=10)
-            st.session_state.biblioteca[rol_activo] += BeautifulSoup(r.text, 'html.parser').get_text()
-            st.success("Conectado.")
+            try:
+                r = requests.get(uw, timeout=10)
+                st.session_state.biblioteca[rol_activo] += BeautifulSoup(r.text, 'html.parser').get_text()
+                st.success("Web integrada.")
+            except: st.error("Error de conexión.")
     with t3:
         img_f = st.file_uploader("Imagen:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
-# --- 6. PANEL CENTRAL: WORKSTATION ---
+# --- 6. PANEL CENTRAL ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
 
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        
         if msg["role"] == "assistant":
             with st.expander("🛠️ GESTIONAR ENTREGABLE", expanded=False):
                 t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
                 with t_copy:
                     st.code(msg["content"], language=None)
                 with t_edit:
-                    texto_editado = st.text_area(
-                        "Editor ejecutivo:", 
-                        value=msg["content"], 
-                        height=450, 
-                        key=f"edit_{i}",
-                        label_visibility="collapsed"
-                    )
+                    texto_editado = st.text_area("Edición ejecutiva:", value=msg["content"], height=450, key=f"edit_{i}", label_visibility="collapsed")
                     st.markdown("<br>", unsafe_allow_html=True)
                     if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
                         st.session_state.last_analysis = texto_editado
-                        st.toast("✅ Sincronizado para exportación.")
+                        st.toast("✅ Sincronizado.")
         st.markdown("---")
 
 if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
     with st.chat_message("assistant"):
-        # MOTOR: Gemini 2.5 Flash
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. APA 7."
-        lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
-        response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
-        st.session_state.last_analysis = response.text
-        st.session_state.messages.append({"role": "assistant", "content": response.text})
-        st.rerun()
-
-
+        try:
+            # AJUSTE: Motor 2.5 Flash para Chat
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, ejecutivo. APA 7."
+            lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
+            response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
+            st.session_state.last_analysis = response.text
+            st.session_state.messages.append({"role": "assistant", "content": response.text})
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error de API: {e}")
