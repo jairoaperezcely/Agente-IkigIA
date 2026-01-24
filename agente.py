@@ -81,64 +81,77 @@ def cargar_sesion(json_data):
     st.session_state.last_analysis = data["last_analysis"]
 
 # --- 3. MOTOR DE EXPORTACIÓN COMPILADA (V1.87) ---
-def clean_markdown(text):
-    """Limpia asteriscos y símbolos de títulos para exportación limpia."""
-    text = re.sub(r'\*+', '', text)
-    text = re.sub(r'^#+\s*', '', text)
-    return text.strip()
+from docx.shared import Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 def download_word_compilado(indices_seleccionados, messages, role):
     doc = docx.Document()
     
-    # Configuración de márgenes estándar APA 7 (2.54 cm)
-    section = doc.sections[0]
-    section.left_margin = Inches(1)
-    section.right_margin = Inches(1)
-    section.top_margin = Inches(1)
-    section.bottom_margin = Inches(1)
+    # Configuración de Estilo Base (Arial 11)
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Arial'
+    font.size = Pt(11)
     
-    # Encabezado Ejecutivo
-    header = doc.add_heading(f'MANUAL DE IMPLEMENTACIÓN: {role.upper()}', 0)
-    header.alignment = 1
-    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.87 Premium Export")
-    doc.add_paragraph("_" * 50)
+    # Configuración de márgenes técnicos (2.54 cm)
+    section = doc.sections[0]
+    for margin in ['left', 'right', 'top', 'bottom']:
+        setattr(section, f'{margin}_margin', Inches(1))
+    
+    # LÓGICA DE TÍTULO DINÁMICO SEGÚN CONTENIDO
+    # Extraemos el contenido del primer bloque seleccionado para el título
+    primer_bloque = messages[indices_seleccionados[0]]["content"] if indices_seleccionados else ""
+    lineas = [l.strip() for l in primer_bloque.split('\n') if l.strip()]
+    # Si la primera línea empieza con # (Markdown), la limpiamos
+    titulo_texto = re.sub(r'^#+\s*', '', lineas[0]) if lineas else "MANUAL TÉCNICO DE TELESALUD"
+
+    # PORTADA TÉCNICA
+    header = doc.add_heading(titulo_texto.upper(), 0)
+    header.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for run in header.runs:
+        run.font.name = 'Arial'
+        run.font.size = Pt(16)
+        run.font.color.rgb = RGBColor(0, 32, 96) # Azul Ejecutivo
+    
+    doc.add_paragraph(f"Perfil Emisor: {role.upper()}").alignment = 1
+    doc.add_paragraph(f"Fecha de Generación: {date.today()}").alignment = 1
+    doc.add_paragraph("_" * 75).alignment = 1
     
     for idx in sorted(indices_seleccionados):
         content = messages[idx]["content"]
-        for line in content.split('\n'):
-            # Limpieza de residuos de markdown
+        # Evitamos repetir el título que ya pusimos en la portada si es la primera línea
+        lineas_bloque = content.split('\n')
+        
+        for i, line in enumerate(lineas_bloque):
             clean_line = re.sub(r'\*+', '', line).strip()
             if not clean_line: continue
             
-            # Gestión de Títulos con niveles de Word
+            # Gestión de Títulos Internos
             if line.startswith('#'):
                 level = line.count('#')
                 h = doc.add_heading(clean_line, level=min(level, 3))
-                h.paragraph_format.space_before = Pt(12)
-                h.paragraph_format.space_after = Pt(6)
+                h.paragraph_format.space_before = Pt(18)
+                for run in h.runs: run.font.name = 'Arial'
             
-            # Gestión Profesional de Viñetas y Sangrías
+            # Listas con Sangría Técnica (0.63 cm)
             elif line.strip().startswith(('*', '-', '•')) or re.match(r'^\d+\.', line.strip()):
-                # Identifica si es lista desordenada o numerada
-                style = 'List Number' if re.match(r'^\d+\.', line.strip()) else 'List Bullet'
-                # Limpia el prefijo para dejar solo el texto
+                style_name = 'List Number' if re.match(r'^\d+\.', line.strip()) else 'List Bullet'
                 text_only = re.sub(r'^[\*\-\•\d\.]+\s*', '', clean_line)
-                p = doc.add_paragraph(text_only, style=style)
-                p.paragraph_format.left_indent = Inches(0.5) # Sangría de viñeta
-                p.paragraph_format.space_after = Pt(4)
+                p = doc.add_paragraph(text_only, style=style_name)
+                p.paragraph_format.left_indent = Inches(0.25)
             
-            # Párrafos Normales con Justificación Completa
+            # Cuerpo de Texto Justificado
             else:
                 p = doc.add_paragraph(clean_line)
-                p.alignment = 3  # Justificado
-                p.paragraph_format.line_spacing = 1.15
-                p.paragraph_format.space_after = Pt(10)
+                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                p.paragraph_format.space_after = Pt(12)
         
         doc.add_page_break()
     
     bio = BytesIO()
     doc.save(bio)
     return bio.getvalue()
+    
 def download_pptx(content, role):
     """Genera una presentación con título dinámico basado en la primera línea."""
     prs = Presentation()
@@ -344,6 +357,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
