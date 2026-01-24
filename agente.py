@@ -1,5 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
+from streamlit_mic_recorder import mic_recorder
 from pypdf import PdfReader
 import docx
 import pandas as pd
@@ -213,7 +214,10 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
 
-# --- 5. BARRA LATERAL: CONTROL TOTAL Y FUENTES DE CONTEXTO ---
+# --- 5. BARRA LATERAL: CONTROL TOTAL, VOZ Y FUENTES DE CONTEXTO ---
+from streamlit_mic_recorder import mic_recorder
+from openai import OpenAI
+
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
@@ -237,7 +241,40 @@ with st.sidebar:
     st.divider()
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
+
+    # --- MOTOR DE VOZ WHISPER (Dictado Técnico) ---
+    st.divider()
+    st.markdown("<div class='section-tag'>DICTADO TÉCNICO (WHISPER)</div>", unsafe_allow_html=True)
     
+    audio = mic_recorder(
+        start_prompt="🎤 Iniciar Dictado",
+        stop_prompt="🛑 Detener y Procesar",
+        key='recorder',
+        use_container_width=True
+    )
+
+    if audio:
+        with st.spinner("Transcribiendo con rigor clínico..."):
+            try:
+                # Se requiere OPENAI_API_KEY en st.secrets
+                client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+                
+                audio_bio = BytesIO(audio['bytes'])
+                audio_bio.name = "audio.wav"
+                
+                transcript = client.audio.transcriptions.create(
+                    model="whisper-1", 
+                    file=audio_bio,
+                    language="es"
+                )
+                
+                # Mostramos el resultado para que usted pueda copiarlo al chat
+                st.success("Dictado capturado")
+                st.text_area("Texto Transcrito (Copie al chat):", value=transcript.text, height=100)
+                st.session_state.last_analysis = transcript.text
+            except Exception as e:
+                st.error(f"Error: {e}. Verifique su OPENAI_API_KEY en secrets.")
+
     # --- BLOQUE DINÁMICO DE EXPORTACIÓN (Solo Selección) ---
     if st.session_state.export_pool:
         st.divider()
@@ -246,7 +283,7 @@ with st.sidebar:
         # Word Compilado
         word_data = download_word_compilado(st.session_state.export_pool, st.session_state.messages, rol_activo)
         st.download_button(
-            "📄 Generar Word", 
+            "📄 Generar Word Técnico", 
             data=word_data, 
             file_name=f"Manual_{rol_activo}.docx", 
             use_container_width=True
@@ -256,7 +293,7 @@ with st.sidebar:
         contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(st.session_state.export_pool)])
         ppt_data = download_pptx(contenido_para_ppt, rol_activo)
         st.download_button(
-            "📊 Generar PPT", 
+            "📊 Generar PPT Ejecutivo", 
             data=ppt_data, 
             file_name=f"Presentacion_{rol_activo}.pptx", 
             use_container_width=True
@@ -264,7 +301,7 @@ with st.sidebar:
     else:
         st.info("Seleccione bloques con 📥 para exportar.")
 
-    # --- RESTAURACIÓN DE FUENTES DE CONTEXTO ---
+    # --- FUENTES DE CONTEXTO ---
     st.divider()
     st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
     
@@ -280,16 +317,15 @@ with st.sidebar:
                 else:
                     raw_text += get_docx_text(f)
             
-            with st.spinner("Refinando contexto para el manual..."):
+            with st.spinner("Refinando contexto técnico..."):
                 try:
-                    # MOTOR: Gemini 2.5 Flash
-                    refiner = genai.GenerativeModel('gemini-2.5-flash')
-                    prompt_resumen = f"Actúa como Secretario Técnico Académico. Extrae datos, normas y referencias clave de este texto para un manual de telesalud: {raw_text[:45000]}"
+                    refiner = genai.GenerativeModel('gemini-2.0-flash')
+                    prompt_resumen = f"Actúa como Secretario Técnico Académico. Extrae datos clave: {raw_text[:45000]}"
                     resumen = refiner.generate_content(prompt_resumen)
                     st.session_state.biblioteca[rol_activo] = resumen.text
                     st.success("Biblioteca actualizada.")
                 except Exception as e:
-                    st.warning("Fallo en IA. Cargando texto crudo.")
+                    st.warning("Cargando texto crudo por fallo en IA.")
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
 
     with tab_url:
@@ -299,18 +335,18 @@ with st.sidebar:
                 r = requests.get(uw, timeout=10)
                 sopa = BeautifulSoup(r.text, 'html.parser')
                 st.session_state.biblioteca[rol_activo] += "\n" + sopa.get_text()
-                st.success("Web integrada al contexto.")
+                st.success("Web integrada.")
             except:
-                st.error("No se pudo conectar con la URL.")
+                st.error("Error de conexión URL.")
 
     with tab_img:
-        img_f = st.file_uploader("Subir imagen (Evidencia/Gráfica):", type=['jpg', 'png'], label_visibility="collapsed")
+        img_f = st.file_uploader("Evidencia/Gráfica:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f:
             st.session_state.temp_image = Image.open(img_f)
-            st.image(img_f, caption="Imagen cargada para análisis")
+            st.image(img_f, caption="Imagen para análisis")
 
     st.divider()
-    st.caption(f"IkigAI V1.87 | {date.today()}")
+    st.caption(f"IkigAI V1.93 | {date.today()}")
     
 # --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR ---
 # --- MEJORA DEL CHAT INPUT EN EL BLOQUE CSS ---
@@ -430,6 +466,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
