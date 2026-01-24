@@ -169,12 +169,24 @@ with st.sidebar:
     t1, t2, t3 = st.tabs(["DOC", "URL", "IMG"])
     with t1:
         up = st.file_uploader("Upload:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
-        if st.button("🧠 PROCESAR", use_container_width=True):
-            for f in up:
-                if f.type == "application/pdf": st.session_state.biblioteca[rol_activo] += get_pdf_text(f)
-                elif "word" in f.type: st.session_state.biblioteca[rol_activo] += get_docx_text(f)
-                else: st.session_state.biblioteca[rol_activo] += get_excel_text(f)
-            st.success("Listo.")
+       if st.button("🧠 PROCESAR", use_container_width=True):
+    raw_text = ""
+    for f in up:
+        if f.type == "application/pdf": raw_text += get_pdf_text(f)
+        elif "word" in f.type: raw_text += get_docx_text(f)
+        else: raw_text += get_excel_text(f)
+    
+    # Etapa Pre-Analítica: Resumen de Relevancia
+    with st.spinner("Refinando contexto estratégico..."):
+        refiner = genai.GenerativeModel('gemini-1.5-flash')
+        summary_prompt = f"""
+        Actúa como Secretario Técnico. Analiza este texto y extrae solo:
+        1. Datos duros y métricas. 2. Puntos de decisión estratégica. 3. Hallazgos científicos clave.
+        Elimina redundancias y saludos. Contexto: {raw_text[:30000]}
+        """
+        refined_context = refiner.generate_content(summary_prompt).text
+        st.session_state.biblioteca[rol_activo] = refined_context
+    st.success("Contexto Quirúrgico Listo.")
     with t2:
         uw = st.text_input("Link:", placeholder="https://")
         if st.button("🔗 CONECTAR", use_container_width=True):
@@ -208,4 +220,5 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
         st.markdown(response.text)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.rerun()
+
 
