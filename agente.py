@@ -16,45 +16,40 @@ import re
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.63 - Functional Zen Hub", 
+    page_title="IkigAI V1.64 - Advanced Reset Hub", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS V1.63: Estética Zen con Jerarquía Funcional
+# Estilo CSS V1.64: Zen Funcional y Botón de Reinicio Refinado
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
-    
     .stApp { background-color: #000000 !important; font-family: 'Inter', sans-serif !important; }
-    
-    [data-testid="stSidebar"] { 
-        background-color: #080808 !important; 
-        border-right: 1px solid #1A1A1A !important; 
-    }
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, h2, h3 { 
-        color: #FFFFFF !important; 
-    }
-
+    [data-testid="stSidebar"] { background-color: #080808 !important; border-right: 1px solid #1A1A1A !important; }
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, h2, h3 { color: #FFFFFF !important; }
     [data-testid="stChatMessage"] { background-color: #050505 !important; border: 1px solid #1A1A1A !important; }
     .stMarkdown p, .stMarkdown li { color: #FFFFFF !important; font-size: 16px !important; line-height: 1.7 !important; }
-    
-    blockquote { 
-        border-left: 4px solid #00E6FF !important; 
-        background-color: #0D1117 !important; 
-        padding: 15px !important; 
-        margin: 15px 0 !important; 
-    }
+    blockquote { border-left: 4px solid #00E6FF !important; background-color: #0D1117 !important; padding: 15px !important; margin: 15px 0 !important; }
     blockquote p { color: #58A6FF !important; font-style: italic !important; font-size: 14px !important; }
-
-    .stDownloadButton button { 
-        width: 100%; border-radius: 4px; background-color: transparent !important; 
-        color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; 
-    }
+    .stDownloadButton button { width: 100%; border-radius: 4px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; }
     .stDownloadButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
     
-    [data-testid="stFileUploadDropzone"] { background-color: #080808 !important; border: 1px dashed #333 !important; }
+    /* Botón Reset: Estilo de Alerta Sutil */
+    div.stButton > button {
+        width: 100%;
+        border-radius: 4px;
+        background-color: #1a0000 !important;
+        color: #ff4b4b !important;
+        border: 1px solid #441111 !important;
+        transition: 0.3s;
+    }
+    div.stButton > button:hover {
+        background-color: #ff4b4b !important;
+        color: #ffffff !important;
+        border: 1px solid #ff4b4b !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -120,32 +115,30 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 
-# --- 5. BARRA LATERAL (IDENTIDAD V1.59 + ETIQUETAS) ---
+# --- 5. BARRA LATERAL ---
 with st.sidebar:
-    # Identidad Preservada
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
-    st.caption("<p style='text-align: center; color: #666;'>Reason for Being | Strategy Hub</p>", unsafe_allow_html=True)
     
-    if st.button("RESET ENGINE"):
-        st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
-        st.session_state.messages = []
-        st.session_state.last_analysis = ""
+    # REINICIO MEJORADO
+    if st.button("🗑️ REINICIAR ENGINE"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.toast("Sistema reiniciado con éxito", icon="✅")
         st.rerun()
 
     st.divider()
-    st.markdown("<p style='font-size: 12px; color: #666; letter-spacing: 1px;'>PERFIL ESTRATÉGICO</p>", unsafe_allow_html=True)
-    rol_activo = st.radio("Rol Activo:", options=list(ROLES.keys()), label_visibility="collapsed")
+    st.markdown("<p style='font-size: 11px; color: #666;'>PERFIL ESTRATÉGICO</p>", unsafe_allow_html=True)
+    rol_activo = st.radio("Rol:", options=list(ROLES.keys()), label_visibility="collapsed")
     
-    if st.session_state.last_analysis:
+    if st.session_state.get("last_analysis"):
         st.divider()
-        # Restauración de Título de Sección
-        st.markdown("<p style='font-size: 12px; color: #666; letter-spacing: 1px;'>EXPORTAR ENTREGABLES</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size: 11px; color: #666;'>EXPORTAR ENTREGABLES</p>", unsafe_allow_html=True)
         st.download_button("📄 WORD (APA 7)", data=download_word(st.session_state.last_analysis, rol_activo), file_name=f"Report_{rol_activo}.docx")
         st.download_button("📊 POWERPOINT", data=download_pptx(st.session_state.last_analysis, rol_activo), file_name=f"Deck_{rol_activo}.pptx")
 
     st.divider()
-    st.markdown("<p style='font-size: 12px; color: #666; letter-spacing: 1px;'>FUENTES DE DATOS</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 11px; color: #666;'>FUENTES DE DATOS</p>", unsafe_allow_html=True)
     t1, t2, t3 = st.tabs(["DOC", "URL", "IMG"])
     with t1:
         up = st.file_uploader("Upload:", type=['pdf', 'docx', 'xlsx'], accept_multiple_files=True, label_visibility="collapsed")
@@ -166,16 +159,17 @@ with st.sidebar:
 # --- 6. PANEL CENTRAL ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
 
-for msg in st.session_state.messages:
+for msg in st.session_state.get("messages", []):
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
+if pr := st.chat_input("¿Instrucción estratégica, Doctor?"):
+    if "messages" not in st.session_state: st.session_state.messages = []
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
     with st.chat_message("assistant"):
         model = genai.GenerativeModel('gemini-2.5-flash')
         sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo, ejecutivo. APA 7."
-        response = model.generate_content([sys_context, f"Contexto: {st.session_state.biblioteca[rol_activo][:500000]}", pr])
+        response = model.generate_content([sys_context, f"Contexto: {st.session_state.get('biblioteca', {}).get(rol_activo, '')[:500000]}", pr])
         st.session_state.last_analysis = response.text
         st.markdown(response.text)
         st.session_state.messages.append({"role": "assistant", "content": response.text})
