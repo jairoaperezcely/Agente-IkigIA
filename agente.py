@@ -175,7 +175,7 @@ with st.sidebar:
                 elif "word" in f.type: raw_text += get_docx_text(f)
                 else: raw_text += get_excel_text(f)
             with st.spinner("Refinando contexto..."):
-                refiner = genai.GenerativeModel('gemini-1.5-flash')
+                refiner = genai.GenerativeModel('gemini-2.5-flash')
                 summary_prompt = f"Actúa como Secretario Técnico. Extrae datos clave. Contexto: {raw_text[:40000]}"
                 st.session_state.biblioteca[rol_activo] = refiner.generate_content(summary_prompt).text
             st.success("Listo.")
@@ -227,4 +227,5 @@ if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
         st.session_state.last_analysis = response.text
         st.session_state.messages.append({"role": "assistant", "content": response.text})
         st.rerun()
+
 
