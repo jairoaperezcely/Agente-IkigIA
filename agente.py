@@ -184,32 +184,34 @@ with st.sidebar:
         img_f = st.file_uploader("Image:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
-# --- 6. PANEL CENTRAL ---
+# --- 6. PANEL CENTRAL: WORKSTATION DE UN SOLO PASO ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
 
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
         if msg["role"] == "assistant":
+            # Visualización rápida en Markdown
             st.markdown(msg["content"])
-            with st.expander("📝 REVISIÓN Y PORTAPAPELES (Editable)"):
-                texto_editable = st.text_area("Edite antes de copiar:", value=msg["content"], height=250, key=f"edit_{i}", label_visibility="collapsed")
-                st.code(texto_editable, language=None)
-                # Sincronizamos con el estado global de análisis para exportación
-                if st.button("✅ GUARDAR CAMBIOS EN ESTA RESPUESTA", key=f"save_{i}"):
-                    st.session_state.last_analysis = texto_editable
-                    st.toast("Cambios guardados para exportación.")
+            
+            # Editor Directo (Sin expanders, flujo continuo)
+            st.markdown("<div style='margin-top: -15px; margin-bottom: 5px; font-size: 12px; color: #444;'>EDITOR ESTRATÉGICO / PORTAPAPELES:</div>", unsafe_allow_html=True)
+            
+            texto_editado = st.text_area(
+                "Edición Directa:",
+                value=msg["content"],
+                height=300,
+                key=f"edit_{i}",
+                label_visibility="collapsed"
+            )
+            
+            # Acciones de Cierre de Turno
+            c1, c2 = st.columns([1, 4])
+            with c1:
+                if st.button("✅ FIJAR", key=f"save_{i}"):
+                    st.session_state.last_analysis = texto_editado
+                    st.toast("Sincronizado para exportación y memoria")
+            with c2:
+                # El bloque de código facilita el copiado con un solo clic nativo
+                st.code(texto_editado, language=None)
         else:
             st.markdown(msg["content"])
-
-if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
-    st.session_state.messages.append({"role": "user", "content": pr})
-    with st.chat_message("user"): st.markdown(pr)
-    with st.chat_message("assistant"):
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        sys_context = f"Identidad: IkigAI - {rol_activo}. {ROLES[rol_activo]}. Estilo clínico, directo, ejecutivo. APA 7."
-        lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
-        response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
-        st.session_state.last_analysis = response.text
-        st.markdown(response.text)
-        st.session_state.messages.append({"role": "assistant", "content": response.text})
-        st.rerun()
