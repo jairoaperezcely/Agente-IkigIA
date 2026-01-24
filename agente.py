@@ -17,13 +17,13 @@ import json
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.80 - Pure Executive Hub", 
+    page_title="IkigAI V1.81 - Executive Workstation", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS Zen V1.80
+# Estilo CSS Zen: Enfoque en Lectura y Contraste
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -35,7 +35,8 @@ st.markdown("""
     .stDownloadButton button, .stButton button { width: 100%; border-radius: 4px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; }
     .stDownloadButton button:hover, .stButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
     .section-tag { font-size: 11px; color: #666; letter-spacing: 1.5px; margin: 15px 0 5px 0; font-weight: 600; }
-    /* Estilo para el modo edición */
+    /* Estilo para el área de herramientas */
+    .stExpander { border: 1px solid #1A1A1A !important; background-color: #050505 !important; }
     textarea { background-color: #0D1117 !important; color: #FFFFFF !important; border: 1px solid #00E6FF !important; font-family: 'Courier New', monospace !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -90,7 +91,7 @@ def download_word(content, role):
     section.left_margin = Inches(1); section.right_margin = Inches(1)
     header = doc.add_heading(f'INFORME ESTRATÉGICO: {role.upper()}', 0)
     header.alignment = 1
-    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.80 Executive Analysis")
+    doc.add_paragraph(f"Fecha: {date.today()} | IkigAI V1.81 Analysis")
     doc.add_paragraph("_" * 50)
     for line in content.split('\n'):
         clean_line = line.strip()
@@ -178,32 +179,33 @@ with st.sidebar:
         img_f = st.file_uploader("Image:", type=['jpg', 'png'], label_visibility="collapsed")
         if img_f: st.session_state.temp_image = Image.open(img_f); st.image(img_f)
 
-# --- 6. PANEL CENTRAL: VENTANA ÚNICA DINÁMICA ---
+# --- 6. PANEL CENTRAL: LECTURA CON HERRAMIENTAS ---
 st.markdown(f"<h3 style='color: #00A3FF;'>{rol_activo.upper()}</h3>", unsafe_allow_html=True)
 
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
+        # Prioridad de Lectura: Markdown Limpio
+        st.markdown(msg["content"])
+        
         if msg["role"] == "assistant":
-            # Interruptor de Modo
-            modo_edicion = st.checkbox("📝 MODO EDICIÓN", key=f"tog_{i}", value=False)
-            
-            if modo_edicion:
-                texto_final = st.text_area(
-                    "EDITOR ESTRATÉGICO:",
-                    value=msg["content"],
-                    height=450,
-                    key=f"edit_{i}",
-                    label_visibility="collapsed"
-                )
-                if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}"):
-                    st.session_state.last_analysis = texto_final
-                    st.toast("Sincronizado.")
-            else:
-                # MODO COPIADO (Un solo clic nativo de st.code)
-                st.code(msg["content"], language=None)
-                st.caption("👆 Use el icono de la esquina superior derecha del bloque para copiar.")
-        else:
-            st.markdown(msg["content"])
+            # Acciones bajo demanda
+            with st.expander("🛠️ ACCIONES (Copiar / Editar)"):
+                t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
+                with t_copy:
+                    st.code(msg["content"], language=None)
+                    st.caption("👆 Haga clic en el ícono superior para copiar.")
+                with t_edit:
+                    texto_editado = st.text_area(
+                        "Modifique el borrador:", 
+                        value=msg["content"], 
+                        height=300, 
+                        key=f"edit_{i}",
+                        label_visibility="collapsed"
+                    )
+                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}"):
+                        st.session_state.last_analysis = texto_editado
+                        st.toast("Sincronizado.")
+        st.markdown("---")
 
 if pr := st.chat_input("¿Qué diseñamos hoy, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": pr})
