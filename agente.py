@@ -358,49 +358,40 @@ with st.sidebar:
     st.caption(f"IkigAI V2.0 | {date.today()}")    
     
 # --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
-# --- PROTOCOLO DE LIMPIEZA TOTAL (V2.5) ---
+# --- REFINAMIENTO ERGONÓMICO DE MÁRGENES (V2.6) ---
 st.markdown("""
     <style>
-    /* 1. ELIMINAR CUALQUIER BORDE DEL CONTENEDOR RAÍZ */
+    /* 1. COMPACTAR EL CONTENEDOR EXTERNO TOTALMENTE */
     div[data-testid="stChatInput"] {
-        border: none !important;
-        background-color: transparent !important;
-        box-shadow: none !important;
+        padding: 0 !important;
+        margin-bottom: 10px !important;
     }
 
-    /* 2. FORZAR TRANSPARENCIA EN EL WRAPPER INTERNO */
-    div[data-testid="stChatInput"] > div {
-        border: none !important;
+    /* 2. ELIMINAR ESPACIOS RESIDUALES DEL WRAPPER */
+    .stChatInputContainer {
+        padding: 0 !important;
         background-color: transparent !important;
-        box-shadow: none !important;
+        border: none !important;
     }
 
-    /* 3. SU LIENZO: EL ÚNICO CUADRO VISIBLE */
+    /* 3. SU CASILLA: AJUSTADA Y SIN DESPERDICIO */
     .stChatInput textarea {
         min-height: 100px !important;
         background-color: #262730 !important;
-        border: 1px solid #00E6FF !important; /* Borde Cian único */
+        border: 1px solid #00E6FF !important;
         border-radius: 12px !important;
         color: #FFFFFF !important;
         font-size: 17px !important;
-        padding: 15px !important;
+        margin: 0 !important; /* Elimina márgenes internos */
     }
 
-    /* 4. ELIMINAR EL OVERLAY GRIS AL ENFOCAR */
-    .stChatInput textarea:focus {
-        border: 2px solid #00E6FF !important;
-        outline: none !important;
-        box-shadow: 0 0 15px rgba(0, 230, 255, 0.3) !important;
-    }
-
-    /* 5. OCULTAR BOTÓN DE ENVÍO SI ES NECESARIO (Opcional, para limpieza) */
-    button[data-testid="stChatInputSubmitButton"] {
-        background-color: transparent !important;
-        color: #00E6FF !important;
+    /* 4. AJUSTE DE RESPUESTAS (Para ganar espacio) */
+    [data-testid="stChatMessage"] {
+        padding-top: 5px !important;
+        padding-bottom: 5px !important;
     }
     </style>
 """, unsafe_allow_html=True)
-
 # 1. RENDERIZADO DEL HISTORIAL CON GESTIÓN INTEGRADA
 for i, msg in enumerate(st.session_state.get("messages", [])):
     role_class = "user" if msg["role"] == "user" else "assistant"
@@ -478,6 +469,7 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
 
 
