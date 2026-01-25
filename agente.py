@@ -384,6 +384,14 @@ with st.sidebar:
 
     st.divider()
     st.caption(f"IkigAI V2.0 | {date.today()}")    
+
+# --- MOTOR DE MEMORIA PERSISTENTE ---
+    st.divider()
+    st.markdown("<div class='section-tag'>MEMORIA DE LARGO PLAZO</div>", unsafe_allow_html=True)
+    if st.button("🔄 Sincronizar Biblioteca Master", use_container_width=True):
+        with st.spinner("El agente está estudiando sus documentos..."):
+            resultado = actualizar_memoria_persistente()
+            st.success(resultado)
     
 # --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
 # --- PROTOCOLO DE LIMPIEZA TOTAL (V2.5) ---
@@ -522,3 +530,4 @@ if pr := st.chat_input(input_txt):
             f"EVIDENCIA DE BIBLIOTECA: {contexto_biblioteca}", 
             f"PREGUNTA: {pr}"
         ])
+
