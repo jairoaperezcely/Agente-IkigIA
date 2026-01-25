@@ -360,39 +360,21 @@ with st.sidebar:
 # --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
 # --- PROTOCOLO ZEN FINAL: ELIMINACIÓN DE MARCA Y RESTAURACIÓN (V2.8) ---
 st.markdown("""
+    st.markdown("""
     <style>
-    /* 1. ELIMINAR LOGO, FOOTER Y HEADER DE STREAMLIT (Limpieza Total) */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden !important;}
-    header {visibility: hidden !important;}
-    
-    /* 2. ELIMINAR EL ESPACIO EN BLANCO QUE DEJAN EL HEADER Y FOOTER */
-    .stApp header, .stApp footer {
-        display: none !important;
-    }
+    /* 1. MINIMIZACIÓN FORZADA DE LOGOS Y MARCA */
+    #MainMenu { visibility: visible; transform: scale(0.5); transform-origin: top right; }
+    footer { visibility: visible !important; height: 10px !important; padding: 0 !important; opacity: 0.2; }
+    header { height: 1rem !important; visibility: hidden !important; }
 
-    /* 3. RESTAURACIÓN DE LA CASILLA DE CHAT (100px de Abundancia) */
-    div[data-testid="stChatInput"] {
-        border: none !important;
-        background-color: transparent !important;
-        padding: 0 !important;
-    }
-
+    /* 2. RESTAURACIÓN DE LA CASILLA DE CHAT (100px) */
     .stChatInput textarea {
-        min-height: 100px !important; /* Restaurado a su tamaño ideal */
+        min-height: 100px !important;
         background-color: #262730 !important;
         border: 1px solid #00E6FF !important;
         border-radius: 12px !important;
         color: #FFFFFF !important;
         font-size: 17px !important;
-        padding: 15px !important;
-    }
-
-    /* 4. FOCO Y MINIMALISMO EXTERNO */
-    .stChatInput textarea:focus {
-        border: 2px solid #00E6FF !important;
-        box-shadow: 0 0 15px rgba(0, 230, 255, 0.3) !important;
-        outline: none !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -474,6 +456,7 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
 
 
