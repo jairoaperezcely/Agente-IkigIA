@@ -185,28 +185,42 @@ def download_word_compilado(indices_seleccionados, messages, role):
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
 def download_pptx(content, role):
-    """Genera Presentación Ejecutiva con Título Dinámico Dictado."""
+    """Genera Presentación Ejecutiva con ajuste automático de texto y segmentación."""
     prs = Presentation()
     clean_text = clean_markdown(content)
     
-    # Filtrar párrafos introductorios y capturar título
-    lineas = [l for l in clean_text.split('\n') if not any(x in l.upper() for x in ["COMO IKIGAI", "PRESENTO", "DOCTOR"])]
-    titulo_slide = lineas[0].upper() if lineas else "INFORME ESTRATÉGICO"
-
-    # Slide de Título
-    slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = titulo_slide[:75]
-    slide.placeholders[1].text = f"Autor: Jairo Antonio Pérez Cely\nEstrategia e Innovación | {date.today()}"
+    # 1. SLIDE DE PORTADA
+    lineas = [l for l in clean_text.split('\n') if l.strip() and not any(x in l.upper() for x in ["COMO IKIGAI", "DOCTOR"])]
+    titulo_doc = extraer_titulo_dictado(st.session_state.messages, st.session_state.export_pool)
     
-    # Slides de Contenido Técnico (Bullet points automáticos)
-    segments = [s.strip() for s in lineas[1:] if len(s.strip()) > 35]
-    for i, segment in enumerate(segments[:12]):
-        slide = prs.slides.add_slide(prs.slide_layouts[1])
-        slide.shapes.title.text = f"Eje de Análisis {i+1}"
-        body = slide.placeholders[1]
-        body.text = (segment[:447] + '...') if len(segment) > 450 else segment
+    slide = prs.slides.add_slide(prs.slide_layouts[0])
+    slide.shapes.title.text = titulo_doc
+    slide.placeholders[1].text = f"Autor: Jairo Antonio Pérez Cely\n{role} | {date.today()}"
+
+    # 2. PROCESAMIENTO DE CONTENIDO TÉCNICO
+    # Segmentamos el texto en bloques de máximo 600 caracteres para evitar desbordamiento
+    bloques = [lineas[i:i + 4] for i in range(1, len(lineas), 4)] # Máximo 4 párrafos por slide
+    
+    for i, bloque in enumerate(bloques):
+        slide = prs.slides.add_slide(prs.slide_layouts[1]) # Layout de Título y Cuerpo
         
-    bio = BytesIO(); prs.save(bio); return bio.getvalue()
+        # Título de la diapositiva dinámico
+        slide.shapes.title.text = f"{titulo_doc} (Parte {i+1})"
+        
+        body_shape = slide.placeholders[1]
+        tf = body_shape.text_frame
+        tf.word_wrap = True # Forzamos el ajuste de línea
+        
+        for p_text in bloque:
+            p = tf.add_paragraph()
+            p.text = p_text.strip()
+            p.font.size = Pt(18) # Tamaño ejecutivo legible
+            p.space_after = Pt(10)
+            
+    bio = BytesIO()
+    prs.save(bio)
+    return bio.getvalue()
+    
 # --- 4. LÓGICA DE ESTADO ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
@@ -409,3 +423,4 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error en la conexión técnica: {e}")
+
