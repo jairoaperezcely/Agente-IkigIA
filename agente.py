@@ -213,7 +213,7 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
 
-# --- 5. BARRA LATERAL: CONTROL TOTAL Y ENTREGABLES DINÁMICOS ---
+# --- 5. BARRA LATERAL (CORRECCIÓN LÓGICA DE EXPORTACIÓN V1.99) ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
@@ -238,39 +238,45 @@ with st.sidebar:
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
     
-    # --- BLOQUE DINÁMICO DE EXPORTACIÓN (V1.98 - NOMBRE DE ARCHIVO BASADO EN TEMA) ---
+    # --- LÓGICA DE EXPORTACIÓN CORREGIDA ---
+    # Solo entra aquí si el pool TIENE elementos (len > 0)
     if len(st.session_state.export_pool) > 0:
         st.divider()
         st.markdown(f"<div class='section-tag'>ENTREGABLES ({len(st.session_state.export_pool)} BLOQUES)</div>", unsafe_allow_html=True)
         
-        # Generamos el Word y capturamos el título dinámico extraído del contenido
+        # 1. Extraer título dinámico para el nombre del archivo
+        nombre_tema = extraer_titulo_dictado(st.session_state.messages, st.session_state.export_pool)
+        # Limpieza de caracteres para nombre de archivo válido
+        file_name_clean = re.sub(r'[^\w\s-]', '', nombre_tema).strip().replace(' ', '_')[:50]
+        
+        # 2. Generar datos de Word
         word_data = download_word_compilado(st.session_state.export_pool, st.session_state.messages, rol_activo)
         
-        # El motor de exportación ya nos devuelve el título detectado; lo usamos para el nombre del archivo
-        # Si la función solo devuelve bytes, usamos extraer_titulo_dictado para el nombre
-        nombre_tema = extraer_titulo_dictado(st.session_state.messages, st.session_state.export_pool)
-        file_name_clean = re.sub(r'[^\w\s-]', '', nombre_tema).replace(' ', '_')[:50]
-        
         st.download_button(
-            label="📄 DESCARGAR WORD", 
+            label=f"📄 Descargar: {nombre_tema[:20]}...", 
             data=word_data, 
             file_name=f"{file_name_clean}.docx", 
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True,
-            key="download_word_dynamic"
+            key="btn_word_final_v1"
         )
         
-        # Generación de PPT
+        # 3. Generar datos de PPT
         contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(st.session_state.export_pool)])
         ppt_data = download_pptx(contenido_para_ppt, rol_activo)
+        
         st.download_button(
-            label="📊 DESCARGAR PPT", 
+            label="📊 Descargar Presentación", 
             data=ppt_data, 
-            file_name=f"Presentacion_{file_name_clean}.pptx", 
+            file_name=f"PPT_{file_name_clean}.pptx", 
+            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
             use_container_width=True,
-            key="download_ppt_dynamic"
+            key="btn_ppt_final_v1"
         )
     else:
-        st.info("Seleccione bloques con 📥 para activar exportación.")
+        # Mensaje preventivo cuando NO hay nada seleccionado
+        st.divider()
+        st.info("💡 Seleccione los bloques en el chat con 📥 para activar la exportación a Word/PPT.")
 
     # --- FUENTES DE CONTEXTO ---
     st.divider()
@@ -286,7 +292,7 @@ with st.sidebar:
             with st.spinner("Refinando contexto..."):
                 try:
                     refiner = genai.GenerativeModel('gemini-2.5-flash')
-                    prompt_res = f"Actúa como Secretario Técnico. Extrae datos clave para manual de telesalud: {raw_text[:45000]}"
+                    prompt_res = f"Extrae datos clave para manual de telesalud: {raw_text[:45000]}"
                     resumen = refiner.generate_content(prompt_res)
                     st.session_state.biblioteca[rol_activo] = resumen.text
                     st.success("Biblioteca actualizada.")
@@ -294,7 +300,7 @@ with st.sidebar:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
 
     st.divider()
-    st.caption(f"IkigAI V1.98 | {date.today()}")
+    st.caption(f"IkigAI V1.99 | {date.today()}")
     
 # --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR (V1.96) ---
 # Inyección de estilo para transparencia total y rescate de navegación
@@ -409,4 +415,5 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error en la conexión técnica: {e}")
+
 
