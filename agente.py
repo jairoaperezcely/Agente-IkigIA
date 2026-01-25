@@ -220,6 +220,31 @@ def download_pptx(content, role):
     bio = BytesIO()
     prs.save(bio)
     return bio.getvalue()
+
+    def download_excel(content):
+    """Detecta tablas en el contenido y las exporta a un archivo Excel real."""
+    # Buscamos estructuras de tabla en formato markdown (| columna |)
+    try:
+        lines = content.split('\n')
+        table_data = []
+        for line in lines:
+            if '|' in line:
+                cells = [c.strip() for c in line.split('|') if c.strip()]
+                if cells:
+                    table_data.append(cells)
+        
+        if len(table_data) > 1:
+            # Limpiamos la línea separadora de markdown (|---|---|)
+            table_data = [row for row in table_data if not all(set(c).issubset({'-', ':', ' '}) for c in row)]
+            df = pd.DataFrame(table_data[1:], columns=table_data[0])
+            
+            bio = BytesIO()
+            with pd.ExcelWriter(bio, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Datos_IkigAI')
+            return bio.getvalue()
+    except Exception as e:
+        return None
+    return None
     
 # --- 4. LÓGICA DE ESTADO ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
@@ -423,5 +448,6 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error en la conexión técnica: {e}")
+
 
 
