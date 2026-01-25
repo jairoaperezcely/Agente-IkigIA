@@ -213,7 +213,7 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
 
-# --- 5. BARRA LATERAL: CONTROL TOTAL Y FUENTES DE CONTEXTO ---
+# --- 5. BARRA LATERAL: CONTROL ESTRATÉGICO Y ENTREGABLES (V2.0) ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
@@ -238,36 +238,48 @@ with st.sidebar:
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
     
-    # --- BLOQUE DINÁMICO DE EXPORTACIÓN (Solo Selección) ---
-    if st.session_state.export_pool:
+    # --- LÓGICA DE EXPORTACIÓN SINCRONIZADA ---
+    # Capturamos el estado actual del pool de selección
+    pool_actual = st.session_state.get("export_pool", [])
+    
+    if len(pool_actual) > 0:
         st.divider()
-        st.markdown(f"<div class='section-tag'>ENTREGABLES ({len(st.session_state.export_pool)} BLOQUES)</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-tag'>ENTREGABLES ACTIVOS ({len(pool_actual)})</div>", unsafe_allow_html=True)
         
-        # Word Compilado
-        word_data = download_word_compilado(st.session_state.export_pool, st.session_state.messages, rol_activo)
+        # 1. Extracción dinámica del título según el tema del chat
+        nombre_tema = extraer_titulo_dictado(st.session_state.messages, pool_actual)
+        file_name_clean = re.sub(r'[^\w\s-]', '', nombre_tema).strip().replace(' ', '_')[:40]
+        
+        # 2. Preparación de datos para Word (Autoría: Jairo Pérez Cely)
+        word_data = download_word_compilado(pool_actual, st.session_state.messages, rol_activo)
+        
         st.download_button(
-            "📄 Generar Word", 
+            label=f"📄 WORD: {nombre_tema[:15]}...", 
             data=word_data, 
-            file_name=f"Manual_{rol_activo}.docx", 
-            use_container_width=True
+            file_name=f"{file_name_clean}_{date.today()}.docx", 
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True,
+            key="btn_word_final_v2"
         )
         
-        # PPT Compilado
-        contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(st.session_state.export_pool)])
+        # 3. Preparación de datos para PPT
+        contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(pool_actual)])
         ppt_data = download_pptx(contenido_para_ppt, rol_activo)
+        
         st.download_button(
-            "📊 Generar PPT", 
+            label="📊 GENERAR PRESENTACIÓN", 
             data=ppt_data, 
-            file_name=f"Presentacion_{rol_activo}.pptx", 
-            use_container_width=True
+            file_name=f"PPT_{file_name_clean}.pptx", 
+            use_container_width=True,
+            key="btn_ppt_final_v2"
         )
     else:
-        st.info("Seleccione bloques con 📥 para exportar.")
+        st.divider()
+        st.info("💡 Seleccione bloques con 📥 en el chat para activar la exportación.")
 
-    # --- RESTAURACIÓN DE FUENTES DE CONTEXTO ---
+    # --- FUENTES DE CONTEXTO ---
     st.divider()
     st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
-    
     tab_doc, tab_url, tab_img = st.tabs(["DOC", "URL", "IMG"])
     
     with tab_doc:
@@ -275,43 +287,19 @@ with st.sidebar:
         if st.button("🧠 PROCESAR ARCHIVOS", use_container_width=True):
             raw_text = ""
             for f in up:
-                if f.type == "application/pdf":
-                    raw_text += get_pdf_text(f)
-                else:
-                    raw_text += get_docx_text(f)
-            
-            with st.spinner("Refinando contexto para el manual..."):
+                raw_text += get_pdf_text(f) if f.type == "application/pdf" else get_docx_text(f)
+            with st.spinner("Refinando contexto técnico..."):
                 try:
-                    # MOTOR: Gemini 2.5 Flash
                     refiner = genai.GenerativeModel('gemini-2.5-flash')
-                    prompt_resumen = f"Actúa como Secretario Técnico Académico. Extrae datos, normas y referencias clave de este texto para un manual de telesalud: {raw_text[:45000]}"
-                    resumen = refiner.generate_content(prompt_resumen)
+                    prompt_res = f"Extrae datos, normas y referencias clave: {raw_text[:45000]}"
+                    resumen = refiner.generate_content(prompt_res)
                     st.session_state.biblioteca[rol_activo] = resumen.text
                     st.success("Biblioteca actualizada.")
-                except Exception as e:
-                    st.warning("Fallo en IA. Cargando texto crudo.")
+                except:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
 
-    with tab_url:
-        uw = st.text_input("URL de referencia:", placeholder="https://", label_visibility="collapsed")
-        if st.button("🔗 CONECTAR WEB", use_container_width=True):
-            try:
-                r = requests.get(uw, timeout=10)
-                sopa = BeautifulSoup(r.text, 'html.parser')
-                st.session_state.biblioteca[rol_activo] += "\n" + sopa.get_text()
-                st.success("Web integrada al contexto.")
-            except:
-                st.error("No se pudo conectar con la URL.")
-
-    with tab_img:
-        img_f = st.file_uploader("Subir imagen (Evidencia/Gráfica):", type=['jpg', 'png'], label_visibility="collapsed")
-        if img_f:
-            st.session_state.temp_image = Image.open(img_f)
-            st.image(img_f, caption="Imagen cargada para análisis")
-
     st.divider()
-    st.caption(f"IkigAI V1.87 | {date.today()}")
-    
+    st.caption(f"IkigAI V2.0 | {date.today()}")    
 # --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR ---
 # --- MEJORA DEL CHAT INPUT EN EL BLOQUE CSS ---
 st.markdown("""
@@ -430,3 +418,4 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
