@@ -213,9 +213,10 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
 
-# --- 5. BARRA LATERAL (CORREGIDO SIN ERRORES DE INDENTACIÓN) ---
+# --- 5. BARRA LATERAL: CONTROL TOTAL Y FUENTES DE CONTEXTO ---
 with st.sidebar:
-    st.markdown("<h2 style='text-align: center;'>🧬 IKIGAI</h2>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
     
     st.divider()
     st.markdown("<div class='section-tag'>SESIÓN</div>", unsafe_allow_html=True)
@@ -236,61 +237,94 @@ with st.sidebar:
     st.divider()
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
-
-    # --- LÓGICA DE EXPORTACIÓN SINCRONIZADA ---
-    # Esta línea debe estar alineada con 'rol_activo' arriba
-    pool_actual = st.session_state.get("export_pool", [])
     
-    if len(pool_actual) > 0:
+    # --- BLOQUE DINÁMICO DE EXPORTACIÓN (Solo Selección) ---
+    if st.session_state.export_pool:
         st.divider()
-        st.markdown(f"<div class='section-tag'>ENTREGABLES ACTIVOS ({len(pool_actual)})</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-tag'>ENTREGABLES ({len(st.session_state.export_pool)} BLOQUES)</div>", unsafe_allow_html=True)
         
-        nombre_tema = extraer_titulo_dictado(st.session_state.messages, pool_actual)
-        file_name_clean = re.sub(r'[^\w\s-]', '', nombre_tema).strip().replace(' ', '_')[:40]
-        
-        word_data = download_word_compilado(pool_actual, st.session_state.messages, rol_activo)
-        
+        # Word Compilado
+        word_data = download_word_compilado(st.session_state.export_pool, st.session_state.messages, rol_activo)
         st.download_button(
-            label=f"📄 DESCARGAR WORD", 
+            "📄 Generar Word", 
             data=word_data, 
-            file_name=f"{file_name_clean}.docx", 
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True,
-            key="btn_word_v2"
+            file_name=f"Manual_{rol_activo}.docx", 
+            use_container_width=True
         )
         
-        contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(pool_actual)])
+        # PPT Compilado
+        contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(st.session_state.export_pool)])
         ppt_data = download_pptx(contenido_para_ppt, rol_activo)
-        
         st.download_button(
-            label="📊 DESCARGAR PPT", 
+            "📊 Generar PPT", 
             data=ppt_data, 
-            file_name=f"PPT_{file_name_clean}.pptx", 
-            use_container_width=True,
-            key="btn_ppt_v2"
+            file_name=f"Presentacion_{rol_activo}.pptx", 
+            use_container_width=True
         )
     else:
-        st.divider()
-        st.info("Seleccione bloques con 📥 en el chat para habilitar la descarga.")
+        st.info("Seleccione bloques con 📥 para exportar.")
 
-    # --- FUENTES DE CONTEXTO ---
+    # --- RESTAURACIÓN DE FUENTES DE CONTEXTO ---
     st.divider()
     st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
-    # ... (Resto de sus pestañas DOC, URL, IMG con la misma sangría)   
+    
+    tab_doc, tab_url, tab_img = st.tabs(["DOC", "URL", "IMG"])
+    
+    with tab_doc:
+        up = st.file_uploader("Subir PDF o Word:", type=['pdf', 'docx'], accept_multiple_files=True, label_visibility="collapsed")
+        if st.button("🧠 PROCESAR ARCHIVOS", use_container_width=True):
+            raw_text = ""
+            for f in up:
+                if f.type == "application/pdf":
+                    raw_text += get_pdf_text(f)
+                else:
+                    raw_text += get_docx_text(f)
+            
+            with st.spinner("Refinando contexto para el manual..."):
+                try:
+                    # MOTOR: Gemini 2.5 Flash
+                    refiner = genai.GenerativeModel('gemini-2.5-flash')
+                    prompt_resumen = f"Actúa como Secretario Técnico Académico. Extrae datos, normas y referencias clave de este texto para un manual de telesalud: {raw_text[:45000]}"
+                    resumen = refiner.generate_content(prompt_resumen)
+                    st.session_state.biblioteca[rol_activo] = resumen.text
+                    st.success("Biblioteca actualizada.")
+                except Exception as e:
+                    st.warning("Fallo en IA. Cargando texto crudo.")
+                    st.session_state.biblioteca[rol_activo] = raw_text[:30000]
 
-# --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR (V1.96) ---
-# Inyección de estilo para transparencia total y rescate de navegación
+    with tab_url:
+        uw = st.text_input("URL de referencia:", placeholder="https://", label_visibility="collapsed")
+        if st.button("🔗 CONECTAR WEB", use_container_width=True):
+            try:
+                r = requests.get(uw, timeout=10)
+                sopa = BeautifulSoup(r.text, 'html.parser')
+                st.session_state.biblioteca[rol_activo] += "\n" + sopa.get_text()
+                st.success("Web integrada al contexto.")
+            except:
+                st.error("No se pudo conectar con la URL.")
+
+    with tab_img:
+        img_f = st.file_uploader("Subir imagen (Evidencia/Gráfica):", type=['jpg', 'png'], label_visibility="collapsed")
+        if img_f:
+            st.session_state.temp_image = Image.open(img_f)
+            st.image(img_f, caption="Imagen cargada para análisis")
+
+    st.divider()
+    st.caption(f"IkigAI V1.87 | {date.today()}")
+    
+# --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR ---
+# --- MEJORA DEL CHAT INPUT EN EL BLOQUE CSS ---
 st.markdown("""
     <style>
-    /* 1. ELIMINAR CAJAS DE MENSAJES (Efecto Lienzo Continuo) */
+    /* 1. ELIMINAR CAJAS DE MENSAJES (Efecto burbuja) */
     [data-testid="stChatMessage"] {
-        background-color: transparent !important;
+        background-color: transparent !important; /* Elimina el fondo de la caja */
         border: none !important;
         padding-left: 0 !important;
         margin-bottom: -10px !important;
     }
 
-    /* 2. BARRA DE ENTRADA ESTILO GEMINI */
+    /* 2. BARRA DE ENTRADA ESTILO GEMINI (Sobriedad Absoluta) */
     .stChatInputContainer {
         padding: 20px 0 !important;
         background-color: transparent !important;
@@ -298,7 +332,7 @@ st.markdown("""
     }
 
     .stChatInput textarea {
-        background-color: #1E1F20 !important;
+        background-color: #1E1F20 !important; /* Gris profundo Gemini */
         border: 1px solid #3C4043 !important;
         border-radius: 28px !important;
         color: #E3E3E3 !important;
@@ -307,40 +341,39 @@ st.markdown("""
         box-shadow: none !important;
     }
 
-    /* 3. RESCATE DE CONTROLES DE NAVEGACIÓN (BOTÓN SIDEBAR) */
-    /* Mantenemos ocultos el pie de página, pero dejamos el header funcional para no perder la viñeta */
-    footer { visibility: hidden !important; }
-    header { background-color: rgba(0,0,0,0) !important; }
-    
-    /* Estilo del botón de colapso para que sea visible en el lienzo negro */
-    button[data-testid="stSidebarCollapseButton"] {
-        background-color: #1A1A1A !important;
-        color: #00E6FF !important;
-        border: 1px solid #333 !important;
+    .stChatInput textarea:focus {
+        border-color: #A8C7FA !important; /* Enfoque sutil */
     }
 
-    /* 4. AJUSTE DE FUENTE Y AVATARES */
+    /* 3. LIMPIEZA DE AVATARES (Opcional, para más sobriedad) */
     [data-testid="stChatMessageAvatarAssistant"], 
     [data-testid="stChatMessageAvatarUser"] {
-        display: none !important;
+        display: none !important; /* Oculta los iconos para dejar solo el texto técnico */
     }
 
+    /* 4. AJUSTE DE FUENTE PARA RIGOR ACADÉMICO */
     .stMarkdown p {
         font-family: 'Segoe UI', Tahoma, sans-serif !important;
         font-size: 16px !important;
         line-height: 1.6 !important;
         color: #E3E3E3 !important;
     }
+    
+    /* 5. OCULTAR ELEMENTOS DISTRACTORES DE STREAMLIT */
+    #MainMenu, footer, header {
+        visibility: hidden !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Renderizado de Mensajes con Lógica de Edición y Selección
 for i, msg in enumerate(st.session_state.get("messages", [])):
     with st.chat_message(msg["role"]):
+        # 1. LECTURA SIEMPRE DISPONIBLE (Markdown Limpio)
         st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
-            # Selección para el Manual
+            # 2. SELECCIÓN PARA EL MANUAL (Checkbox)
+            # Verificamos si el índice está en el pool para mantener el estado visual
             is_selected = i in st.session_state.export_pool
             if st.checkbox(f"📥 Incluir en Manual (Word)", key=f"sel_{i}", value=is_selected):
                 if i not in st.session_state.export_pool:
@@ -349,14 +382,16 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                 if i in st.session_state.export_pool:
                     st.session_state.export_pool.remove(i)
 
-            # Gestión de Bloque: Copiar y Editar
+            # 3. GESTIÓN INDIVIDUAL (Copiar/Editar)
             with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
                 t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
                 
                 with t_copy:
                     st.code(msg["content"], language=None)
+                    st.caption("Toque el icono superior derecho para copiar.")
                 
                 with t_edit:
+                    # Editor con altura optimizada
                     texto_editado = st.text_area(
                         "Modifique el borrador aquí:", 
                         value=msg["content"], 
@@ -365,14 +400,18 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                         label_visibility="collapsed"
                     )
                     
-                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # Botón de fijado visual y ancho (Mobile Ready)
+                    if st.button("✅ FIJAR CAMBIOS EN ESTE BLOQUE", key=f"save_{i}", use_container_width=True):
+                        # Actualizamos el mensaje en el historial para que la exportación use la versión editada
                         st.session_state.messages[i]["content"] = texto_editado
                         st.session_state.last_analysis = texto_editado
-                        st.toast("✅ Cambios sincronizados.")
+                        st.toast("✅ Cambios guardados y sincronizados.")
         
         st.markdown("---")
 
-# Captura de nuevo input con modelo 2.5 Flash
+# Captura de nuevo input
 if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"):
@@ -380,18 +419,14 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
     
     with st.chat_message("assistant"):
         try:
-            # Mantenemos su preferencia de modelo 2.5 Flash
             model = genai.GenerativeModel('gemini-2.5-flash')
-            sys_context = f"Rol: {rol_activo}. {ROLES[rol_activo]}. Rigor académico APA 7. Autor: Jairo Pérez Cely."
+            sys_context = f"Rol: {rol_activo}. {ROLES[rol_activo]}. Rigor académico APA 7."
             lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
             
             response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
             
+            # Guardamos en historial pero NO marcamos para exportar automáticamente
             st.session_state.messages.append({"role": "assistant", "content": response.text})
             st.rerun()
         except Exception as e:
-            st.error(f"Error en la conexión técnica: {e}")
-
-
-
-
+            st.error(f"Error: {e}")
