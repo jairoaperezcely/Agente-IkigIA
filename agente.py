@@ -498,7 +498,7 @@ if pr := st.chat_input(input_txt):
     
     with st.chat_message("assistant"):
         try:
-            model = genai.GenerativeModel('gemini-2.0-flash') # Uso de la versión más rápida
+            model = genai.GenerativeModel('gemini-2.5-flash') # Uso de la versión más rápida
             # INYECCIÓN DEL MINDSET DISRUPTIVO
             sys_context = (
                 f"Usted es el socio estratégico de Jairo Pérez Cely. Rol: {rol_activo}. "
@@ -515,6 +515,36 @@ if pr := st.chat_input(input_txt):
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
 
+        with st.chat_message("assistant"):
+        try:
+            # 1. BÚSQUEDA DE EVIDENCIA EN LA BIBLIOTECA
+            contexto_biblioteca = "No se encontró evidencia específica en la biblioteca master."
+            if os.path.exists(DB_PATH):
+                embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+                # Cargamos la base de datos de conocimiento
+                vector_db = FAISS.load_local(DB_PATH, embeddings, allow_dangerous_deserialization=True)
+                # Buscamos los 3 fragmentos más relevantes para la pregunta del Doctor
+                docs = vector_db.similarity_search(pr, k=3)
+                contexto_biblioteca = "\n".join([d.page_content for d in docs])
+
+            # 2. GENERACIÓN ESTRATÉGICA CON EVIDENCIA
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            sys_context = (
+                f"Socio estratégico de Jairo Pérez Cely. Rol: {rol_activo}. "
+                "Protocolo: Chain-of-Thought (Académica, Estratégica, Innovación). "
+                "Obligación: Prioriza la evidencia de la biblioteca master si está disponible."
+            )
+            
+            # El prompt inyecta el conocimiento recuperado
+            resp = model.generate_content([
+                sys_context, 
+                f"CONOCIMIENTO DE AUTOR: {contexto_biblioteca}", 
+                f"SOLICITUD DEL DOCTOR: {pr}"
+            ])
+            
+            st.session_state.messages.append({"role": "assistant", "content": resp.text})
+            st.rerun()
+
 # LÓGICA DE CONSULTA A LA BIBLIOTECA
         contexto_biblioteca = ""
         if os.path.exists(DB_PATH):
@@ -530,4 +560,5 @@ if pr := st.chat_input(input_txt):
             f"EVIDENCIA DE BIBLIOTECA: {contexto_biblioteca}", 
             f"PREGUNTA: {pr}"
         ])
+
 
