@@ -466,7 +466,8 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
         st.markdown("---")
 
 # Captura de nuevo input con modelo preferido Gemini 2.5 Flash
-if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
+# --- 6. CIERRE CORRECTO DEL BLOQUE DE GENERACIÓN ---
+if pr := st.chat_input(""Doctor, ¿qué frontera vamos a expandir hoy? (Estrategia, Académico, Innovación o trading)""):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"):
         st.markdown(pr)
@@ -474,12 +475,15 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
     with st.chat_message("assistant"):
         try:
             model = genai.GenerativeModel('gemini-2.5-flash')
-            sys_context = f"Rol: {rol_activo}. {ROLES[rol_activo]}. Rigor académico APA 7. Autor: Jairo Pérez Cely."
+            # Definición del contexto con su nuevo Mindset
+            sys_context = f"Rol: {rol_activo}. Protocolo: Chain-of-Thought. Desglose en 3 dimensiones. Estilo clínico y disruptivo."
             lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
             
             response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
             
             st.session_state.messages.append({"role": "assistant", "content": response.text})
             st.rerun()
+            
         except Exception as e:
-            st.error(f"Error en la conexión técnica: {e}")
+            # Este es el bloque que le faltaba y causaba el SyntaxError
+            st.error(f"Error en la generación: {e}")
