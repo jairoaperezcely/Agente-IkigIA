@@ -358,32 +358,40 @@ with st.sidebar:
     st.caption(f"IkigAI V2.0 | {date.today()}")    
     
 # --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
-# --- REFINAMIENTO ESTÉTICO Y ERGONÓMICO (V2.3) ---
+# --- REFINAMIENTO MINIMALISTA (V2.4) ---
 st.markdown("""
     <style>
-    /* 1. AJUSTE DE TAMAÑO Y COLOR DE LA CASILLA */
+    /* 1. ELIMINAR BORDE Y FONDO DEL CONTENEDOR EXTERNO */
+    [data-testid="stChatInput"] {
+        border: none !important;
+        background-color: transparent !important;
+        padding: 0 !important;
+    }
+
+    /* 2. LIMPIAR EL CONTENEDOR SECUNDARIO */
+    .stChatInputContainer {
+        border: none !important;
+        background-color: transparent !important;
+    }
+
+    /* 3. MANTENER SOLO SU CASILLA PERSONALIZADA */
     .stChatInput textarea {
-        min-height: 100px !important; /* Punto medio ideal */
-        background-color: #262730 !important; /* Gris antracita de contraste */
-        border: 1px solid #00E6FF !important; /* Borde Cian Innovación */
-        border-radius: 12px !important;
+        min-height: 100px !important;
+        background-color: #262730 !important;
+        border: 1px solid #00E6FF !important; /* Su borde cian distintivo */
+        border_radius: 12px !important;
         color: #FFFFFF !important;
         font-size: 17px !important;
+        box-shadow: none !important;
     }
 
-    /* 2. EFECTO DE FOCO (Mindset Activo) */
+    /* 4. FOCO LIMPIO */
     .stChatInput textarea:focus {
         border: 2px solid #00E6FF !important;
-        box-shadow: 0 0 10px rgba(0, 230, 255, 0.2) !important;
-    }
-
-    /* 3. TRANSPARENCIA DEL CONTENEDOR */
-    [data-testid="stChatMessage"] {
-        background-color: transparent !important;
+        outline: none !important;
     }
     </style>
 """, unsafe_allow_html=True)
-
 # 1. RENDERIZADO DEL HISTORIAL
 for i, msg in enumerate(st.session_state.get("messages", [])):
     role_class = "user" if msg["role"] == "user" else "assistant"
@@ -447,6 +455,7 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
 
 
