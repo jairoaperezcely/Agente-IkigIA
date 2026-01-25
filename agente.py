@@ -268,7 +268,6 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
-if "editor_version" not in st.session_state: st.session_state.editor_version = 0
 
 # --- 5. BARRA LATERAL: CONTROL ESTRATÉGICO Y ENTREGABLES (V2.0) ---
 with st.sidebar:
@@ -359,67 +358,73 @@ with st.sidebar:
     st.caption(f"IkigAI V2.0 | {date.today()}")    
     
 # --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
-# --- PROTOCOLO ZEN FINAL: ELIMINACIÓN DE MARCA Y RESTAURACIÓN (V2.8) ---
+# --- PROTOCOLO DE LIMPIEZA TOTAL (V2.5) ---
 st.markdown("""
     <style>
-    /* 1. ELIMINAR LOGO, FOOTER Y HEADER DE STREAMLIT (Limpieza Total) */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden !important;}
-    header {visibility: hidden !important;}
-    
-    /* 2. ELIMINAR EL ESPACIO EN BLANCO QUE DEJAN EL HEADER Y FOOTER */
-    .stApp header, .stApp footer {
-        display: none !important;
-    }
-
-    /* 3. RESTAURACIÓN DE LA CASILLA DE CHAT (100px de Abundancia) */
+    /* 1. ELIMINAR CUALQUIER BORDE DEL CONTENEDOR RAÍZ */
     div[data-testid="stChatInput"] {
         border: none !important;
         background-color: transparent !important;
-        padding: 0 !important;
+        box-shadow: none !important;
     }
 
+    /* 2. FORZAR TRANSPARENCIA EN EL WRAPPER INTERNO */
+    div[data-testid="stChatInput"] > div {
+        border: none !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+    }
+
+    /* 3. SU LIENZO: EL ÚNICO CUADRO VISIBLE */
     .stChatInput textarea {
-        min-height: 100px !important; /* Restaurado a su tamaño ideal */
+        min-height: 100px !important;
         background-color: #262730 !important;
-        border: 1px solid #00E6FF !important;
+        border: 1px solid #00E6FF !important; /* Borde Cian único */
         border-radius: 12px !important;
         color: #FFFFFF !important;
         font-size: 17px !important;
         padding: 15px !important;
     }
 
-    /* 4. FOCO Y MINIMALISMO EXTERNO */
+    /* 4. ELIMINAR EL OVERLAY GRIS AL ENFOCAR */
     .stChatInput textarea:focus {
         border: 2px solid #00E6FF !important;
-        box-shadow: 0 0 15px rgba(0, 230, 255, 0.3) !important;
         outline: none !important;
+        box-shadow: 0 0 15px rgba(0, 230, 255, 0.3) !important;
+    }
+
+    /* 5. OCULTAR BOTÓN DE ENVÍO SI ES NECESARIO (Opcional, para limpieza) */
+    button[data-testid="stChatInputSubmitButton"] {
+        background-color: transparent !important;
+        color: #00E6FF !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. RENDERIZADO DEL HISTORIAL
+# 1. RENDERIZADO DEL HISTORIAL
 for i, msg in enumerate(st.session_state.get("messages", [])):
     role_class = "user" if msg["role"] == "user" else "assistant"
     with st.chat_message(role_class):
         st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
-            # Motores de activos (Excel/Gráficos)
+            # --- MOTOR DE ACTIVOS (EXCEL Y GRÁFICOS) ---
             if '|' in msg["content"]:
                 excel_data = download_excel(msg["content"])
                 if excel_data:
-                    c1, c2 = st.columns(2)
-                    with c1: st.download_button("📊 Excel", excel_data, f"Data_{i}.xlsx", key=f"x_{i}_{ver}")
-                    with c2:
+                    col_ex, col_gr = st.columns(2)
+                    with col_ex:
+                        st.download_button("📊 Excel", data=excel_data, file_name=f"Datos_{i}.xlsx", key=f"xls_{i}")
+                    with col_gr:
                         try:
-                            df_t = pd.read_excel(BytesIO(excel_data))
-                            st.download_button("📈 Gráfico", generar_grafico_estratégico(df_t), f"Viz_{i}.png", key=f"g_{i}_{ver}")
+                            df_temp = pd.read_excel(BytesIO(excel_data))
+                            img_grafico = generar_grafico_estratégico(df_temp)
+                            st.download_button("📈 Gráfico", data=img_grafico, file_name=f"Viz_{i}.png", key=f"grf_{i}")
                         except: pass
 
-            # GESTIÓN DE SELECCIÓN (Usando 'ver' ya definida)
+            # --- GESTIÓN DE BLOQUE ---
             is_selected = i in st.session_state.export_pool
-            if st.checkbox(f"📥 Incluir en Reporte", key=f"sel_{i}_{ver}", value=is_selected):
+            if st.checkbox(f"📥 Incluir en Reporte", key=f"sel_{i}", value=is_selected):
                 if i not in st.session_state.export_pool:
                     st.session_state.export_pool.append(i)
                     st.rerun()
@@ -427,17 +432,11 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                 st.session_state.export_pool.remove(i)
                 st.rerun()
 
-            # Bloque de Edición con Cierre Automático
-            with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
-                t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
-                with t_copy: st.code(msg["content"], language=None)
-                with t_edit:
-                    txt_edit = st.text_area("Borrador:", value=msg["content"], height=300, key=f"ed_{i}_{ver}")
-                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}_{ver}", use_container_width=True):
-                        st.session_state.messages[i]["content"] = txt_edit
-                        st.session_state.editor_version += 1 # Rotación de key
-                        st.toast("✅ Sincronizado. Colapsando editor...")
-                        st.rerun()
+            with st.expander("🛠️ EDITAR CONTENIDO"):
+                texto_editado = st.text_area("Borrador:", value=msg["content"], height=200, key=f"ed_{i}")
+                if st.button("✅ GUARDAR", key=f"sv_{i}"):
+                    st.session_state.messages[i]["content"] = texto_editado
+                    st.rerun()
     st.markdown("---")
 
 # 2. CAPTURA DE NUEVO INPUT Y GENERACIÓN
@@ -465,18 +464,3 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
