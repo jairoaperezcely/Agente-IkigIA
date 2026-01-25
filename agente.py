@@ -358,23 +358,41 @@ with st.sidebar:
     st.caption(f"IkigAI V2.0 | {date.today()}")    
     
 # --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
-# --- REFINAMIENTO ESTÉTICO FINAL (V2.9) ---
+# --- PROTOCOLO ZEN FINAL: ELIMINACIÓN DE MARCA Y RESTAURACIÓN (V2.8) ---
 st.markdown("""
     <style>
-    /* 1. MINIMIZACIÓN DE MARCA */
-    #MainMenu { visibility: visible; transform: scale(0.5); transform-origin: top right; }
-    footer { visibility: visible !important; height: 10px !important; padding: 0 !important; opacity: 0.2; }
-    header { height: 1rem !important; visibility: hidden !important; }
+    /* 1. ELIMINAR LOGO, FOOTER Y HEADER DE STREAMLIT (Limpieza Total) */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden !important;}
+    header {visibility: hidden !important;}
+    
+    /* 2. ELIMINAR EL ESPACIO EN BLANCO QUE DEJAN EL HEADER Y FOOTER */
+    .stApp header, .stApp footer {
+        display: none !important;
+    }
 
-    /* 2. RESTAURACIÓN DE LA CASILLA DE CHAT (100px) */
-    div[data-testid="stChatInput"] { border: none !important; background-color: transparent !important; padding: 0 !important; }
+    /* 3. RESTAURACIÓN DE LA CASILLA DE CHAT (100px de Abundancia) */
+    div[data-testid="stChatInput"] {
+        border: none !important;
+        background-color: transparent !important;
+        padding: 0 !important;
+    }
+
     .stChatInput textarea {
-        min-height: 100px !important;
+        min-height: 100px !important; /* Restaurado a su tamaño ideal */
         background-color: #262730 !important;
         border: 1px solid #00E6FF !important;
         border-radius: 12px !important;
         color: #FFFFFF !important;
         font-size: 17px !important;
+        padding: 15px !important;
+    }
+
+    /* 4. FOCO Y MINIMALISMO EXTERNO */
+    .stChatInput textarea:focus {
+        border: 2px solid #00E6FF !important;
+        box-shadow: 0 0 15px rgba(0, 230, 255, 0.3) !important;
+        outline: none !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -400,36 +418,27 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                             st.download_button("📈 Gráfico", data=img_grafico, file_name=f"Viz_{i}.png", key=f"grf_{i}")
                         except: pass
 
-            # --- GESTIÓN DE BLOQUE (SELECCIÓN, COPIAR Y EDITAR) ---
-            is_selected = i in st.session_state.export_pool
-            if st.checkbox(f"📥 Incluir en Reporte", key=f"sel_{i}", value=is_selected):
-                if i not in st.session_state.export_pool:
-                    st.session_state.export_pool.append(i)
-                    st.rerun()
-            elif i in st.session_state.export_pool:
-                st.session_state.export_pool.remove(i)
-                st.rerun()
+# --- GESTIÓN DE BLOQUE CON CIERRE AUTOMÁTICO ---
+# Usamos el estado del botón para controlar el expander de forma indirecta
+expandido = st.session_state.get(f"expand_state_{i}", False)
 
-            # Pestañas de Gestión: Aquí es donde recuperamos la funcionalidad
-            with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
-                t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
-                
-                with t_copy:
-                    st.code(msg["content"], language=None)
-                
-                with t_edit:
-                    texto_editado = st.text_area(
-                        "Modifique el borrador aquí:", 
-                        value=msg["content"], 
-                        height=300, 
-                        key=f"ed_{i}",
-                        label_visibility="collapsed"
-                    )
-                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
-                        st.session_state.messages[i]["content"] = texto_editado
-                        st.toast("✅ Cambios sincronizados en el historial.")
-                        st.rerun()
-    st.markdown("---")
+with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=expandido):
+    t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
+    
+    with t_copy:
+        st.code(msg["content"], language=None)
+    
+    with t_edit:
+        texto_editado = st.text_area("Borrador:", value=msg["content"], height=300, key=f"ed_{i}")
+        
+        if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
+            # 1. Guardar contenido
+            st.session_state.messages[i]["content"] = texto_editado
+            # 2. Feedback visual inmediato
+            st.success("Cambios sincronizados con éxito.")
+            # 3. Forzar el cierre en el siguiente renderizado
+            st.session_state[f"expand_state_{i}"] = False 
+            st.rerun()
 
 # 2. CAPTURA DE NUEVO INPUT Y GENERACIÓN
 input_txt = "Nuestro reto para hoy..."
@@ -456,6 +465,7 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
 
 
