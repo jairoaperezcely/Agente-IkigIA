@@ -268,7 +268,7 @@ with st.sidebar:
         word_data = download_word_compilado(pool_actual, st.session_state.messages, rol_activo)
         
         st.download_button(
-            label=f"📄 WORD: {nombre_tema[:15]}...", 
+            label=f"📄 Generar Word", 
             data=word_data, 
             file_name=f"{file_name_clean}_{date.today()}.docx", 
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -281,7 +281,7 @@ with st.sidebar:
         ppt_data = download_pptx(contenido_para_ppt, rol_activo)
         
         st.download_button(
-            label="📊 GENERAR PRESENTACIÓN", 
+            label="📊 Generar PPT", 
             data=ppt_data, 
             file_name=f"PPT_{file_name_clean}.pptx", 
             use_container_width=True,
@@ -423,4 +423,5 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error en la conexión técnica: {e}")
+
 
