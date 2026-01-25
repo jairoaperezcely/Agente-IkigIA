@@ -401,7 +401,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 1. RENDERIZADO DEL HISTORIAL
+# 1. RENDERIZADO DEL HISTORIAL CON GESTIÓN INTEGRADA
 for i, msg in enumerate(st.session_state.get("messages", [])):
     role_class = "user" if msg["role"] == "user" else "assistant"
     with st.chat_message(role_class):
@@ -422,7 +422,7 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                             st.download_button("📈 Gráfico", data=img_grafico, file_name=f"Viz_{i}.png", key=f"grf_{i}")
                         except: pass
 
-            # --- GESTIÓN DE BLOQUE ---
+            # --- GESTIÓN DE BLOQUE (SELECCIÓN, COPIAR Y EDITAR) ---
             is_selected = i in st.session_state.export_pool
             if st.checkbox(f"📥 Incluir en Reporte", key=f"sel_{i}", value=is_selected):
                 if i not in st.session_state.export_pool:
@@ -432,11 +432,25 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                 st.session_state.export_pool.remove(i)
                 st.rerun()
 
-            with st.expander("🛠️ EDITAR CONTENIDO"):
-                texto_editado = st.text_area("Borrador:", value=msg["content"], height=200, key=f"ed_{i}")
-                if st.button("✅ GUARDAR", key=f"sv_{i}"):
-                    st.session_state.messages[i]["content"] = texto_editado
-                    st.rerun()
+            # Pestañas de Gestión: Aquí es donde recuperamos la funcionalidad
+            with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
+                t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
+                
+                with t_copy:
+                    st.code(msg["content"], language=None)
+                
+                with t_edit:
+                    texto_editado = st.text_area(
+                        "Modifique el borrador aquí:", 
+                        value=msg["content"], 
+                        height=300, 
+                        key=f"ed_{i}",
+                        label_visibility="collapsed"
+                    )
+                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
+                        st.session_state.messages[i]["content"] = texto_editado
+                        st.toast("✅ Cambios sincronizados en el historial.")
+                        st.rerun()
     st.markdown("---")
 
 # 2. CAPTURA DE NUEVO INPUT Y GENERACIÓN
@@ -464,3 +478,4 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
