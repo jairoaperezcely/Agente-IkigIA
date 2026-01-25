@@ -357,15 +357,32 @@ with st.sidebar:
     st.divider()
     st.caption(f"IkigAI V2.0 | {date.today()}")    
 # --- 6. PANEL CENTRAL: WORKSTATION (V2.1 - OPTIMIZADA) ---
+# --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
 st.markdown("""
     <style>
-    [data-testid="stChatMessage"] { background-color: transparent !important; border: none !important; margin-bottom: -10px !important; }
-    .stChatInput textarea { background-color: #1E1F20 !important; border: 1px solid #3C4043 !important; border-radius: 28px !important; color: #E3E3E3 !important; }
-    [data-testid="stChatMessageAvatarAssistant"], [data-testid="stChatMessageAvatarUser"] { display: none !important; }
-    .stMarkdown p { font-family: 'Segoe UI', sans-serif !important; font-size: 16px !important; color: #E3E3E3 !important; }
+    /* 1. EXPANSIÓN DE LA CASILLA DE CHAT */
+    .stChatInput textarea {
+        min-height: 150px !important; /* Aquí controlamos el tamaño inicial */
+        background-color: #1E1F20 !important;
+        border: 1px solid #3C4043 !important;
+        border-radius: 15px !important;
+        color: #E3E3E3 !important;
+        font-size: 18px !important;
+        line-height: 1.5 !important;
+    }
+
+    /* 2. TRANSPARENCIA Y LIMPIEZA VISUAL */
+    [data-testid="stChatMessage"] {
+        background-color: transparent !important;
+        border: none !important;
+    }
+
+    /* 3. AJUSTE PARA MÓVILES */
+    .stChatInputContainer {
+        padding: 20px 5% !important;
+    }
     </style>
 """, unsafe_allow_html=True)
-
 # 1. RENDERIZADO DEL HISTORIAL
 for i, msg in enumerate(st.session_state.get("messages", [])):
     role_class = "user" if msg["role"] == "user" else "assistant"
@@ -429,4 +446,5 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
