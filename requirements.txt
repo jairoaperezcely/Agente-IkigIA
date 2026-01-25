@@ -5,7 +5,9 @@ python-docx
 python-pptx
 pandas
 openpyxl
+xlsxwriter
 matplotlib
+seaborn
 beautifulsoup4
 requests
 youtube-transcript-api
