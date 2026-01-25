@@ -418,28 +418,25 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                             st.download_button("📈 Gráfico", data=img_grafico, file_name=f"Viz_{i}.png", key=f"grf_{i}")
                         except: pass
 
-# --- GESTIÓN DE BLOQUE CON CIERRE AUTOMÁTICO ---
-# Usamos el estado del botón para controlar el expander de forma indirecta
-expandido = st.session_state.get(f"expand_state_{i}", False)
-
-with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=expandido):
+# --- GESTIÓN DE BLOQUE CON RETROALIMENTACIÓN ---
+with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
     t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
     
     with t_copy:
         st.code(msg["content"], language=None)
     
     with t_edit:
-        texto_editado = st.text_area("Borrador:", value=msg["content"], height=300, key=f"ed_{i}")
+        # Usamos un key único para el área de texto
+        texto_editado = st.text_area("Edite el contenido estratégico:", value=msg["content"], height=300, key=f"edit_area_{i}")
         
-        if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
-            # 1. Guardar contenido
+        if st.button("✅ FIJAR CAMBIOS", key=f"btn_save_{i}", use_container_width=True):
+            # 1. Actualización de la memoria de la sesión
             st.session_state.messages[i]["content"] = texto_editado
-            # 2. Feedback visual inmediato
-            st.success("Cambios sincronizados con éxito.")
-            # 3. Forzar el cierre en el siguiente renderizado
-            st.session_state[f"expand_state_{i}"] = False 
+            # 2. Confirmación visual (Toast)
+            st.toast("✅ Cambios sincronizados. Cerrando editor...")
+            # 3. El rerun colapsará el expander automáticamente al recargar
             st.rerun()
-
+            
 # 2. CAPTURA DE NUEVO INPUT Y GENERACIÓN
 input_txt = "Nuestro reto para hoy..."
 if pr := st.chat_input(input_txt):
@@ -465,6 +462,7 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
 
 
