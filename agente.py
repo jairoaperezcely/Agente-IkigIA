@@ -393,172 +393,101 @@ with st.sidebar:
             resultado = actualizar_memoria_persistente()
             st.success(resultado)
     
-# --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
-# --- PROTOCOLO DE LIMPIEZA TOTAL (V2.5) ---
+# --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
+
+# 1. ESTILO Y ERGONOMÍA (Zen & Clean)
 st.markdown("""
     <style>
-    /* 1. ELIMINAR CUALQUIER BORDE DEL CONTENEDOR RAÍZ */
-    div[data-testid="stChatInput"] {
-        border: none !important;
-        background-color: transparent !important;
-        box-shadow: none !important;
-    }
-
-    /* 2. FORZAR TRANSPARENCIA EN EL WRAPPER INTERNO */
-    div[data-testid="stChatInput"] > div {
-        border: none !important;
-        background-color: transparent !important;
-        box-shadow: none !important;
-    }
-
-    /* 3. SU LIENZO: EL ÚNICO CUADRO VISIBLE */
+    div[data-testid="stChatInput"] { border: none !important; background-color: transparent !important; }
+    div[data-testid="stChatInput"] > div { border: none !important; background-color: transparent !important; }
     .stChatInput textarea {
         min-height: 100px !important;
         background-color: #262730 !important;
-        border: 1px solid #00E6FF !important; /* Borde Cian único */
+        border: 1px solid #00E6FF !important;
         border-radius: 12px !important;
         color: #FFFFFF !important;
         font-size: 17px !important;
         padding: 15px !important;
     }
-
-    /* 4. ELIMINAR EL OVERLAY GRIS AL ENFOCAR */
-    .stChatInput textarea:focus {
-        border: 2px solid #00E6FF !important;
-        outline: none !important;
-        box-shadow: 0 0 15px rgba(0, 230, 255, 0.3) !important;
-    }
-
-    /* 5. OCULTAR BOTÓN DE ENVÍO SI ES NECESARIO (Opcional, para limpieza) */
-    button[data-testid="stChatInputSubmitButton"] {
-        background-color: transparent !important;
-        color: #00E6FF !important;
-    }
+    .stChatInput textarea:focus { border: 2px solid #00E6FF !important; box-shadow: 0 0 15px rgba(0, 230, 255, 0.3) !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# 1. RENDERIZADO DEL HISTORIAL CON GESTIÓN INTEGRADA
+# Recuperamos versión para llaves dinámicas (Cierre automático de editores)
+ver = st.session_state.get("editor_version", 0)
+
+# 2. RENDERIZADO DEL HISTORIAL
 for i, msg in enumerate(st.session_state.get("messages", [])):
     role_class = "user" if msg["role"] == "user" else "assistant"
     with st.chat_message(role_class):
         st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
-            # --- MOTOR DE ACTIVOS (EXCEL Y GRÁFICOS) ---
+            # --- MOTOR DE ACTIVOS (EXCEL/GRÁFICOS) ---
             if '|' in msg["content"]:
                 excel_data = download_excel(msg["content"])
                 if excel_data:
-                    col_ex, col_gr = st.columns(2)
-                    with col_ex:
-                        st.download_button("📊 Excel", data=excel_data, file_name=f"Datos_{i}.xlsx", key=f"xls_{i}")
-                    with col_gr:
+                    c1, c2 = st.columns(2)
+                    with c1: st.download_button("📊 Excel", excel_data, f"Datos_{i}.xlsx", key=f"xls_{i}_{ver}")
+                    with c2:
                         try:
-                            df_temp = pd.read_excel(BytesIO(excel_data))
-                            img_grafico = generar_grafico_estratégico(df_temp)
-                            st.download_button("📈 Gráfico", data=img_grafico, file_name=f"Viz_{i}.png", key=f"grf_{i}")
+                            df_t = pd.read_excel(BytesIO(excel_data))
+                            st.download_button("📈 Gráfico", generar_grafico_estratégico(df_t), f"Viz_{i}.png", key=f"grf_{i}_{ver}")
                         except: pass
 
-            # --- GESTIÓN DE BLOQUE (SELECCIÓN, COPIAR Y EDITAR) ---
+            # --- GESTIÓN DE BLOQUE (SELECCIÓN Y EDICIÓN) ---
             is_selected = i in st.session_state.export_pool
-            if st.checkbox(f"📥 Incluir en Reporte", key=f"sel_{i}", value=is_selected):
+            if st.checkbox(f"📥 Incluir en Reporte", key=f"sel_{i}_{ver}", value=is_selected):
                 if i not in st.session_state.export_pool:
-                    st.session_state.export_pool.append(i)
-                    st.rerun()
+                    st.session_state.export_pool.append(i); st.rerun()
             elif i in st.session_state.export_pool:
-                st.session_state.export_pool.remove(i)
-                st.rerun()
+                st.session_state.export_pool.remove(i); st.rerun()
 
-            # Pestañas de Gestión: Aquí es donde recuperamos la funcionalidad
             with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
                 t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
-                
-                with t_copy:
-                    st.code(msg["content"], language=None)
-                
+                with t_copy: st.code(msg["content"], language=None)
                 with t_edit:
-                    texto_editado = st.text_area(
-                        "Modifique el borrador aquí:", 
-                        value=msg["content"], 
-                        height=300, 
-                        key=f"ed_{i}",
-                        label_visibility="collapsed"
-                    )
-                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
-                        st.session_state.messages[i]["content"] = texto_editado
-                        st.toast("✅ Cambios sincronizados en el historial.")
+                    txt_edit = st.text_area("Borrador:", value=msg["content"], height=300, key=f"ed_{i}_{ver}")
+                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}_{ver}", use_container_width=True):
+                        st.session_state.messages[i]["content"] = txt_edit
+                        st.session_state.editor_version = ver + 1
+                        st.toast("✅ Cambios sincronizados.")
                         st.rerun()
     st.markdown("---")
 
-# 2. CAPTURA DE NUEVO INPUT Y GENERACIÓN
-input_txt = "Nuestro reto para hoy..."
-if pr := st.chat_input(input_txt):
+# 3. CAPTURA DE NUEVO INPUT Y GENERACIÓN RAG
+if pr := st.chat_input("Nuestro reto para hoy..."):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"):
         st.markdown(pr)
     
     with st.chat_message("assistant"):
         try:
-            model = genai.GenerativeModel('gemini-2.5-flash') # Uso de la versión más rápida
-            # INYECCIÓN DEL MINDSET DISRUPTIVO
+            # A. CONSULTA A LA BIBLIOTECA MASTER (RAG)
+            contexto_biblioteca = "Sin evidencia específica en la biblioteca master."
+            if os.path.exists(DB_PATH):
+                with st.spinner("Consultando evidencia en Biblioteca Master..."):
+                    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+                    vector_db = FAISS.load_local(DB_PATH, embeddings, allow_dangerous_deserialization=True)
+                    docs = vector_db.similarity_search(pr, k=3)
+                    contexto_biblioteca = "\n".join([d.page_content for d in docs])
+
+            # B. GENERACIÓN ESTRATÉGICA UNIFICADA
+            model = genai.GenerativeModel('gemini-2.0-flash')
             sys_context = (
                 f"Usted es el socio estratégico de Jairo Pérez Cely. Rol: {rol_activo}. "
-                "Protocolo: Chain-of-Thought en 3 dimensiones (Académica, Estratégica, Innovación). "
-                "Incentivo: Desafía creencias limitantes con Design Thinking. "
-                "Estilo: Directo, clínico, sin clichés. Citas APA 7."
+                "Protocolo: Chain-of-Thought (Académica, Estratégica, Innovación). "
+                "Obligación: Prioriza la evidencia de la biblioteca master y usa APA 7."
             )
-            lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
             
-            response = model.generate_content([sys_context, f"Biblioteca: {lib_context}", pr])
+            response = model.generate_content([
+                sys_context, 
+                f"EVIDENCIA DE AUTOR: {contexto_biblioteca}", 
+                f"SOLICITUD: {pr}"
+            ])
             
             st.session_state.messages.append({"role": "assistant", "content": response.text})
             st.rerun()
+
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
-
-        with st.chat_message("assistant"):
-        try:
-            # 1. BÚSQUEDA DE EVIDENCIA EN LA BIBLIOTECA
-            contexto_biblioteca = "No se encontró evidencia específica en la biblioteca master."
-            if os.path.exists(DB_PATH):
-                embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-                # Cargamos la base de datos de conocimiento
-                vector_db = FAISS.load_local(DB_PATH, embeddings, allow_dangerous_deserialization=True)
-                # Buscamos los 3 fragmentos más relevantes para la pregunta del Doctor
-                docs = vector_db.similarity_search(pr, k=3)
-                contexto_biblioteca = "\n".join([d.page_content for d in docs])
-
-            # 2. GENERACIÓN ESTRATÉGICA CON EVIDENCIA
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            sys_context = (
-                f"Socio estratégico de Jairo Pérez Cely. Rol: {rol_activo}. "
-                "Protocolo: Chain-of-Thought (Académica, Estratégica, Innovación). "
-                "Obligación: Prioriza la evidencia de la biblioteca master si está disponible."
-            )
-            
-            # El prompt inyecta el conocimiento recuperado
-            resp = model.generate_content([
-                sys_context, 
-                f"CONOCIMIENTO DE AUTOR: {contexto_biblioteca}", 
-                f"SOLICITUD DEL DOCTOR: {pr}"
-            ])
-            
-            st.session_state.messages.append({"role": "assistant", "content": resp.text})
-            st.rerun()
-
-# LÓGICA DE CONSULTA A LA BIBLIOTECA
-        contexto_biblioteca = ""
-        if os.path.exists(DB_PATH):
-            embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-            vector_db = FAISS.load_local(DB_PATH, embeddings, allow_dangerous_deserialization=True)
-            # Busca los 3 fragmentos más relevantes para su pregunta
-            docs = vector_db.similarity_search(pr, k=3)
-            contexto_biblioteca = "\n".join([d.page_content for d in docs])
-
-        # Generación con contexto real
-        resp = model.generate_content([
-            sys_context, 
-            f"EVIDENCIA DE BIBLIOTECA: {contexto_biblioteca}", 
-            f"PREGUNTA: {pr}"
-        ])
-
-
