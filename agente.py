@@ -356,135 +356,76 @@ with st.sidebar:
 
     st.divider()
     st.caption(f"IkigAI V2.0 | {date.today()}")    
-# --- 6. PANEL CENTRAL: WORKSTATION (V2.0 - SINCRONIZADA) ---
-# Inyección de estilo final para transparencia total y navegación
+# --- 6. PANEL CENTRAL: WORKSTATION (V2.1 - OPTIMIZADA) ---
 st.markdown("""
     <style>
-    /* 1. ELIMINAR CAJAS DE MENSAJES */
-    [data-testid="stChatMessage"] {
-        background-color: transparent !important;
-        border: none !important;
-        padding-left: 0 !important;
-        margin-bottom: -10px !important;
-    }
-
-    /* 2. BARRA DE ENTRADA ESTILO GEMINI */
-    .stChatInputContainer {
-        padding: 20px 0 !important;
-        background-color: transparent !important;
-        border: none !important;
-    }
-
-    .stChatInput textarea {
-        background-color: #1E1F20 !important;
-        border: 1px solid #3C4043 !important;
-        border-radius: 28px !important;
-        color: #E3E3E3 !important;
-        padding: 14px 24px !important;
-        font-family: 'Segoe UI', sans-serif !important;
-    }
-
-    /* 3. RESCATE DE NAVEGACIÓN (VIÑETA SIDEBAR) */
-    header { background-color: rgba(0,0,0,0) !important; }
-    footer { visibility: hidden !important; }
-    
-    button[data-testid="stSidebarCollapseButton"] {
-        background-color: #1A1A1A !important;
-        color: #00E6FF !important;
-        border: 1px solid #333 !important;
-    }
-
-    /* 4. FUENTE ACADÉMICA */
-    [data-testid="stChatMessageAvatarAssistant"], 
-    [data-testid="stChatMessageAvatarUser"] { display: none !important; }
-
-    .stMarkdown p {
-        font-family: 'Segoe UI', Tahoma, sans-serif !important;
-        font-size: 16px !important;
-        line-height: 1.6 !important;
-        color: #E3E3E3 !important;
-    }
+    [data-testid="stChatMessage"] { background-color: transparent !important; border: none !important; margin-bottom: -10px !important; }
+    .stChatInput textarea { background-color: #1E1F20 !important; border: 1px solid #3C4043 !important; border-radius: 28px !important; color: #E3E3E3 !important; }
+    [data-testid="stChatMessageAvatarAssistant"], [data-testid="stChatMessageAvatarUser"] { display: none !important; }
+    .stMarkdown p { font-family: 'Segoe UI', sans-serif !important; font-size: 16px !important; color: #E3E3E3 !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# Renderizado de Mensajes con Gatillo de Sincronización
+# 1. RENDERIZADO DEL HISTORIAL
 for i, msg in enumerate(st.session_state.get("messages", [])):
-    with st.chat_message("assistant"):
-        try:
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            
-            # INYECCIÓN DEL MINDSET DISRUPTIVO Y EJECUTIVO
-            sys_context = (
-                f"Rol: {rol_activo}. {ROLES[rol_activo]}. "
-                "Protocolo: Chain-of-Thought. Desglose en 3 dimensiones: Académica, Estratégica e Innovación. "
-                "Estilo: Directo, ejecutivo y humano. Sin clichés. Citas APA 7 obligatorias. "
-                "Incentivo: Propón siempre una idea disruptiva o conexión interdisciplinaria de Design Thinking. "
-                "Autor: Jairo Pérez Cely."
-            )
-            
-            lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
-            
-            # El modelo ahora recibe las instrucciones en cada prompt
-            response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
-            
-            st.session_state.messages.append({"role": "assistant", "content": response.text})
-            st.rerun()
+    role_class = "user" if msg["role"] == "user" else "assistant"
+    with st.chat_message(role_class):
+        st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
-            # --- LÓGICA DE SELECCIÓN SINCRONIZADA ---
+            # --- MOTOR DE ACTIVOS (EXCEL Y GRÁFICOS) ---
+            if '|' in msg["content"]:
+                excel_data = download_excel(msg["content"])
+                if excel_data:
+                    col_ex, col_gr = st.columns(2)
+                    with col_ex:
+                        st.download_button("📊 Excel", data=excel_data, file_name=f"Datos_{i}.xlsx", key=f"xls_{i}")
+                    with col_gr:
+                        try:
+                            df_temp = pd.read_excel(BytesIO(excel_data))
+                            img_grafico = generar_grafico_estratégico(df_temp)
+                            st.download_button("📈 Gráfico", data=img_grafico, file_name=f"Viz_{i}.png", key=f"grf_{i}")
+                        except: pass
+
+            # --- GESTIÓN DE BLOQUE ---
             is_selected = i in st.session_state.export_pool
-            
-            if st.checkbox(f"📥 Incluir en Manual (Word)", key=f"sel_{i}", value=is_selected):
+            if st.checkbox(f"📥 Incluir en Reporte", key=f"sel_{i}", value=is_selected):
                 if i not in st.session_state.export_pool:
                     st.session_state.export_pool.append(i)
-                    st.rerun() # Fuerza a la Sección 5 a mostrar los botones
-            else:
-                if i in st.session_state.export_pool:
-                    st.session_state.export_pool.remove(i)
-                    st.rerun() # Fuerza a la Sección 5 a ocultar/actualizar botones
+                    st.rerun()
+            elif i in st.session_state.export_pool:
+                st.session_state.export_pool.remove(i)
+                st.rerun()
 
-            # Gestión de Bloque (Copiar y Editar)
-            with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
-                t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
-                
-                with t_copy:
-                    st.code(msg["content"], language=None)
-                
-                with t_edit:
-                    texto_editado = st.text_area(
-                        "Modifique el borrador aquí:", 
-                        value=msg["content"], 
-                        height=400, 
-                        key=f"edit_{i}",
-                        label_visibility="collapsed"
-                    )
-                    
-                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}", use_container_width=True):
-                        st.session_state.messages[i]["content"] = texto_editado
-                        st.toast("✅ Cambios sincronizados.")
-        
-        st.markdown("---")
+            with st.expander("🛠️ EDITAR CONTENIDO"):
+                texto_editado = st.text_area("Borrador:", value=msg["content"], height=200, key=f"ed_{i}")
+                if st.button("✅ GUARDAR", key=f"sv_{i}"):
+                    st.session_state.messages[i]["content"] = texto_editado
+                    st.rerun()
+    st.markdown("---")
 
-# Captura de nuevo input con modelo preferido Gemini 2.5 Flash
-# --- 6. CIERRE CORRECTO DEL BLOQUE DE GENERACIÓN ---
-if pr := st.chat_input("Doctor, ¿qué frontera vamos a expandir hoy? (Estrategia, Académico, Innovación o trading)"):
+# 2. CAPTURA DE NUEVO INPUT Y GENERACIÓN
+input_txt = "Doctor, ¿qué frontera vamos a expandir hoy? (Estrategia, Académico, Innovación o Trading)"
+if pr := st.chat_input(input_txt):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"):
         st.markdown(pr)
     
     with st.chat_message("assistant"):
         try:
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            # Definición del contexto con su nuevo Mindset
-            sys_context = f"Rol: {rol_activo}. Protocolo: Chain-of-Thought. Desglose en 3 dimensiones. Estilo clínico y disruptivo."
+            model = genai.GenerativeModel('gemini-2.0-flash') # Uso de la versión más rápida
+            # INYECCIÓN DEL MINDSET DISRUPTIVO
+            sys_context = (
+                f"Usted es el socio estratégico de Jairo Pérez Cely. Rol: {rol_activo}. "
+                "Protocolo: Chain-of-Thought en 3 dimensiones (Académica, Estratégica, Innovación). "
+                "Incentivo: Desafía creencias limitantes con Design Thinking. "
+                "Estilo: Directo, clínico, sin clichés. Citas APA 7."
+            )
             lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
             
-            response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
+            response = model.generate_content([sys_context, f"Biblioteca: {lib_context}", pr])
             
             st.session_state.messages.append({"role": "assistant", "content": response.text})
             st.rerun()
-            
         except Exception as e:
-            # Este es el bloque que le faltaba y causaba el SyntaxError
-            st.error(f"Error en la generación: {e}")
-
+            st.error(f"Falla en la frontera de innovación: {e}")
