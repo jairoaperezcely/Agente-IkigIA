@@ -268,6 +268,7 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
+if "editor_version" not in st.session_state: st.session_state.editor_version = 0
 
 # --- 5. BARRA LATERAL: CONTROL ESTRATÉGICO Y ENTREGABLES (V2.0) ---
 with st.sidebar:
@@ -418,25 +419,26 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                             st.download_button("📈 Gráfico", data=img_grafico, file_name=f"Viz_{i}.png", key=f"grf_{i}")
                         except: pass
 
-# --- GESTIÓN DE BLOQUE CON RETROALIMENTACIÓN ---
-with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
-    t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
-    
-    with t_copy:
-        st.code(msg["content"], language=None)
-    
-    with t_edit:
-        # Usamos un key único para el área de texto
-        texto_editado = st.text_area("Edite el contenido estratégico:", value=msg["content"], height=300, key=f"edit_area_{i}")
-        
-        if st.button("✅ FIJAR CAMBIOS", key=f"btn_save_{i}", use_container_width=True):
-            # 1. Actualización de la memoria de la sesión
-            st.session_state.messages[i]["content"] = texto_editado
-            # 2. Confirmación visual (Toast)
-            st.toast("✅ Cambios sincronizados. Cerrando editor...")
-            # 3. El rerun colapsará el expander automáticamente al recargar
-            st.rerun()
-            
+# --- SELECCIÓN Y GESTIÓN DE BLOQUE ---
+            is_selected = i in st.session_state.export_pool
+            if st.checkbox(f"📥 Incluir en Reporte", key=f"sel_{i}_{ver}", value=is_selected):
+                if i not in st.session_state.export_pool:
+                    st.session_state.export_pool.append(i); st.rerun()
+            elif i in st.session_state.export_pool:
+                st.session_state.export_pool.remove(i); st.rerun()
+
+            # Bloque de Edición con Cierre Automático
+            with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
+                t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
+                with t_copy: st.code(msg["content"], language=None)
+                with t_edit:
+                    txt_edit = st.text_area("Borrador:", value=msg["content"], height=300, key=f"ed_{i}_{ver}")
+                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}_{ver}", use_container_width=True):
+                        st.session_state.messages[i]["content"] = txt_edit
+                        st.session_state.editor_version += 1  # Forzar recreación (cierre)
+                        st.toast("✅ Sincronizado. Colapsando editor...")
+                        st.rerun()
+    st.markdown("---")            
 # 2. CAPTURA DE NUEVO INPUT Y GENERACIÓN
 input_txt = "Nuestro reto para hoy..."
 if pr := st.chat_input(input_txt):
@@ -462,6 +464,7 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
 
 
