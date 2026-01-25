@@ -221,9 +221,8 @@ def download_pptx(content, role):
     prs.save(bio)
     return bio.getvalue()
 
-    def download_excel(content):
+def download_excel(content):
     """Detecta tablas en el contenido y las exporta a un archivo Excel real."""
-    # Buscamos estructuras de tabla en formato markdown (| columna |)
     try:
         lines = content.split('\n')
         table_data = []
@@ -234,7 +233,6 @@ def download_pptx(content, role):
                     table_data.append(cells)
         
         if len(table_data) > 1:
-            # Limpiamos la línea separadora de markdown (|---|---|)
             table_data = [row for row in table_data if not all(set(c).issubset({'-', ':', ' '}) for c in row)]
             df = pd.DataFrame(table_data[1:], columns=table_data[0])
             
@@ -448,6 +446,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error en la conexión técnica: {e}")
+
 
 
 
