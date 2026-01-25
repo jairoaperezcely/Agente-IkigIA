@@ -65,6 +65,34 @@ ROLES = {
 def get_pdf_text(f): return "".join([p.extract_text() for p in PdfReader(f).pages])
 def get_docx_text(f): return "\n".join([p.text for p in docx.Document(f).paragraphs])
 def get_excel_text(f): return pd.read_excel(f).to_string()
+from langchain_community.vectorstores import FAISS
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+DB_PATH = "vector_db"
+DATA_FOLDER = "biblioteca_master"
+
+def actualizar_memoria_persistente():
+    if not os.path.exists(DATA_FOLDER): os.makedirs(DATA_FOLDER)
+    
+    docs_text = []
+    # Escaneo de archivos en la carpeta física
+    for file in os.listdir(DATA_FOLDER):
+        if file.endswith(".pdf"):
+            with open(os.path.join(DATA_FOLDER, file), "rb") as f:
+                docs_text.append(get_pdf_text(f))
+    
+    if not docs_text: return "Carpeta vacía."
+
+    # Fragmentación para búsqueda quirúrgica
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    chunks = splitter.create_documents(docs_text)
+    
+    # Creación de la base de datos vectorial
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    vector_db = FAISS.from_documents(chunks, embeddings)
+    vector_db.save_local(DB_PATH)
+    return "✅ Biblioteca Master sincronizada."
 
 def exportar_sesion():
     mensajes_finales = []
@@ -479,3 +507,18 @@ if pr := st.chat_input(input_txt):
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
 
+# LÓGICA DE CONSULTA A LA BIBLIOTECA
+        contexto_biblioteca = ""
+        if os.path.exists(DB_PATH):
+            embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+            vector_db = FAISS.load_local(DB_PATH, embeddings, allow_dangerous_deserialization=True)
+            # Busca los 3 fragmentos más relevantes para su pregunta
+            docs = vector_db.similarity_search(pr, k=3)
+            contexto_biblioteca = "\n".join([d.page_content for d in docs])
+
+        # Generación con contexto real
+        resp = model.generate_content([
+            sys_context, 
+            f"EVIDENCIA DE BIBLIOTECA: {contexto_biblioteca}", 
+            f"PREGUNTA: {pr}"
+        ])
