@@ -11,6 +11,8 @@ from io import BytesIO
 from datetime import date
 from pptx import Presentation
 from pptx.util import Inches, Pt
+import matplotlib.pyplot as plt
+import seaborn as sns # Para estética académica superior
 import os
 import re
 import json
@@ -244,6 +246,23 @@ def download_excel(content):
         return None
     return None
     
+def generar_grafico_estratégico(df, titulo="Análisis de Tendencias"):
+    """Genera un gráfico profesional y lo devuelve como imagen para exportación."""
+    plt.style.use('dark_background') # Estilo Zen acorde a su interfaz
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Tomamos las dos primeras columnas para un gráfico genérico de barras
+    df.plot(kind='bar', x=df.columns[0], y=df.columns[1], ax=ax, color='#00E6FF')
+    
+    plt.title(titulo, fontsize=14, color='#00E6FF', pad=20)
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    
+    buf = BytesIO()
+    plt.savefig(buf, format='png', dpi=300)
+    plt.close(fig)
+    return buf.getvalue()
+    
 # --- 4. LÓGICA DE ESTADO ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
@@ -446,6 +465,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error en la conexión técnica: {e}")
+
 
 
 
