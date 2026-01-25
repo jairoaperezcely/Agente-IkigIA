@@ -409,8 +409,26 @@ st.markdown("""
 
 # Renderizado de Mensajes con Gatillo de Sincronización
 for i, msg in enumerate(st.session_state.get("messages", [])):
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+    with st.chat_message("assistant"):
+        try:
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            
+            # INYECCIÓN DEL MINDSET DISRUPTIVO Y EJECUTIVO
+            sys_context = (
+                f"Rol: {rol_activo}. {ROLES[rol_activo]}. "
+                "Protocolo: Chain-of-Thought. Desglose en 3 dimensiones: Académica, Estratégica e Innovación. "
+                "Estilo: Directo, ejecutivo y humano. Sin clichés. Citas APA 7 obligatorias. "
+                "Incentivo: Propón siempre una idea disruptiva o conexión interdisciplinaria de Design Thinking. "
+                "Autor: Jairo Pérez Cely."
+            )
+            
+            lib_context = st.session_state.biblioteca.get(rol_activo, '')[:500000]
+            
+            # El modelo ahora recibe las instrucciones en cada prompt
+            response = model.generate_content([sys_context, f"Contexto: {lib_context}", pr])
+            
+            st.session_state.messages.append({"role": "assistant", "content": response.text})
+            st.rerun()
         
         if msg["role"] == "assistant":
             # --- LÓGICA DE SELECCIÓN SINCRONIZADA ---
@@ -465,8 +483,3 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error en la conexión técnica: {e}")
-
-
-
-
-
