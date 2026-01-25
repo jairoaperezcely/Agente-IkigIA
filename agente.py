@@ -467,7 +467,7 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
 
 # Captura de nuevo input con modelo preferido Gemini 2.5 Flash
 # --- 6. CIERRE CORRECTO DEL BLOQUE DE GENERACIÓN ---
-if pr := st.chat_input(""Doctor, ¿qué frontera vamos a expandir hoy? (Estrategia, Académico, Innovación o trading)""):
+if pr := st.chat_input("Doctor, ¿qué frontera vamos a expandir hoy? (Estrategia, Académico, Innovación o trading)"):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"):
         st.markdown(pr)
@@ -487,3 +487,4 @@ if pr := st.chat_input(""Doctor, ¿qué frontera vamos a expandir hoy? (Estrateg
         except Exception as e:
             # Este es el bloque que le faltaba y causaba el SyntaxError
             st.error(f"Error en la generación: {e}")
+
