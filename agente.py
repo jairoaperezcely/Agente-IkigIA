@@ -358,40 +358,36 @@ with st.sidebar:
     st.caption(f"IkigAI V2.0 | {date.today()}")    
     
 # --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
-# --- REFINAMIENTO ERGONÓMICO DE MÁRGENES (V2.6) ---
+# --- MINIMIZACIÓN DE MARCA NATIVA (V2.7) ---
 st.markdown("""
     <style>
-    /* 1. COMPACTAR EL CONTENEDOR EXTERNO TOTALMENTE */
-    div[data-testid="stChatInput"] {
-        padding: 0 !important;
-        margin-bottom: 10px !important;
+    /* 1. REDUCIR EL LOGO/MENÚ SUPERIOR (Hamburguesa) */
+    #MainMenu {
+        visibility: visible;
+        transform: scale(0.7); /* Reduce el tamaño al 70% */
+        transform-origin: top right;
     }
 
-    /* 2. ELIMINAR ESPACIOS RESIDUALES DEL WRAPPER */
-    .stChatInputContainer {
-        padding: 0 !important;
-        background-color: transparent !important;
-        border: none !important;
+    /* 2. MINIMIZAR EL FOOTER "HOSTED WITH STREAMLIT" */
+    footer {
+        visibility: visible !important;
+        opacity: 0.3; /* Lo hace casi transparente */
+        font-size: 8px !important; /* Letra minúscula */
+    }
+    
+    footer a {
+        color: #666 !important;
+        pointer-events: none; /* Evita clics accidentales */
     }
 
-    /* 3. SU CASILLA: AJUSTADA Y SIN DESPERDICIO */
-    .stChatInput textarea {
-        min-height: 100px !important;
-        background-color: #262730 !important;
-        border: 1px solid #00E6FF !important;
-        border-radius: 12px !important;
-        color: #FFFFFF !important;
-        font-size: 17px !important;
-        margin: 0 !important; /* Elimina márgenes internos */
-    }
-
-    /* 4. AJUSTE DE RESPUESTAS (Para ganar espacio) */
-    [data-testid="stChatMessage"] {
-        padding-top: 5px !important;
-        padding-bottom: 5px !important;
+    /* 3. OPCIONAL: ELIMINAR EL HEADER DE COLOR SUPERIOR */
+    header {
+        background-color: rgba(0,0,0,0) !important;
+        height: 2rem !important;
     }
     </style>
 """, unsafe_allow_html=True)
+
 # 1. RENDERIZADO DEL HISTORIAL CON GESTIÓN INTEGRADA
 for i, msg in enumerate(st.session_state.get("messages", [])):
     role_class = "user" if msg["role"] == "user" else "assistant"
@@ -469,6 +465,7 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
 
 
