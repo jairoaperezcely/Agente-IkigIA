@@ -15,3 +15,6 @@ gTTS
 streamlit-mic-recorder
 watchdog
 packaging
+langchain-community
+langchain-google-genai
+faiss-cpu
