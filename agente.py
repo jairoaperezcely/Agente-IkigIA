@@ -358,16 +358,16 @@ with st.sidebar:
     st.caption(f"IkigAI V2.0 | {date.today()}")    
     
 # --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
-# --- PROTOCOLO ZEN FINAL: ELIMINACIÓN DE MARCA Y RESTAURACIÓN (V2.8) ---
+# --- REFINAMIENTO ESTÉTICO FINAL (V2.9) ---
 st.markdown("""
-    st.markdown("""
     <style>
-    /* 1. MINIMIZACIÓN FORZADA DE LOGOS Y MARCA */
+    /* 1. MINIMIZACIÓN DE MARCA */
     #MainMenu { visibility: visible; transform: scale(0.5); transform-origin: top right; }
     footer { visibility: visible !important; height: 10px !important; padding: 0 !important; opacity: 0.2; }
     header { height: 1rem !important; visibility: hidden !important; }
 
     /* 2. RESTAURACIÓN DE LA CASILLA DE CHAT (100px) */
+    div[data-testid="stChatInput"] { border: none !important; background-color: transparent !important; padding: 0 !important; }
     .stChatInput textarea {
         min-height: 100px !important;
         background-color: #262730 !important;
@@ -456,6 +456,7 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
 
 
