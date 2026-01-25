@@ -358,40 +358,49 @@ with st.sidebar:
     st.caption(f"IkigAI V2.0 | {date.today()}")    
     
 # --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
-# --- REFINAMIENTO MINIMALISTA (V2.4) ---
+# --- PROTOCOLO DE LIMPIEZA TOTAL (V2.5) ---
 st.markdown("""
     <style>
-    /* 1. ELIMINAR BORDE Y FONDO DEL CONTENEDOR EXTERNO */
-    [data-testid="stChatInput"] {
+    /* 1. ELIMINAR CUALQUIER BORDE DEL CONTENEDOR RAÍZ */
+    div[data-testid="stChatInput"] {
         border: none !important;
         background-color: transparent !important;
-        padding: 0 !important;
-    }
-
-    /* 2. LIMPIAR EL CONTENEDOR SECUNDARIO */
-    .stChatInputContainer {
-        border: none !important;
-        background-color: transparent !important;
-    }
-
-    /* 3. MANTENER SOLO SU CASILLA PERSONALIZADA */
-    .stChatInput textarea {
-        min-height: 100px !important;
-        background-color: #262730 !important;
-        border: 1px solid #00E6FF !important; /* Su borde cian distintivo */
-        border_radius: 12px !important;
-        color: #FFFFFF !important;
-        font-size: 17px !important;
         box-shadow: none !important;
     }
 
-    /* 4. FOCO LIMPIO */
+    /* 2. FORZAR TRANSPARENCIA EN EL WRAPPER INTERNO */
+    div[data-testid="stChatInput"] > div {
+        border: none !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+    }
+
+    /* 3. SU LIENZO: EL ÚNICO CUADRO VISIBLE */
+    .stChatInput textarea {
+        min-height: 100px !important;
+        background-color: #262730 !important;
+        border: 1px solid #00E6FF !important; /* Borde Cian único */
+        border-radius: 12px !important;
+        color: #FFFFFF !important;
+        font-size: 17px !important;
+        padding: 15px !important;
+    }
+
+    /* 4. ELIMINAR EL OVERLAY GRIS AL ENFOCAR */
     .stChatInput textarea:focus {
         border: 2px solid #00E6FF !important;
         outline: none !important;
+        box-shadow: 0 0 15px rgba(0, 230, 255, 0.3) !important;
+    }
+
+    /* 5. OCULTAR BOTÓN DE ENVÍO SI ES NECESARIO (Opcional, para limpieza) */
+    button[data-testid="stChatInputSubmitButton"] {
+        background-color: transparent !important;
+        color: #00E6FF !important;
     }
     </style>
 """, unsafe_allow_html=True)
+
 # 1. RENDERIZADO DEL HISTORIAL
 for i, msg in enumerate(st.session_state.get("messages", [])):
     role_class = "user" if msg["role"] == "user" else "assistant"
@@ -455,6 +464,7 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
 
 
