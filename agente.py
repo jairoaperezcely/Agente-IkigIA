@@ -356,33 +356,34 @@ with st.sidebar:
 
     st.divider()
     st.caption(f"IkigAI V2.0 | {date.today()}")    
-# --- 6. PANEL CENTRAL: WORKSTATION (V2.1 - OPTIMIZADA) ---
+    
 # --- 6. PANEL CENTRAL: WORKSTATION (V2.2 - ERGONOMÍA EXPANDIDA) ---
+# --- REFINAMIENTO ESTÉTICO Y ERGONÓMICO (V2.3) ---
 st.markdown("""
     <style>
-    /* 1. EXPANSIÓN DE LA CASILLA DE CHAT */
+    /* 1. AJUSTE DE TAMAÑO Y COLOR DE LA CASILLA */
     .stChatInput textarea {
-        min-height: 150px !important; /* Aquí controlamos el tamaño inicial */
-        background-color: #1E1F20 !important;
-        border: 1px solid #3C4043 !important;
-        border-radius: 15px !important;
-        color: #E3E3E3 !important;
-        font-size: 18px !important;
-        line-height: 1.5 !important;
+        min-height: 100px !important; /* Punto medio ideal */
+        background-color: #262730 !important; /* Gris antracita de contraste */
+        border: 1px solid #00E6FF !important; /* Borde Cian Innovación */
+        border-radius: 12px !important;
+        color: #FFFFFF !important;
+        font-size: 17px !important;
     }
 
-    /* 2. TRANSPARENCIA Y LIMPIEZA VISUAL */
+    /* 2. EFECTO DE FOCO (Mindset Activo) */
+    .stChatInput textarea:focus {
+        border: 2px solid #00E6FF !important;
+        box-shadow: 0 0 10px rgba(0, 230, 255, 0.2) !important;
+    }
+
+    /* 3. TRANSPARENCIA DEL CONTENEDOR */
     [data-testid="stChatMessage"] {
         background-color: transparent !important;
-        border: none !important;
-    }
-
-    /* 3. AJUSTE PARA MÓVILES */
-    .stChatInputContainer {
-        padding: 20px 5% !important;
     }
     </style>
 """, unsafe_allow_html=True)
+
 # 1. RENDERIZADO DEL HISTORIAL
 for i, msg in enumerate(st.session_state.get("messages", [])):
     role_class = "user" if msg["role"] == "user" else "assistant"
@@ -446,5 +447,6 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
 
