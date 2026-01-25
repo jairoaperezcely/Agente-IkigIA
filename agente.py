@@ -213,95 +213,45 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
 
-# --- 5. BARRA LATERAL (CORRECCIÓN LÓGICA DE EXPORTACIÓN V1.99) ---
-with st.sidebar:
-    st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
-    st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
+# --- 5. LÓGICA DE EXPORTACIÓN (V2.0 - SINCRONIZADA) ---
+    # Verificamos el pool de exportación directamente del session_state
+    pool_actual = st.session_state.get("export_pool", [])
     
-    st.divider()
-    st.markdown("<div class='section-tag'>SESIÓN</div>", unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🗑️ Reiniciar"):
-            st.session_state.messages = []
-            st.session_state.export_pool = []
-            st.rerun()
-    with col2:
-        st.download_button(
-            label="💾 Guardar",
-            data=exportar_sesion(),
-            file_name=f"IkigAI_Turno_{date.today()}.json",
-            mime="application/json"
-        )
-    
-    st.divider()
-    st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
-    rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
-    
-    # --- LÓGICA DE EXPORTACIÓN CORREGIDA ---
-    # Solo entra aquí si el pool TIENE elementos (len > 0)
-    if len(st.session_state.export_pool) > 0:
+    if len(pool_actual) > 0:
         st.divider()
-        st.markdown(f"<div class='section-tag'>ENTREGABLES ({len(st.session_state.export_pool)} BLOQUES)</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-tag'>ENTREGABLES ACTIVOS ({len(pool_actual)})</div>", unsafe_allow_html=True)
         
-        # 1. Extraer título dinámico para el nombre del archivo
-        nombre_tema = extraer_titulo_dictado(st.session_state.messages, st.session_state.export_pool)
-        # Limpieza de caracteres para nombre de archivo válido
-        file_name_clean = re.sub(r'[^\w\s-]', '', nombre_tema).strip().replace(' ', '_')[:50]
+        # Extracción de título para el nombre del archivo
+        nombre_tema = extraer_titulo_dictado(st.session_state.messages, pool_actual)
+        file_name_clean = re.sub(r'[^\w\s-]', '', nombre_tema).strip().replace(' ', '_')[:40]
         
-        # 2. Generar datos de Word
-        word_data = download_word_compilado(st.session_state.export_pool, st.session_state.messages, rol_activo)
+        # Generación de documentos
+        word_data = download_word_compilado(pool_actual, st.session_state.messages, rol_activo)
         
         st.download_button(
-            label=f"📄 Descargar: {nombre_tema[:20]}...", 
+            label=f"📄 DESCARGAR: {nombre_tema[:15]}...", 
             data=word_data, 
             file_name=f"{file_name_clean}.docx", 
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True,
-            key="btn_word_final_v1"
+            key="btn_word_v2"
         )
         
-        # 3. Generar datos de PPT
-        contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(st.session_state.export_pool)])
+        # PPT
+        contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(pool_actual)])
         ppt_data = download_pptx(contenido_para_ppt, rol_activo)
         
         st.download_button(
-            label="📊 Descargar Presentación", 
+            label="📊 DESCARGAR PRESENTACIÓN", 
             data=ppt_data, 
             file_name=f"PPT_{file_name_clean}.pptx", 
-            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
             use_container_width=True,
-            key="btn_ppt_final_v1"
+            key="btn_ppt_v2"
         )
     else:
-        # Mensaje preventivo cuando NO hay nada seleccionado
+        # Esto aparece cuando NO hay nada seleccionado
         st.divider()
-        st.info("💡 Seleccione los bloques en el chat con 📥 para activar la exportación a Word/PPT.")
-
-    # --- FUENTES DE CONTEXTO ---
-    st.divider()
-    st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
-    tab_doc, tab_url, tab_img = st.tabs(["DOC", "URL", "IMG"])
-    
-    with tab_doc:
-        up = st.file_uploader("Subir PDF o Word:", type=['pdf', 'docx'], accept_multiple_files=True, label_visibility="collapsed")
-        if st.button("🧠 PROCESAR ARCHIVOS", use_container_width=True):
-            raw_text = ""
-            for f in up:
-                raw_text += get_pdf_text(f) if f.type == "application/pdf" else get_docx_text(f)
-            with st.spinner("Refinando contexto..."):
-                try:
-                    refiner = genai.GenerativeModel('gemini-2.5-flash')
-                    prompt_res = f"Extrae datos clave para manual de telesalud: {raw_text[:45000]}"
-                    resumen = refiner.generate_content(prompt_res)
-                    st.session_state.biblioteca[rol_activo] = resumen.text
-                    st.success("Biblioteca actualizada.")
-                except:
-                    st.session_state.biblioteca[rol_activo] = raw_text[:30000]
-
-    st.divider()
-    st.caption(f"IkigAI V1.99 | {date.today()}")
-    
+        st.warning("Seleccione bloques con 📥 en el chat para habilitar la descarga.")    
 # --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR (V1.96) ---
 # Inyección de estilo para transparencia total y rescate de navegación
 st.markdown("""
@@ -415,5 +365,6 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error en la conexión técnica: {e}")
+
 
 
