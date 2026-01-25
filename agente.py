@@ -213,7 +213,7 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
 
-# --- 5. BARRA LATERAL: CONTROL TOTAL Y FUENTES DE CONTEXTO ---
+# --- 5. BARRA LATERAL: CONTROL TOTAL Y ENTREGABLES DINÁMICOS ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
@@ -238,36 +238,43 @@ with st.sidebar:
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
     
-    # --- BLOQUE DINÁMICO DE EXPORTACIÓN (Solo Selección) ---
-    if st.session_state.export_pool:
+    # --- BLOQUE DINÁMICO DE EXPORTACIÓN (V1.98 - NOMBRE DE ARCHIVO BASADO EN TEMA) ---
+    if len(st.session_state.export_pool) > 0:
         st.divider()
         st.markdown(f"<div class='section-tag'>ENTREGABLES ({len(st.session_state.export_pool)} BLOQUES)</div>", unsafe_allow_html=True)
         
-        # Word Compilado
+        # Generamos el Word y capturamos el título dinámico extraído del contenido
         word_data = download_word_compilado(st.session_state.export_pool, st.session_state.messages, rol_activo)
+        
+        # El motor de exportación ya nos devuelve el título detectado; lo usamos para el nombre del archivo
+        # Si la función solo devuelve bytes, usamos extraer_titulo_dictado para el nombre
+        nombre_tema = extraer_titulo_dictado(st.session_state.messages, st.session_state.export_pool)
+        file_name_clean = re.sub(r'[^\w\s-]', '', nombre_tema).replace(' ', '_')[:50]
+        
         st.download_button(
-            "📄 Generar Word", 
+            label="📄 DESCARGAR WORD", 
             data=word_data, 
-            file_name=f"Manual_{rol_activo}.docx", 
-            use_container_width=True
+            file_name=f"{file_name_clean}.docx", 
+            use_container_width=True,
+            key="download_word_dynamic"
         )
         
-        # PPT Compilado
+        # Generación de PPT
         contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(st.session_state.export_pool)])
         ppt_data = download_pptx(contenido_para_ppt, rol_activo)
         st.download_button(
-            "📊 Generar PPT", 
+            label="📊 DESCARGAR PPT", 
             data=ppt_data, 
-            file_name=f"Presentacion_{rol_activo}.pptx", 
-            use_container_width=True
+            file_name=f"Presentacion_{file_name_clean}.pptx", 
+            use_container_width=True,
+            key="download_ppt_dynamic"
         )
     else:
-        st.info("Seleccione bloques con 📥 para exportar.")
+        st.info("Seleccione bloques con 📥 para activar exportación.")
 
-    # --- RESTAURACIÓN DE FUENTES DE CONTEXTO ---
+    # --- FUENTES DE CONTEXTO ---
     st.divider()
     st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
-    
     tab_doc, tab_url, tab_img = st.tabs(["DOC", "URL", "IMG"])
     
     with tab_doc:
@@ -275,42 +282,19 @@ with st.sidebar:
         if st.button("🧠 PROCESAR ARCHIVOS", use_container_width=True):
             raw_text = ""
             for f in up:
-                if f.type == "application/pdf":
-                    raw_text += get_pdf_text(f)
-                else:
-                    raw_text += get_docx_text(f)
-            
-            with st.spinner("Refinando contexto para el manual..."):
+                raw_text += get_pdf_text(f) if f.type == "application/pdf" else get_docx_text(f)
+            with st.spinner("Refinando contexto..."):
                 try:
-                    # MOTOR: Gemini 2.5 Flash
                     refiner = genai.GenerativeModel('gemini-2.5-flash')
-                    prompt_resumen = f"Actúa como Secretario Técnico Académico. Extrae datos, normas y referencias clave de este texto para un manual de telesalud: {raw_text[:45000]}"
-                    resumen = refiner.generate_content(prompt_resumen)
+                    prompt_res = f"Actúa como Secretario Técnico. Extrae datos clave para manual de telesalud: {raw_text[:45000]}"
+                    resumen = refiner.generate_content(prompt_res)
                     st.session_state.biblioteca[rol_activo] = resumen.text
                     st.success("Biblioteca actualizada.")
-                except Exception as e:
-                    st.warning("Fallo en IA. Cargando texto crudo.")
+                except:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
 
-    with tab_url:
-        uw = st.text_input("URL de referencia:", placeholder="https://", label_visibility="collapsed")
-        if st.button("🔗 CONECTAR WEB", use_container_width=True):
-            try:
-                r = requests.get(uw, timeout=10)
-                sopa = BeautifulSoup(r.text, 'html.parser')
-                st.session_state.biblioteca[rol_activo] += "\n" + sopa.get_text()
-                st.success("Web integrada al contexto.")
-            except:
-                st.error("No se pudo conectar con la URL.")
-
-    with tab_img:
-        img_f = st.file_uploader("Subir imagen (Evidencia/Gráfica):", type=['jpg', 'png'], label_visibility="collapsed")
-        if img_f:
-            st.session_state.temp_image = Image.open(img_f)
-            st.image(img_f, caption="Imagen cargada para análisis")
-
     st.divider()
-    st.caption(f"IkigAI V1.87 | {date.today()}")
+    st.caption(f"IkigAI V1.98 | {date.today()}")
     
 # --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR (V1.96) ---
 # Inyección de estilo para transparencia total y rescate de navegación
@@ -425,3 +409,4 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error en la conexión técnica: {e}")
+
