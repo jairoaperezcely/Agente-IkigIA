@@ -405,7 +405,7 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
     st.markdown("---")
 
 # 2. CAPTURA DE NUEVO INPUT Y GENERACIÓN
-input_txt = "Doctor, ¿qué frontera vamos a expandir hoy? (Estrategia, Académico, Innovación o Trading)"
+input_txt = "Nuestro reto para hoy..."
 if pr := st.chat_input(input_txt):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"):
@@ -429,3 +429,4 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
