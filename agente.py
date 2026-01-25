@@ -213,23 +213,45 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
 
-# --- 5. LÓGICA DE EXPORTACIÓN (V2.0 - SINCRONIZADA) ---
-    # Verificamos el pool de exportación directamente del session_state
+# --- 5. BARRA LATERAL (CORREGIDO SIN ERRORES DE INDENTACIÓN) ---
+with st.sidebar:
+    st.markdown("<h2 style='text-align: center;'>🧬 IKIGAI</h2>", unsafe_allow_html=True)
+    
+    st.divider()
+    st.markdown("<div class='section-tag'>SESIÓN</div>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🗑️ Reiniciar"):
+            st.session_state.messages = []
+            st.session_state.export_pool = []
+            st.rerun()
+    with col2:
+        st.download_button(
+            label="💾 Guardar",
+            data=exportar_sesion(),
+            file_name=f"IkigAI_Turno_{date.today()}.json",
+            mime="application/json"
+        )
+    
+    st.divider()
+    st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
+    rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
+
+    # --- LÓGICA DE EXPORTACIÓN SINCRONIZADA ---
+    # Esta línea debe estar alineada con 'rol_activo' arriba
     pool_actual = st.session_state.get("export_pool", [])
     
     if len(pool_actual) > 0:
         st.divider()
         st.markdown(f"<div class='section-tag'>ENTREGABLES ACTIVOS ({len(pool_actual)})</div>", unsafe_allow_html=True)
         
-        # Extracción de título para el nombre del archivo
         nombre_tema = extraer_titulo_dictado(st.session_state.messages, pool_actual)
         file_name_clean = re.sub(r'[^\w\s-]', '', nombre_tema).strip().replace(' ', '_')[:40]
         
-        # Generación de documentos
         word_data = download_word_compilado(pool_actual, st.session_state.messages, rol_activo)
         
         st.download_button(
-            label=f"📄 DESCARGAR: {nombre_tema[:15]}...", 
+            label=f"📄 DESCARGAR WORD", 
             data=word_data, 
             file_name=f"{file_name_clean}.docx", 
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -237,21 +259,25 @@ if "export_pool" not in st.session_state: st.session_state.export_pool = []
             key="btn_word_v2"
         )
         
-        # PPT
         contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(pool_actual)])
         ppt_data = download_pptx(contenido_para_ppt, rol_activo)
         
         st.download_button(
-            label="📊 DESCARGAR PRESENTACIÓN", 
+            label="📊 DESCARGAR PPT", 
             data=ppt_data, 
             file_name=f"PPT_{file_name_clean}.pptx", 
             use_container_width=True,
             key="btn_ppt_v2"
         )
     else:
-        # Esto aparece cuando NO hay nada seleccionado
         st.divider()
-        st.warning("Seleccione bloques con 📥 en el chat para habilitar la descarga.")    
+        st.info("Seleccione bloques con 📥 en el chat para habilitar la descarga.")
+
+    # --- FUENTES DE CONTEXTO ---
+    st.divider()
+    st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
+    # ... (Resto de sus pestañas DOC, URL, IMG con la misma sangría)   
+
 # --- 6. PANEL CENTRAL: WORKSTATION MÓVIL Y COMPILADOR (V1.96) ---
 # Inyección de estilo para transparencia total y rescate de navegación
 st.markdown("""
@@ -365,6 +391,7 @@ if pr := st.chat_input("¿Qué sección del manual diseñamos ahora, Doctor?"):
             st.rerun()
         except Exception as e:
             st.error(f"Error en la conexión técnica: {e}")
+
 
 
 
