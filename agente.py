@@ -398,34 +398,34 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 1. RENDERIZADO DEL HISTORIAL CON GESTIÓN INTEGRADA
+# 2. RENDERIZADO DEL HISTORIAL
 for i, msg in enumerate(st.session_state.get("messages", [])):
     role_class = "user" if msg["role"] == "user" else "assistant"
     with st.chat_message(role_class):
         st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
-            # --- MOTOR DE ACTIVOS (EXCEL Y GRÁFICOS) ---
+            # Motores de activos (Excel/Gráficos)
             if '|' in msg["content"]:
                 excel_data = download_excel(msg["content"])
                 if excel_data:
-                    col_ex, col_gr = st.columns(2)
-                    with col_ex:
-                        st.download_button("📊 Excel", data=excel_data, file_name=f"Datos_{i}.xlsx", key=f"xls_{i}")
-                    with col_gr:
+                    c1, c2 = st.columns(2)
+                    with c1: st.download_button("📊 Excel", excel_data, f"Data_{i}.xlsx", key=f"x_{i}_{ver}")
+                    with c2:
                         try:
-                            df_temp = pd.read_excel(BytesIO(excel_data))
-                            img_grafico = generar_grafico_estratégico(df_temp)
-                            st.download_button("📈 Gráfico", data=img_grafico, file_name=f"Viz_{i}.png", key=f"grf_{i}")
+                            df_t = pd.read_excel(BytesIO(excel_data))
+                            st.download_button("📈 Gráfico", generar_grafico_estratégico(df_t), f"Viz_{i}.png", key=f"g_{i}_{ver}")
                         except: pass
 
-# --- SELECCIÓN Y GESTIÓN DE BLOQUE ---
+            # GESTIÓN DE SELECCIÓN (Usando 'ver' ya definida)
             is_selected = i in st.session_state.export_pool
             if st.checkbox(f"📥 Incluir en Reporte", key=f"sel_{i}_{ver}", value=is_selected):
                 if i not in st.session_state.export_pool:
-                    st.session_state.export_pool.append(i); st.rerun()
+                    st.session_state.export_pool.append(i)
+                    st.rerun()
             elif i in st.session_state.export_pool:
-                st.session_state.export_pool.remove(i); st.rerun()
+                st.session_state.export_pool.remove(i)
+                st.rerun()
 
             # Bloque de Edición con Cierre Automático
             with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
@@ -435,10 +435,11 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                     txt_edit = st.text_area("Borrador:", value=msg["content"], height=300, key=f"ed_{i}_{ver}")
                     if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}_{ver}", use_container_width=True):
                         st.session_state.messages[i]["content"] = txt_edit
-                        st.session_state.editor_version += 1  # Forzar recreación (cierre)
+                        st.session_state.editor_version += 1 # Rotación de key
                         st.toast("✅ Sincronizado. Colapsando editor...")
                         st.rerun()
-    st.markdown("---")            
+    st.markdown("---")
+
 # 2. CAPTURA DE NUEVO INPUT Y GENERACIÓN
 input_txt = "Nuestro reto para hoy..."
 if pr := st.chat_input(input_txt):
@@ -464,6 +465,7 @@ if pr := st.chat_input(input_txt):
             st.rerun()
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
 
 
 
