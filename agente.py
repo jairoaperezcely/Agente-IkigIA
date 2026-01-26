@@ -363,10 +363,34 @@ with st.sidebar:
     if st.button("🧠 Sincronizar memoria máster", use_container_width=True):
         with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
             try:
-                res_msg = actualizar_memoria_persistente()
-                st.success(res_msg)
-            except Exception as e:
-                st.error(f"Error en la sincronización: {e}")
+                def actualizar_memoria_persistente():
+    # Diagnóstico inicial
+    if not os.path.exists(DATA_FOLDER):
+        return f"❌ Error: La carpeta '{DATA_FOLDER}' no existe en el servidor."
+    
+    docs_text = []
+    archivos_encontrados = 0
+    
+    # Escaneo con trazabilidad
+    for root, dirs, files in os.walk(DATA_FOLDER):
+        for file in files:
+            # Aceptamos .pdf y .PDF para evitar errores de sensibilidad
+            if file.lower().endswith(".pdf"):
+                ruta_completa = os.path.join(root, file)
+                try:
+                    with open(ruta_completa, "rb") as f:
+                        docs_text.append(get_pdf_text(f))
+                        archivos_encontrados += 1
+                except Exception as e:
+                    st.error(f"Error leyendo {file}: {e}")
+    
+    if archivos_encontrados == 0:
+        # Esto nos dirá qué carpetas SI encontró dentro de la raíz
+        contenido = os.listdir(DATA_FOLDER)
+        return f"⚠️ Carpeta encontrada, pero contiene 0 PDFs. Visto en raíz: {contenido}"
+
+    # ... (resto del código de FAISS igual) ...
+    return f"✅ Sincronizados {archivos_encontrados} archivos con éxito."
             
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
@@ -454,6 +478,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
