@@ -427,12 +427,24 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
             elif i in st.session_state.export_pool:
                 st.session_state.export_pool.remove(i); st.rerun()
             
-            with st.expander("🛠️ GESTIONAR"):
-                txt_ed = st.text_area("Borrador:", value=msg["content"], height=200, key=f"ed_{i}_{ver}")
-                if st.button("✅ FIJAR", key=f"sv_{i}_{ver}"):
-                    st.session_state.messages[i]["content"] = txt_ed
-                    st.session_state.editor_version += 1
-                    st.rerun()
+            # --- PANEL DE GESTIÓN CON COPIADO Y CIERRE ---
+            with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
+                # Creamos dos pestañas para separar funciones
+                t_visualizar, t_editar = st.tabs(["📋 COPIAR TEXTO", "📝 EDITAR CONTENIDO"])
+                
+                with t_visualizar:
+                    # st.code permite copiar el texto con un solo clic en el icono superior derecho
+                    st.code(msg["content"], language=None)
+                    st.info("💡 Use el botón de la esquina superior derecha del cuadro gris para copiar.")
+                
+                with t_editar:
+                    txt_edit = st.text_area("Borrador para ajustes:", value=msg["content"], height=300, key=f"ed_{i}_{ver}")
+                    
+                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}_{ver}", use_container_width=True):
+                        st.session_state.messages[i]["content"] = txt_edit
+                        st.session_state.editor_version = ver + 1 
+                        st.toast("✅ Sincronizado. Colapsando editor...")
+                        st.rerun()
 
 # Captura de nuevo Input con RAG
 if pr := st.chat_input("Nuestro reto para hoy..."):
@@ -456,6 +468,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
