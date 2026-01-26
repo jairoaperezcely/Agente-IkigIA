@@ -16,7 +16,9 @@ import seaborn as sns # Para estética académica superior
 import os
 import re
 import json
-
+from langchain_community.vectorstores import FAISS
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
     page_title="IkigAI V1.86 - Executive Workstation", 
@@ -296,6 +298,7 @@ if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" 
 if "messages" not in st.session_state: st.session_state.messages = []
 if "last_analysis" not in st.session_state: st.session_state.last_analysis = ""
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
+if "editor_version" not in st.session_state: st.session_state.editor_version = 0
 
 # --- 5. BARRA LATERAL: CONTROL ESTRATÉGICO Y ENTREGABLES (V2.0) ---
 with st.sidebar:
@@ -416,87 +419,54 @@ st.markdown("""
 # Recuperamos versión para llaves dinámicas (Cierre automático de editores)
 ver = st.session_state.get("editor_version", 0)
 
-# 2. RENDERIZADO DEL HISTORIAL
-for i, msg in enumerate(st.session_state.get("messages", [])):
-    role_class = "user" if msg["role"] == "user" else "assistant"
-    with st.chat_message(role_class):
-        st.markdown(msg["content"])
-        
-        if msg["role"] == "assistant":
-            # --- MOTOR DE ACTIVOS (EXCEL/GRÁFICOS) ---
-            if '|' in msg["content"]:
-                excel_data = download_excel(msg["content"])
-                if excel_data:
-                    c1, c2 = st.columns(2)
-                    with c1: st.download_button("📊 Excel", excel_data, f"Datos_{i}.xlsx", key=f"xls_{i}_{ver}")
-                    with c2:
-                        try:
-                            df_t = pd.read_excel(BytesIO(excel_data))
-                            st.download_button("📈 Gráfico", generar_grafico_estratégico(df_t), f"Viz_{i}.png", key=f"grf_{i}_{ver}")
-                        except: pass
+# --- 6. PANEL CENTRAL: WORKSTATION V3.5 ---
+ver = st.session_state.editor_version
 
-            # --- GESTIÓN DE BLOQUE (SELECCIÓN Y EDICIÓN) ---
-            is_selected = i in st.session_state.export_pool
-            if st.checkbox(f"📥 Incluir en Reporte", key=f"sel_{i}_{ver}", value=is_selected):
-                if i not in st.session_state.export_pool:
-                    st.session_state.export_pool.append(i); st.rerun()
+# Renderizado de historial
+for i, msg in enumerate(st.session_state.get("messages", [])):
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+        if msg["role"] == "assistant":
+            # Botones de Excel/Gráficos
+            if '|' in msg["content"]:
+                exc = download_excel(msg["content"])
+                if exc:
+                    c1, c2 = st.columns(2)
+                    with c1: st.download_button("📊 Excel", exc, f"Data_{i}.xlsx", key=f"ex_{i}_{ver}")
+            
+            # Selección y Edición
+            is_sel = i in st.session_state.export_pool
+            if st.checkbox("📥 Incluir", key=f"sel_{i}_{ver}", value=is_sel):
+                if i not in st.session_state.export_pool: st.session_state.export_pool.append(i); st.rerun()
             elif i in st.session_state.export_pool:
                 st.session_state.export_pool.remove(i); st.rerun()
+            
+            with st.expander("🛠️ GESTIONAR"):
+                txt_ed = st.text_area("Borrador:", value=msg["content"], height=200, key=f"ed_{i}_{ver}")
+                if st.button("✅ FIJAR", key=f"sv_{i}_{ver}"):
+                    st.session_state.messages[i]["content"] = txt_ed
+                    st.session_state.editor_version += 1
+                    st.rerun()
 
-            with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
-                t_copy, t_edit = st.tabs(["📋 COPIAR", "📝 EDITAR"])
-                with t_copy: st.code(msg["content"], language=None)
-                with t_edit:
-                    txt_edit = st.text_area("Borrador:", value=msg["content"], height=300, key=f"ed_{i}_{ver}")
-                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}_{ver}", use_container_width=True):
-                        st.session_state.messages[i]["content"] = txt_edit
-                        st.session_state.editor_version = ver + 1
-                        st.toast("✅ Cambios sincronizados.")
-                        st.rerun()
-    st.markdown("---")
-
-# 3. CAPTURA DE NUEVO INPUT Y GENERACIÓN RAG
-
+# Captura de nuevo Input con RAG
 if pr := st.chat_input("Nuestro reto para hoy..."):
     st.session_state.messages.append({"role": "user", "content": pr})
-    with st.chat_message("user"):
-        st.markdown(pr)
+    with st.chat_message("user"): st.markdown(pr)
     
     with st.chat_message("assistant"):
         try:
-            # 1. BÚSQUEDA EN BIBLIOTECA MASTER (RAG)
-            contexto_rag = "Sin evidencia específica en la biblioteca master."
-            if os.path.exists(DB_PATH):
+            contexto_rag = "Sin evidencia específica en biblioteca."
+            if os.path.exists("vector_db"):
                 with st.spinner("Consultando Biblioteca Master..."):
-                    # Inicializamos embeddings para la búsqueda
                     emb = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-                    # Cargamos la base de datos vectorial
-                    vdb = FAISS.load_local(DB_PATH, emb, allow_dangerous_deserialization=True)
-                    # Recuperamos los 3 fragmentos más relevantes
+                    vdb = FAISS.load_local("vector_db", emb, allow_dangerous_deserialization=True)
                     docs = vdb.similarity_search(pr, k=3)
                     contexto_rag = "\n".join([d.page_content for d in docs])
 
-            # 2. GENERACIÓN ESTRATÉGICA UNIFICADA
             model = genai.GenerativeModel('gemini-2.5-flash')
-            sys_prompt = (
-                f"Usted es el socio estratégico de Jairo Pérez Cely. Rol: {rol_activo}. "
-                "Protocolo: Chain-of-Thought (Academia, Estrategia, Innovación). "
-                "Instrucción: Prioriza la evidencia de la biblioteca master y usa APA 7."
-            )
-            
-            # Construcción del mensaje para el modelo
-            full_prompt = [
-                sys_prompt, 
-                f"CONTEXTO DE AUTOR: {contexto_rag}", 
-                f"SOLICITUD: {pr}"
-            ]
-            
-            response = model.generate_content(full_prompt)
-            
-            # Guardamos y refrescamos
-            st.session_state.messages.append({"role": "assistant", "content": response.text})
+            sys_prompt = f"Rol: {rol_activo}. Contexto Master: {contexto_rag}. Instrucción: Prioriza evidencia y usa APA 7."
+            resp = model.generate_content([sys_prompt, pr])
+            st.session_state.messages.append({"role": "assistant", "content": resp.text})
             st.rerun()
-
         except Exception as e:
-            st.error(f"Falla en la frontera de innovación: {e}")
-
+            st.error(f"Error: {e}")
