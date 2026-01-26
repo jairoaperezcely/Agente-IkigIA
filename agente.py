@@ -365,7 +365,7 @@ with st.sidebar:
         with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
             try:
                 # Solo llamamos a la función que debe estar definida arriba
-                def actualizar_memoria_persistente():
+def actualizar_memoria_persistente():
     """Escanea la biblioteca_master en GitHub y actualiza el cerebro RAG."""
     # 1. Verificar existencia de la carpeta
     if not os.path.exists(DATA_FOLDER):
@@ -496,6 +496,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
