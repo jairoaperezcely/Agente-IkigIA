@@ -357,21 +357,18 @@ with st.sidebar:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
     # 5. BIBLIOTECA MASTER
     
+    NODO DE INTELIGENCIA RAG ---
     st.divider()
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
 
     if st.button("🧠 Sincronizar memoria máster", use_container_width=True):
         with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
             try:
+                # Solo llamamos a la función que debe estar definida arriba
                 res_msg = actualizar_memoria_persistente()
                 st.success(res_msg)
             except Exception as e:
-                st.error(f"Error: {e}")actualizar_memoria_persistente():
-        if not os.path.exists(DATA_FOLDER): 
-        os.makedirs(DATA_FOLDER)
-    
-        docs_text = []
-        archivos_encontrados = 0
+                st.error(f"Error: {e}")
     
     # Escaneo recursivo de subcarpetas
         for root, dirs, files in os.walk(DATA_FOLDER):
@@ -483,6 +480,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
