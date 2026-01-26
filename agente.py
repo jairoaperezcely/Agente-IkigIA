@@ -363,18 +363,16 @@ with st.sidebar:
     if st.button("🧠 Sincronizar memoria máster", use_container_width=True):
         with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
             try:
-                def actualizar_memoria_persistente():
-    # Diagnóstico inicial
-    if not os.path.exists(DATA_FOLDER):
-        return f"❌ Error: La carpeta '{DATA_FOLDER}' no existe en el servidor."
+    def actualizar_memoria_persistente():
+        if not os.path.exists(DATA_FOLDER): 
+        os.makedirs(DATA_FOLDER)
     
-    docs_text = []
-    archivos_encontrados = 0
+        docs_text = []
+        archivos_encontrados = 0
     
-    # Escaneo con trazabilidad
-    for root, dirs, files in os.walk(DATA_FOLDER):
+    # Escaneo recursivo de subcarpetas
+        for root, dirs, files in os.walk(DATA_FOLDER):
         for file in files:
-            # Aceptamos .pdf y .PDF para evitar errores de sensibilidad
             if file.lower().endswith(".pdf"):
                 ruta_completa = os.path.join(root, file)
                 try:
@@ -384,13 +382,17 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"Error leyendo {file}: {e}")
     
-    if archivos_encontrados == 0:
-        # Esto nos dirá qué carpetas SI encontró dentro de la raíz
-        contenido = os.listdir(DATA_FOLDER)
-        return f"⚠️ Carpeta encontrada, pero contiene 0 PDFs. Visto en raíz: {contenido}"
+        if archivos_encontrados == 0:
+            return "⚠️ Biblioteca vacía o no se encontraron PDFs."
 
-    # ... (resto del código de FAISS igual) ...
-    return f"✅ Sincronizados {archivos_encontrados} archivos con éxito."
+        # Motor Vectorial
+        splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+        chunks = splitter.create_documents(docs_text)
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        vector_db = FAISS.from_documents(chunks, embeddings)
+        vector_db.save_local(DB_PATH)
+    
+        return f"✅ Inteligencia Sincronizada: {archivos_encontrados} PDFs integrados."
             
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
@@ -478,6 +480,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
