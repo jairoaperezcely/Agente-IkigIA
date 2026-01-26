@@ -386,7 +386,6 @@ with st.sidebar:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
 
     st.divider()
-    st.caption(f"IkigAI V2.0 | {date.today()}")    
 
 # --- MOTOR DE MEMORIA PERSISTENTE ---
     st.divider()
@@ -470,3 +469,4 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
