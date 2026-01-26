@@ -365,34 +365,50 @@ with st.sidebar:
         with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
             try:
                 # Solo llamamos a la función que debe estar definida arriba
-                res_msg = actualizar_memoria_persistente()
-                st.success(res_msg)
-            except Exception as e:
-                st.error(f"Error: {e}")
-    
-    # Escaneo recursivo de subcarpetas
-        for root, dirs, files in os.walk(DATA_FOLDER):
-            for file in files:
-                if file.lower().endswith(".pdf"):
-                    ruta_completa = os.path.join(root, file)
-                    try:
-                        with open(ruta_completa, "rb") as f:
-                            docs_text.append(get_pdf_text(f))
-                            archivos_encontrados += 1
-                    except Exception as e:
-                        st.error(f"Error leyendo {file}: {e}")
-    
-    if archivos_encontrados == 0:
-        return "⚠️ Biblioteca vacía o no se encontraron PDFs."
+                def actualizar_memoria_persistente():
+    """Escanea la biblioteca_master en GitHub y actualiza el cerebro RAG."""
+    # 1. Verificar existencia de la carpeta
+    if not os.path.exists(DATA_FOLDER):
+        os.makedirs(DATA_FOLDER)
+        return "⚠️ Carpeta 'biblioteca_master' creada (estaba ausente). Por favor suba sus PDFs a GitHub."
 
-        # Motor Vectorial
+    docs_text = []
+    archivos_encontrados = 0
+
+    # 2. Escaneo recursivo (Buceo en subcarpetas: UCI, Academia, etc.)
+    for root, dirs, files in os.walk(DATA_FOLDER):
+        for file in files:
+            # Acepta .pdf y .PDF para evitar errores de sensibilidad
+            if file.lower().endswith(".pdf"):
+                ruta_completa = os.path.join(root, file)
+                try:
+                    with open(ruta_completa, "rb") as f:
+                        # Extraemos texto usando su función get_pdf_text
+                        texto = get_pdf_text(f)
+                        if texto.strip():
+                            docs_text.append(texto)
+                            archivos_encontrados += 1
+                except Exception as e:
+                    print(f"Error procesando {file}: {e}")
+
+    # 3. Validación de contenido
+    if archivos_encontrados == 0:
+        return "⚠️ No se encontraron archivos PDF válidos en 'biblioteca_master'."
+
+    # 4. Procesamiento RAG y creación de Base de Datos Vectorial (FAISS)
+    try:
         splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-        chunks = splitter.create_documents(docs_text)
+        # Convertimos la lista de textos en objetos Document
+        final_docs = splitter.create_documents(docs_text)
+        
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        vector_db = FAISS.from_documents(chunks, embeddings)
+        vector_db = FAISS.from_documents(final_docs, embeddings)
+        
+        # Guardamos localmente en el servidor de Streamlit
         vector_db.save_local(DB_PATH)
-    
-        return f"✅ Inteligencia Sincronizada: {archivos_encontrados} PDFs integrados."
+        return f"✅ ÉXITO: Se han integrado {archivos_encontrados} documentos a su memoria master."
+    except Exception as e:
+        return f"❌ Error en el procesamiento de inteligencia: {str(e)}"
             
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
@@ -480,6 +496,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
