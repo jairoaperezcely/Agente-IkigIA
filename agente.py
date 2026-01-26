@@ -357,30 +357,42 @@ with st.sidebar:
                 except:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
     # 5. BIBLIOTECA MASTER
-    # --- 5.3 NODO DE INTELIGENCIA RAG ---
+    
     st.divider()
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
     
-    archivos_pool = st.file_uploader("Evidencia PDF:", type=['pdf'], accept_multiple_files=True, key="rag_uploader", label_visibility="collapsed")
+    # 1. Escaneo dinámico de carpetas existentes
+    if os.path.exists(DATA_FOLDER):
+        subcarpetas = [d for d in os.listdir(DATA_FOLDER) if os.path.isdir(os.path.join(DATA_FOLDER, d))]
+        opciones_destino = [DATA_FOLDER] + [os.path.join(DATA_FOLDER, d) for d in subcarpetas]
+    else:
+        opciones_destino = [DATA_FOLDER]
+
+    # 2. Interfaz de selección
+    destino_final = st.selectbox("Carpeta de destino:", opciones_destino, help="Seleccione el dominio de conocimiento")
+    archivos_pool = st.file_uploader("Añadir evidencia (PDF):", type=['pdf'], accept_multiple_files=True, key="rag_uploader", label_visibility="collapsed")
 
     if st.button("🧠 INTEGRAR A MEMORIA MASTER", use_container_width=True):
         if archivos_pool:
-            with st.spinner("Procesando..."):
+            with st.spinner("Clasificando e integrando conocimiento..."):
                 try:
-                    # Guardado físico (Asegúrese de que estas líneas estén alineadas)
-                    if not os.path.exists(DATA_FOLDER): 
-                        os.makedirs(DATA_FOLDER)
+                    # Asegurar que la carpeta seleccionada existe
+                    if not os.path.exists(destino_final): os.makedirs(destino_final)
+                    
                     for f in archivos_pool:
-                        with open(os.path.join(DATA_FOLDER, f.name), "wb") as f_out:
+                        ruta_archivo = os.path.join(destino_final, f.name)
+                        with open(ruta_archivo, "wb") as f_out:
                             f_out.write(f.getbuffer())
                     
-                    # Llamada a la función
+                    # Sincronización recursiva total
                     res_msg = actualizar_memoria_persistente()
-                    st.success(res_msg)
+                    st.success(f"Archivos guardados en: {destino_final}")
+                    st.info(res_msg)
+                    st.toast("Conocimiento jerárquico actualizado.")
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"Error en la arquitectura de datos: {e}")
         else:
-            st.warning("⚠️ Seleccione archivos primero.")
+            st.warning("⚠️ Cargue archivos PDF primero.")
             
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
@@ -468,6 +480,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
