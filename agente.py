@@ -357,65 +357,31 @@ with st.sidebar:
                 except:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
     # 5. BIBLIOTECA MASTER
+    # --- 5.3 NODO DE INTELIGENCIA RAG ---
     st.divider()
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
     
-    # 1. Selector de archivos
-    archivos_pool = st.file_uploader("Añadir evidencia (PDF):", type=['pdf'], accept_multiple_files=True, key="rag_uploader", label_visibility="collapsed")
+    archivos_pool = st.file_uploader("Evidencia PDF:", type=['pdf'], accept_multiple_files=True, key="rag_uploader", label_visibility="collapsed")
 
-    # Así debe verse el interior de su botón en la barra lateral:
-if st.button("🧠 INTEGRAR A MEMORIA MASTER", use_container_width=True):
-    if archivos_pool:
-        with st.spinner("Procesando..."):
-            try:
-                # 1. Guardar archivos (Lógica de interfaz)
-                for f in archivos_pool:
-                    with open(os.path.join(DATA_FOLDER, f.name), "wb") as f_out:
-                        f_out.write(f.getbuffer())
-                
-                # 2. Llamar a la función (Lógica de inteligencia)
-                res_msg = actualizar_memoria_persistente()
-                st.success(res_msg)
-            except Exception as e:
-                st.error(f"Error: {e}")
-    # 1. Persistencia física
-                    if not os.path.exists(DATA_FOLDER): os.makedirs(DATA_FOLDER)
+    if st.button("🧠 INTEGRAR A MEMORIA MASTER", use_container_width=True):
+        if archivos_pool:
+            with st.spinner("Procesando..."):
+                try:
+                    # Guardado físico (Asegúrese de que estas líneas estén alineadas)
+                    if not os.path.exists(DATA_FOLDER): 
+                        os.makedirs(DATA_FOLDER)
                     for f in archivos_pool:
                         with open(os.path.join(DATA_FOLDER, f.name), "wb") as f_out:
                             f_out.write(f.getbuffer())
                     
-    # 2. Sincronización Vectorial inmediata
-
-    def actualizar_memoria_persistente():
-        if not os.path.exists(DATA_FOLDER): 
-        os.makedirs(DATA_FOLDER)
-    
-    docs_text = []
-    archivos_encontrados = 0
-    
-    for root, dirs, files in os.walk(DATA_FOLDER):
-        for file in files:
-            if file.endswith(".pdf"):
-                ruta_completa = os.path.join(root, file)
-                try:
-                    with open(ruta_completa, "rb") as f:
-                        docs_text.append(get_pdf_text(f))
-                        archivos_encontrados += 1
+                    # Llamada a la función
+                    res_msg = actualizar_memoria_persistente()
+                    st.success(res_msg)
                 except Exception as e:
-                    st.error(f"Error leyendo {file}: {e}")
-    
-    if not docs_text:
-        return "⚠️ Biblioteca vacía."
-
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    chunks = splitter.create_documents(docs_text)
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    vector_db = FAISS.from_documents(chunks, embeddings)
-    vector_db.save_local(DB_PATH)
-    
-    return f"✅ Inteligencia Sincronizada: {archivos_encontrados} PDFs integrados."            else:
-            st.warning("⚠️ Cargue archivos PDF primero.")
-
+                    st.error(f"Error: {e}")
+        else:
+            st.warning("⚠️ Seleccione archivos primero.")
+            
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
 # 1. ESTILO Y ERGONOMÍA (Zen & Clean)
@@ -490,6 +456,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
