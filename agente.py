@@ -374,16 +374,38 @@ with st.sidebar:
                             f_out.write(f.getbuffer())
                     
                     # 2. Sincronización Vectorial inmediata
-                    res_msg = actualizar_memoria_persistente()
-                    st.success(res_msg)
-                    st.toast("Conocimiento integrado con éxito.")
+                    def actualizar_memoria_persistente():
+    if not os.path.exists(DATA_FOLDER): os.makedirs(DATA_FOLDER)
+    
+    docs_text = []
+    archivos_encontrados = 0
+    
+    # --- ESCANEO RECURSIVO (Subcarpetas) ---
+    for root, dirs, files in os.walk(DATA_FOLDER):
+        for file in files:
+            if file.endswith(".pdf"):
+                ruta_completa = os.path.join(root, file)
+                try:
+                    with open(ruta_completa, "rb") as f:
+                        docs_text.append(get_pdf_text(f))
+                        archivos_encontrados += 1
                 except Exception as e:
-                    st.error(f"Error en la integración: {e}")
+                    print(f"Error leyendo {file}: {e}")
+    
+    if not docs_text:
+        return "⚠️ La biblioteca y sus subcarpetas están vacías."
+
+    # Procesamiento Vectorial
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    chunks = splitter.create_documents(docs_text)
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    vector_db = FAISS.from_documents(chunks, embeddings)
+    vector_db.save_local(DB_PATH)
+    
+    return f"✅ Inteligencia Sincronizada: {archivos_encontrados} PDFs integrados desde toda la estructura de carpetas."
         else:
             st.warning("⚠️ Cargue archivos PDF primero.")
 
-
-  
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
 # 1. ESTILO Y ERGONOMÍA (Zen & Clean)
@@ -458,6 +480,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
