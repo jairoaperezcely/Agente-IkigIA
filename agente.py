@@ -456,6 +456,7 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
     st.markdown("---")
 
 # 3. CAPTURA DE NUEVO INPUT Y GENERACIÓN RAG
+
 if pr := st.chat_input("Nuestro reto para hoy..."):
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"):
@@ -463,29 +464,36 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
     
     with st.chat_message("assistant"):
         try:
-            # A. CONSULTA A LA BIBLIOTECA MASTER (RAG)
-            contexto_biblioteca = "Sin evidencia específica en la biblioteca master."
+            # 1. BÚSQUEDA EN BIBLIOTECA MASTER (RAG)
+            contexto_rag = "Sin evidencia específica en la biblioteca master."
             if os.path.exists(DB_PATH):
-                with st.spinner("Consultando evidencia en Biblioteca Master..."):
-                    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-                    vector_db = FAISS.load_local(DB_PATH, embeddings, allow_dangerous_deserialization=True)
-                    docs = vector_db.similarity_search(pr, k=3)
-                    contexto_biblioteca = "\n".join([d.page_content for d in docs])
+                with st.spinner("Consultando Biblioteca Master..."):
+                    # Inicializamos embeddings para la búsqueda
+                    emb = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+                    # Cargamos la base de datos vectorial
+                    vdb = FAISS.load_local(DB_PATH, emb, allow_dangerous_deserialization=True)
+                    # Recuperamos los 3 fragmentos más relevantes
+                    docs = vdb.similarity_search(pr, k=3)
+                    contexto_rag = "\n".join([d.page_content for d in docs])
 
-            # B. GENERACIÓN ESTRATÉGICA UNIFICADA
+            # 2. GENERACIÓN ESTRATÉGICA UNIFICADA
             model = genai.GenerativeModel('gemini-2.0-flash')
-            sys_context = (
+            sys_prompt = (
                 f"Usted es el socio estratégico de Jairo Pérez Cely. Rol: {rol_activo}. "
                 "Protocolo: Chain-of-Thought (Académica, Estratégica, Innovación). "
-                "Obligación: Prioriza la evidencia de la biblioteca master y usa APA 7."
+                "Instrucción: Prioriza la evidencia de la biblioteca master y usa APA 7."
             )
             
-            response = model.generate_content([
-                sys_context, 
-                f"EVIDENCIA DE AUTOR: {contexto_biblioteca}", 
+            # Construcción del mensaje para el modelo
+            full_prompt = [
+                sys_prompt, 
+                f"CONTEXTO DE AUTOR: {contexto_rag}", 
                 f"SOLICITUD: {pr}"
-            ])
+            ]
             
+            response = model.generate_content(full_prompt)
+            
+            # Guardamos y refrescamos
             st.session_state.messages.append({"role": "assistant", "content": response.text})
             st.rerun()
 
