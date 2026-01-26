@@ -375,8 +375,8 @@ with st.sidebar:
                     
     # 2. Sincronización Vectorial inmediata
 
-def actualizar_memoria_persistente():
-    if not os.path.exists(DATA_FOLDER): 
+    def actualizar_memoria_persistente():
+        if not os.path.exists(DATA_FOLDER): 
         os.makedirs(DATA_FOLDER)
     
     docs_text = []
@@ -479,6 +479,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
