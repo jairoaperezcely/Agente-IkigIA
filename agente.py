@@ -371,7 +371,7 @@ with st.sidebar:
     
     with tab_doc:
         up = st.file_uploader("Subir PDF o Word:", type=['pdf', 'docx'], accept_multiple_files=True, label_visibility="collapsed")
-        if st.button("🧠 PROCESAR ARCHIVOS", use_container_width=True):
+        if st.button("🧠 Procesar archivos", use_container_width=True):
             raw_text = ""
             for f in up:
                 raw_text += get_pdf_text(f) if f.type == "application/pdf" else get_docx_text(f)
@@ -467,5 +467,6 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
