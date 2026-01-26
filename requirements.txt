@@ -18,10 +18,7 @@ packaging
 langchain-community
 langchain-google-genai
 faiss-cpu
-langchain-community
-langchain-google-genai
-faiss-cpu
-pypdf
 google-generativeai
 pandas
 xlsxwriter
+pysqlite3-binary
