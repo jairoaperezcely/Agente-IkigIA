@@ -361,9 +361,9 @@ with st.sidebar:
     st.divider()
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
     
-    st.info("📂 Fuente de verdad: `biblioteca_master/` en GitHub")
+    st.info("📂 Fuente: biblioteca_master en GitHub")
 
-    if st.button("🧠 SINCRONIZAR MEMORIA MASTER", use_container_width=True):
+    if st.button("🧠 Sincronizar memoria máster", use_container_width=True):
         with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
             try:
                 # El sistema escanea directamente lo que usted subió a GitHub
@@ -459,6 +459,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
