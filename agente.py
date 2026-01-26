@@ -360,7 +360,7 @@ with st.sidebar:
     st.divider()
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
     
-    # Selector de archivos
+    # 1. Selector de archivos
     archivos_pool = st.file_uploader("Añadir evidencia (PDF):", type=['pdf'], accept_multiple_files=True, key="rag_uploader", label_visibility="collapsed")
 
     if st.button("🧠 Integrar a memoria máster", use_container_width=True):
@@ -373,16 +373,15 @@ with st.sidebar:
                         with open(os.path.join(DATA_FOLDER, f.name), "wb") as f_out:
                             f_out.write(f.getbuffer())
                     
-                    # 2. Sincronización Vectorial inmediata
-                def actualizar_memoria_persistente():
-    # Esta línea DEBE tener 4 espacios de sangría
+    # 2. Sincronización Vectorial inmediata
+
+def actualizar_memoria_persistente():
     if not os.path.exists(DATA_FOLDER): 
         os.makedirs(DATA_FOLDER)
     
     docs_text = []
     archivos_encontrados = 0
     
-    # Escaneo recursivo de subcarpetas
     for root, dirs, files in os.walk(DATA_FOLDER):
         for file in files:
             if file.endswith(".pdf"):
@@ -397,15 +396,13 @@ with st.sidebar:
     if not docs_text:
         return "⚠️ Biblioteca vacía."
 
-    # Motor Vectorial
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     chunks = splitter.create_documents(docs_text)
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
     vector_db = FAISS.from_documents(chunks, embeddings)
     vector_db.save_local(DB_PATH)
     
-    return f"✅ Inteligencia Sincronizada: {archivos_encontrados} PDFs integrados."    
-                else:
+    return f"✅ Inteligencia Sincronizada: {archivos_encontrados} PDFs integrados."            else:
             st.warning("⚠️ Cargue archivos PDF primero.")
 
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
@@ -482,6 +479,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
