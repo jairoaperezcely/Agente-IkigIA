@@ -363,7 +363,7 @@ with st.sidebar:
     # Selector de archivos
     archivos_pool = st.file_uploader("Añadir evidencia (PDF):", type=['pdf'], accept_multiple_files=True, key="rag_uploader", label_visibility="collapsed")
 
-    if st.button("🧠 INTEGRAR A MEMORIA MASTER", use_container_width=True):
+    if st.button("🧠 Integrar a memoria máster", use_container_width=True):
         if archivos_pool:
             with st.spinner("Procesando e integrando conocimiento..."):
                 try:
@@ -458,6 +458,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
