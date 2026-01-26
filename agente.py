@@ -363,7 +363,10 @@ with st.sidebar:
     if st.button("🧠 Sincronizar memoria máster", use_container_width=True):
         with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
             try:
-    def actualizar_memoria_persistente():
+                res_msg = actualizar_memoria_persistente()
+                st.success(res_msg)
+            except Exception as e:
+                st.error(f"Error: {e}")actualizar_memoria_persistente():
         if not os.path.exists(DATA_FOLDER): 
         os.makedirs(DATA_FOLDER)
     
@@ -480,6 +483,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
