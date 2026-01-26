@@ -372,7 +372,7 @@ with st.sidebar:
     
     # Escaneo recursivo de subcarpetas
         for root, dirs, files in os.walk(DATA_FOLDER):
-        for file in files:
+            for file in files:
             if file.lower().endswith(".pdf"):
                 ruta_completa = os.path.join(root, file)
                 try:
@@ -480,6 +480,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
