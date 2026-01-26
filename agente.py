@@ -477,10 +477,10 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
                     contexto_rag = "\n".join([d.page_content for d in docs])
 
             # 2. GENERACIÓN ESTRATÉGICA UNIFICADA
-            model = genai.GenerativeModel('gemini-2.0-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             sys_prompt = (
                 f"Usted es el socio estratégico de Jairo Pérez Cely. Rol: {rol_activo}. "
-                "Protocolo: Chain-of-Thought (Académica, Estratégica, Innovación). "
+                "Protocolo: Chain-of-Thought (Academia, Estrategia, Innovación). "
                 "Instrucción: Prioriza la evidencia de la biblioteca master y usa APA 7."
             )
             
@@ -499,3 +499,4 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Falla en la frontera de innovación: {e}")
+
