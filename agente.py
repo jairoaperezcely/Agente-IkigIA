@@ -301,7 +301,6 @@ if "export_pool" not in st.session_state: st.session_state.export_pool = []
 if "editor_version" not in st.session_state: st.session_state.editor_version = 0
 
 # --- 5. BARRA LATERAL: CONTROL ESTRATÉGICO Y ENTREGABLES (V2.0) ---
-# --- REEMPLAZO TOTAL DE LA SECCIÓN 5 (SIDEBAR) ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
@@ -361,9 +360,7 @@ with st.sidebar:
     st.divider()
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
     
-    st.info("📂 Fuente: biblioteca_master en GitHub")
-
-    if st.button("🧠 Sincronizar memoria máster", use_container_width=True):
+        if st.button("🧠 Sincronizar memoria máster", use_container_width=True):
         with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
             try:
                 # El sistema escanea directamente lo que usted subió a GitHub
@@ -459,6 +456,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
