@@ -374,15 +374,7 @@ with st.sidebar:
                     st.success("Biblioteca actualizada.")
                 except:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
-
-# --- MOTOR DE MEMORIA PERSISTENTE ---
-    st.divider()
-    st.markdown("<div class='section-tag'>MEMORIA DE LARGO PLAZO</div>", unsafe_allow_html=True)
-    if st.button("🔄 Sincronizar Biblioteca Master", use_container_width=True):
-        with st.spinner("El agente está estudiando sus documentos..."):
-            resultado = actualizar_memoria_persistente()
-            st.success(resultado)
-    
+  
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
 # 1. ESTILO Y ERGONOMÍA (Zen & Clean)
@@ -457,6 +449,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
