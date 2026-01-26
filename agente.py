@@ -323,21 +323,29 @@ with st.sidebar:
 
     # 3. BIBLIOTECA MASTER (CARGA Y ESTUDIO)
     st.divider()
-    st.markdown("<div class='section-tag'>1. CARGAR PDF A DISCO</div>", unsafe_allow_html=True)
-    nuevos = st.file_uploader("Subir PDFs:", type=['pdf'], accept_multiple_files=True, key="up_master", label_visibility="collapsed")
-    if st.button("📥 GUARDAR EN DISCO", use_container_width=True):
-        if nuevos:
-            if not os.path.exists(DATA_FOLDER): os.makedirs(DATA_FOLDER)
-            for f in nuevos:
-                with open(os.path.join(DATA_FOLDER, f.name), "wb") as f_out: f_out.write(f.getbuffer())
-            st.success("Guardado. Ahora Sincronice.")
-        else: st.error("Suba archivos.")
+    st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
+    
+    # Selector de archivos
+    archivos_pool = st.file_uploader("Añadir evidencia (PDF):", type=['pdf'], accept_multiple_files=True, key="rag_uploader", label_visibility="collapsed")
 
-    st.markdown("<div class='section-tag'>2. ESTUDIAR EVIDENCIA</div>", unsafe_allow_html=True)
-    if st.button("🔄 SINCRONIZAR MEMORIA", use_container_width=True):
-        with st.spinner("Estudiando biblioteca..."):
-            res_msg = actualizar_memoria_persistente()
-            st.info(res_msg)
+    if st.button("🧠 INTEGRAR A MEMORIA MASTER", use_container_width=True):
+        if archivos_pool:
+            with st.spinner("Procesando e integrando conocimiento..."):
+                try:
+                    # 1. Persistencia física
+                    if not os.path.exists(DATA_FOLDER): os.makedirs(DATA_FOLDER)
+                    for f in archivos_pool:
+                        with open(os.path.join(DATA_FOLDER, f.name), "wb") as f_out:
+                            f_out.write(f.getbuffer())
+                    
+                    # 2. Sincronización Vectorial inmediata
+                    res_msg = actualizar_memoria_persistente()
+                    st.success(res_msg)
+                    st.toast("Conocimiento integrado con éxito.")
+                except Exception as e:
+                    st.error(f"Error en la integración: {e}")
+        else:
+            st.warning("⚠️ Cargue archivos PDF primero.")
 
     # 4. ENTREGABLES DINÁMICOS
     pool_actual = st.session_state.get("export_pool", [])
@@ -449,6 +457,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
