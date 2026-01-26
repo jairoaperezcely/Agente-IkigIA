@@ -357,59 +357,73 @@ with st.sidebar:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
     # 5. BIBLIOTECA MASTER
     
-    # --- 5.3 NODO DE INTELIGENCIA RAG ---
+        # --- NODO DE INTELIGENCIA RAG ---
     st.divider()
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
+    st.caption("Foco: Estrategia, UCI y Transformación Digital")
 
-    if st.button("🧠 Sincronizar memoria máster", use_container_width=True):
+    if st.button("🧠 SINCRONIZAR MEMORIA MASTER", use_container_width=True):
         with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
             try:
-                # Solo llamamos a la función que debe estar definida arriba
+                # LLAMADA LIMPIA A LA FUNCIÓN DEL BLOQUE A
+                resultado_sincro = actualizar_memoria_persistente()
+                
+                if "✅" in resultado_sincro:
+                    st.success(resultado_sincro)
+                    st.toast("Cerebro actualizado", icon="🧠")
+                else:
+                    st.warning(resultado_sincro)
+                    
+            except Exception as e:
+                st.error(f"Error de ejecución en interfaz: {e}")
 def actualizar_memoria_persistente():
-    """Escanea la biblioteca_master en GitHub y actualiza el cerebro RAG."""
-    # 1. Verificar existencia de la carpeta
+    """
+    Escanea la biblioteca_master en GitHub (incluyendo subcarpetas) 
+    y actualiza la base de datos vectorial FAISS.
+    """
+    # 1. Validación de infraestructura
     if not os.path.exists(DATA_FOLDER):
         os.makedirs(DATA_FOLDER)
-        return "⚠️ Carpeta 'biblioteca_master' creada (estaba ausente). Por favor suba sus PDFs a GitHub."
+        return "⚠️ Carpeta 'biblioteca_master' creada. Por favor, cargue PDFs en su repositorio de GitHub."
 
     docs_text = []
     archivos_encontrados = 0
 
-    # 2. Escaneo recursivo (Buceo en subcarpetas: UCI, Academia, etc.)
+    # 2. Escaneo Recursivo (Buceo en subcarpetas: UCI, Academia, Estrategia, etc.)
     for root, dirs, files in os.walk(DATA_FOLDER):
         for file in files:
-            # Acepta .pdf y .PDF para evitar errores de sensibilidad
+            # Normalización de extensión (pdf y PDF)
             if file.lower().endswith(".pdf"):
                 ruta_completa = os.path.join(root, file)
                 try:
                     with open(ruta_completa, "rb") as f:
-                        # Extraemos texto usando su función get_pdf_text
-                        texto = get_pdf_text(f)
-                        if texto.strip():
-                            docs_text.append(texto)
+                        # Extraer texto usando su función auxiliar preexistente
+                        texto_extraido = get_pdf_text(f)
+                        if texto_extraido.strip():
+                            docs_text.append(texto_extraido)
                             archivos_encontrados += 1
                 except Exception as e:
-                    print(f"Error procesando {file}: {e}")
+                    print(f"Error crítico en archivo {file}: {e}")
 
     # 3. Validación de contenido
     if archivos_encontrados == 0:
-        return "⚠️ No se encontraron archivos PDF válidos en 'biblioteca_master'."
+        return "⚠️ Sincronización fallida: No se detectaron PDFs válidos en la biblioteca master."
 
-    # 4. Procesamiento RAG y creación de Base de Datos Vectorial (FAISS)
+    # 4. Procesamiento RAG e Ingestión Vectorial
     try:
         splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-        # Convertimos la lista de textos en objetos Document
         final_docs = splitter.create_documents(docs_text)
         
+        # Generación de Embeddings (Cerebro de Google AI)
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
         vector_db = FAISS.from_documents(final_docs, embeddings)
         
-        # Guardamos localmente en el servidor de Streamlit
+        # Persistencia local en el servidor
         vector_db.save_local(DB_PATH)
-        return f"✅ ÉXITO: Se han integrado {archivos_encontrados} documentos a su memoria master."
+        return f"✅ INTELIGENCIA ACTUALIZADA: {archivos_encontrados} documentos integrados exitosamente."
+    
     except Exception as e:
-        return f"❌ Error en el procesamiento de inteligencia: {str(e)}"
-            
+        return f"❌ Error en motor RAG: {str(e)}"            
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
 # 1. ESTILO Y ERGONOMÍA (Zen & Clean)
@@ -496,6 +510,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
