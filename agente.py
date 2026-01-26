@@ -377,53 +377,48 @@ with st.sidebar:
             except Exception as e:
                 st.error(f"Error de ejecución en interfaz: {e}")
 def actualizar_memoria_persistente():
-    """
-    Escanea la biblioteca_master en GitHub (incluyendo subcarpetas) 
-    y actualiza la base de datos vectorial FAISS.
-    """
-    # 1. Validación de infraestructura
-    if not os.path.exists(DATA_FOLDER):
-        os.makedirs(DATA_FOLDER)
-        return "⚠️ Carpeta 'biblioteca_master' creada. Por favor, cargue PDFs en su repositorio de GitHub."
+    import os
+    # Forzamos la ruta absoluta desde la raíz del proyecto
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    target_dir = os.path.join(base_path, "biblioteca_master")
+    
+    # Diagnóstico de visibilidad
+    if not os.path.exists(target_dir):
+        return f"❌ Error: No encuentro la carpeta en {target_dir}. Verifique el nombre en GitHub."
 
     docs_text = []
     archivos_encontrados = 0
 
-    # 2. Escaneo Recursivo (Buceo en subcarpetas: UCI, Academia, Estrategia, etc.)
-    for root, dirs, files in os.walk(DATA_FOLDER):
+    # Escaneo recursivo profundo
+    for root, dirs, files in os.walk(target_dir):
         for file in files:
-            # Normalización de extensión (pdf y PDF)
             if file.lower().endswith(".pdf"):
                 ruta_completa = os.path.join(root, file)
                 try:
                     with open(ruta_completa, "rb") as f:
-                        # Extraer texto usando su función auxiliar preexistente
-                        texto_extraido = get_pdf_text(f)
-                        if texto_extraido.strip():
-                            docs_text.append(texto_extraido)
+                        texto = get_pdf_text(f)
+                        if texto and texto.strip():
+                            docs_text.append(texto)
                             archivos_encontrados += 1
                 except Exception as e:
-                    print(f"Error crítico en archivo {file}: {e}")
+                    print(f"Error en {file}: {e}")
 
-    # 3. Validación de contenido
     if archivos_encontrados == 0:
-        return "⚠️ Sincronización fallida: No se detectaron PDFs válidos en la biblioteca master."
+        # Esto nos dirá qué hay realmente en esa carpeta si no hay PDFs
+        contenido = os.listdir(target_dir)
+        return f"⚠️ Carpeta detectada pero sin PDFs. Contenido visto: {contenido}"
 
-    # 4. Procesamiento RAG e Ingestión Vectorial
+    # Procesamiento RAG
     try:
-        splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+        splitter = RecursiveCharacterTextSplitter(chunk_size=1200, chunk_overlap=200)
         final_docs = splitter.create_documents(docs_text)
-        
-        # Generación de Embeddings (Cerebro de Google AI)
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
         vector_db = FAISS.from_documents(final_docs, embeddings)
-        
-        # Persistencia local en el servidor
         vector_db.save_local(DB_PATH)
-        return f"✅ INTELIGENCIA ACTUALIZADA: {archivos_encontrados} documentos integrados exitosamente."
-    
+        return f"✅ ÉXITO: {archivos_encontrados} documentos integrados desde {target_dir}."
     except Exception as e:
-        return f"❌ Error en motor RAG: {str(e)}"            
+        return f"❌ Error en motor RAG: {str(e)}"
+        
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
 # 1. ESTILO Y ERGONOMÍA (Zen & Clean)
@@ -510,6 +505,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
