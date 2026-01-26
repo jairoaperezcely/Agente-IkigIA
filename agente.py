@@ -380,7 +380,7 @@ with st.sidebar:
                             docs_text.append(get_pdf_text(f))
                             archivos_encontrados += 1
                     except Exception as e:
-                    st.error(f"Error leyendo {file}: {e}")
+                        st.error(f"Error leyendo {file}: {e}")
     
         if archivos_encontrados == 0:
             return "⚠️ Biblioteca vacía o no se encontraron PDFs."
@@ -480,6 +480,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
