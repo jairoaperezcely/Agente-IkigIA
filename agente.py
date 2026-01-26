@@ -359,14 +359,12 @@ with st.sidebar:
     
     st.divider()
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
-    
-        if st.button("🧠 Sincronizar memoria máster", use_container_width=True):
+
+    if st.button("🧠 Sincronizar memoria máster", use_container_width=True):
         with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
             try:
-                # El sistema escanea directamente lo que usted subió a GitHub
                 res_msg = actualizar_memoria_persistente()
                 st.success(res_msg)
-                st.toast("Cerebro actualizado con éxito.")
             except Exception as e:
                 st.error(f"Error en la sincronización: {e}")
             
@@ -456,6 +454,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
