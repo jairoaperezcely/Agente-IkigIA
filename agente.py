@@ -357,7 +357,7 @@ with st.sidebar:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
     # 5. BIBLIOTECA MASTER
     
-    NODO DE INTELIGENCIA RAG ---
+    # --- 5.3 NODO DE INTELIGENCIA RAG ---
     st.divider()
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
 
@@ -480,6 +480,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
