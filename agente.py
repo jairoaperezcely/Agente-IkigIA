@@ -378,18 +378,20 @@ with st.sidebar:
                 st.error(f"Error de ejecución en interfaz: {e}")
 def actualizar_memoria_persistente():
     import os
-    # Forzamos la ruta absoluta desde la raíz del proyecto
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    target_dir = os.path.join(base_path, "biblioteca_master")
+    # 1. Auditoría de ubicación
+    cwd = os.getcwd() # Directorio de trabajo actual
+    all_folders = [d for d in os.listdir(cwd) if os.path.isdir(d)]
     
-    # Diagnóstico de visibilidad
-    if not os.path.exists(target_dir):
-        return f"❌ Error: No encuentro la carpeta en {target_dir}. Verifique el nombre en GitHub."
+    # Intentar localizar la carpeta 'biblioteca_master'
+    target_dir = os.path.join(cwd, "biblioteca_master")
+    
+    if "biblioteca_master" not in all_folders:
+        return f"❌ ERROR DE LOCALIZACIÓN: El servidor está en '{cwd}'. Carpetas visibles: {all_folders}. No veo 'biblioteca_master'."
 
     docs_text = []
     archivos_encontrados = 0
 
-    # Escaneo recursivo profundo
+    # 2. Escaneo con depuración
     for root, dirs, files in os.walk(target_dir):
         for file in files:
             if file.lower().endswith(".pdf"):
@@ -404,11 +406,10 @@ def actualizar_memoria_persistente():
                     print(f"Error en {file}: {e}")
 
     if archivos_encontrados == 0:
-        # Esto nos dirá qué hay realmente en esa carpeta si no hay PDFs
-        contenido = os.listdir(target_dir)
-        return f"⚠️ Carpeta detectada pero sin PDFs. Contenido visto: {contenido}"
+        contenido_interno = os.listdir(target_dir)
+        return f"⚠️ CARPETA ENCONTRADA, PERO VACÍA: Visto en 'biblioteca_master': {contenido_interno}. ¿Subió los archivos a GitHub?"
 
-    # Procesamiento RAG
+    # 3. Procesamiento RAG (FAISS)
     try:
         splitter = RecursiveCharacterTextSplitter(chunk_size=1200, chunk_overlap=200)
         final_docs = splitter.create_documents(docs_text)
@@ -417,8 +418,7 @@ def actualizar_memoria_persistente():
         vector_db.save_local(DB_PATH)
         return f"✅ ÉXITO: {archivos_encontrados} documentos integrados desde {target_dir}."
     except Exception as e:
-        return f"❌ Error en motor RAG: {str(e)}"
-        
+        return f"❌ Error en motor RAG: {str(e)}"        
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
 # 1. ESTILO Y ERGONOMÍA (Zen & Clean)
@@ -505,6 +505,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
