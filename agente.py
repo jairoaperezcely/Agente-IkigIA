@@ -363,11 +363,22 @@ with st.sidebar:
     # 1. Selector de archivos
     archivos_pool = st.file_uploader("Añadir evidencia (PDF):", type=['pdf'], accept_multiple_files=True, key="rag_uploader", label_visibility="collapsed")
 
-    if st.button("🧠 Integrar a memoria máster", use_container_width=True):
-        if archivos_pool:
-            with st.spinner("Procesando e integrando conocimiento..."):
-                try:
-                    # 1. Persistencia física
+    # Así debe verse el interior de su botón en la barra lateral:
+if st.button("🧠 INTEGRAR A MEMORIA MASTER", use_container_width=True):
+    if archivos_pool:
+        with st.spinner("Procesando..."):
+            try:
+                # 1. Guardar archivos (Lógica de interfaz)
+                for f in archivos_pool:
+                    with open(os.path.join(DATA_FOLDER, f.name), "wb") as f_out:
+                        f_out.write(f.getbuffer())
+                
+                # 2. Llamar a la función (Lógica de inteligencia)
+                res_msg = actualizar_memoria_persistente()
+                st.success(res_msg)
+            except Exception as e:
+                st.error(f"Error: {e}")
+    # 1. Persistencia física
                     if not os.path.exists(DATA_FOLDER): os.makedirs(DATA_FOLDER)
                     for f in archivos_pool:
                         with open(os.path.join(DATA_FOLDER, f.name), "wb") as f_out:
@@ -479,6 +490,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
