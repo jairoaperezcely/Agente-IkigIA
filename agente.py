@@ -382,8 +382,8 @@ with st.sidebar:
                     except Exception as e:
                         st.error(f"Error leyendo {file}: {e}")
     
-        if archivos_encontrados == 0:
-            return "⚠️ Biblioteca vacía o no se encontraron PDFs."
+    if archivos_encontrados == 0:
+        return "⚠️ Biblioteca vacía o no se encontraron PDFs."
 
         # Motor Vectorial
         splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
@@ -480,6 +480,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
