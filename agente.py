@@ -362,7 +362,7 @@ with st.sidebar:
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
     st.caption("Foco: Estrategia, UCI y Transformación Digital")
 
-    if st.button("🧠 SINCRONIZAR MEMORIA MASTER", use_container_width=True):
+    if st.button("🧠 Sincronizar memoria máster", use_container_width=True):
         with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
             try:
                 # LLAMADA LIMPIA A LA FUNCIÓN DEL BLOQUE A
@@ -505,6 +505,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
