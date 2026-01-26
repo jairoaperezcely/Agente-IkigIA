@@ -361,38 +361,17 @@ with st.sidebar:
     st.divider()
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
     
-    # 1. Escaneo dinámico de carpetas existentes
-    if os.path.exists(DATA_FOLDER):
-        subcarpetas = [d for d in os.listdir(DATA_FOLDER) if os.path.isdir(os.path.join(DATA_FOLDER, d))]
-        opciones_destino = [DATA_FOLDER] + [os.path.join(DATA_FOLDER, d) for d in subcarpetas]
-    else:
-        opciones_destino = [DATA_FOLDER]
+    st.info("📂 Fuente de verdad: `biblioteca_master/` en GitHub")
 
-    # 2. Interfaz de selección
-    destino_final = st.selectbox("Carpeta de destino:", opciones_destino, help="Seleccione el dominio de conocimiento")
-    archivos_pool = st.file_uploader("Añadir evidencia (PDF):", type=['pdf'], accept_multiple_files=True, key="rag_uploader", label_visibility="collapsed")
-
-    if st.button("🧠 Integrar a memoria máster", use_container_width=True):
-        if archivos_pool:
-            with st.spinner("Clasificando e integrando conocimiento..."):
-                try:
-                    # Asegurar que la carpeta seleccionada existe
-                    if not os.path.exists(destino_final): os.makedirs(destino_final)
-                    
-                    for f in archivos_pool:
-                        ruta_archivo = os.path.join(destino_final, f.name)
-                        with open(ruta_archivo, "wb") as f_out:
-                            f_out.write(f.getbuffer())
-                    
-                    # Sincronización recursiva total
-                    res_msg = actualizar_memoria_persistente()
-                    st.success(f"Archivos guardados en: {destino_final}")
-                    st.info(res_msg)
-                    st.toast("Conocimiento jerárquico actualizado.")
-                except Exception as e:
-                    st.error(f"Error en la arquitectura de datos: {e}")
-        else:
-            st.warning("⚠️ Cargue archivos PDF primero.")
+    if st.button("🧠 SINCRONIZAR MEMORIA MASTER", use_container_width=True):
+        with st.spinner("Estudiando biblioteca y actualizando redes neuronales..."):
+            try:
+                # El sistema escanea directamente lo que usted subió a GitHub
+                res_msg = actualizar_memoria_persistente()
+                st.success(res_msg)
+                st.toast("Cerebro actualizado con éxito.")
+            except Exception as e:
+                st.error(f"Error en la sincronización: {e}")
             
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
@@ -480,6 +459,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
