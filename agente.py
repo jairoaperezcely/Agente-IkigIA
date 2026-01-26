@@ -321,7 +321,42 @@ with st.sidebar:
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol:", options=list(ROLES.keys()), label_visibility="collapsed")
 
-    # 3. BIBLIOTECA MASTER (CARGA Y ESTUDIO)
+     # 3. ENTREGABLES DINÁMICOS
+    pool_actual = st.session_state.get("export_pool", [])
+    if pool_actual:
+        st.divider()
+        st.markdown(f"<div class='section-tag'>REPORTES ({len(pool_actual)})</div>", unsafe_allow_html=True)
+        # Word
+        word_data = download_word_compilado(pool_actual, st.session_state.messages, rol_activo)
+        st.download_button("📄 Generar Word", data=word_data, file_name=f"Reporte_{date.today()}.docx", use_container_width=True)
+        # PPT
+        ppt_cont = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(pool_actual)])
+        st.download_button("📊 Generar PPT", data=download_pptx(ppt_cont, rol_activo), file_name=f"Presentacion_{date.today()}.pptx", use_container_width=True)
+    else:
+        st.divider()
+        st.info("💡 Seleccione bloques con 📥 para exportar.")
+        
+    # 4. FUENTES DE CONTEXTO ---
+    st.divider()
+    st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
+    tab_doc, tab_url, tab_img = st.tabs(["DOC", "URL", "IMG"])
+    
+    with tab_doc:
+        up = st.file_uploader("Subir PDF o Word:", type=['pdf', 'docx'], accept_multiple_files=True, label_visibility="collapsed")
+        if st.button("🧠 Procesar archivos", use_container_width=True):
+            raw_text = ""
+            for f in up:
+                raw_text += get_pdf_text(f) if f.type == "application/pdf" else get_docx_text(f)
+            with st.spinner("Refinando contexto técnico..."):
+                try:
+                    refiner = genai.GenerativeModel('gemini-2.5-flash')
+                    prompt_res = f"Extrae datos, normas y referencias clave: {raw_text[:45000]}"
+                    resumen = refiner.generate_content(prompt_res)
+                    st.session_state.biblioteca[rol_activo] = resumen.text
+                    st.success("Biblioteca actualizada.")
+                except:
+                    st.session_state.biblioteca[rol_activo] = raw_text[:30000]
+    # 5. BIBLIOTECA MASTER
     st.divider()
     st.markdown("<div class='section-tag'>CENTRO DE INTELIGENCIA RAG</div>", unsafe_allow_html=True)
     
@@ -347,41 +382,7 @@ with st.sidebar:
         else:
             st.warning("⚠️ Cargue archivos PDF primero.")
 
-    # 4. ENTREGABLES DINÁMICOS
-    pool_actual = st.session_state.get("export_pool", [])
-    if pool_actual:
-        st.divider()
-        st.markdown(f"<div class='section-tag'>REPORTES ({len(pool_actual)})</div>", unsafe_allow_html=True)
-        # Word
-        word_data = download_word_compilado(pool_actual, st.session_state.messages, rol_activo)
-        st.download_button("📄 Generar Word", data=word_data, file_name=f"Reporte_{date.today()}.docx", use_container_width=True)
-        # PPT
-        ppt_cont = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(pool_actual)])
-        st.download_button("📊 Generar PPT", data=download_pptx(ppt_cont, rol_activo), file_name=f"Presentacion_{date.today()}.pptx", use_container_width=True)
-    else:
-        st.divider()
-        st.info("💡 Seleccione bloques con 📥 para exportar.")
-        
-# --- FUENTES DE CONTEXTO ---
-    st.divider()
-    st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
-    tab_doc, tab_url, tab_img = st.tabs(["DOC", "URL", "IMG"])
-    
-    with tab_doc:
-        up = st.file_uploader("Subir PDF o Word:", type=['pdf', 'docx'], accept_multiple_files=True, label_visibility="collapsed")
-        if st.button("🧠 Procesar archivos", use_container_width=True):
-            raw_text = ""
-            for f in up:
-                raw_text += get_pdf_text(f) if f.type == "application/pdf" else get_docx_text(f)
-            with st.spinner("Refinando contexto técnico..."):
-                try:
-                    refiner = genai.GenerativeModel('gemini-2.5-flash')
-                    prompt_res = f"Extrae datos, normas y referencias clave: {raw_text[:45000]}"
-                    resumen = refiner.generate_content(prompt_res)
-                    st.session_state.biblioteca[rol_activo] = resumen.text
-                    st.success("Biblioteca actualizada.")
-                except:
-                    st.session_state.biblioteca[rol_activo] = raw_text[:30000]
+
   
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
@@ -457,6 +458,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
