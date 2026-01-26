@@ -301,70 +301,60 @@ if "export_pool" not in st.session_state: st.session_state.export_pool = []
 if "editor_version" not in st.session_state: st.session_state.editor_version = 0
 
 # --- 5. BARRA LATERAL: CONTROL ESTRATÉGICO Y ENTREGABLES (V2.0) ---
+# --- REEMPLAZO TOTAL DE LA SECCIÓN 5 (SIDEBAR) ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF; font-size: 40px;'>🧬</h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; letter-spacing: 5px; font-size: 24px;'>IKIGAI</h2>", unsafe_allow_html=True)
     
+    # 1. GESTIÓN DE SESIÓN
     st.divider()
     st.markdown("<div class='section-tag'>SESIÓN</div>", unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    with col1:
+    c1, c2 = st.columns(2)
+    with c1:
         if st.button("🗑️ Reiniciar"):
-            st.session_state.messages = []
-            st.session_state.export_pool = []
-            st.rerun()
-    with col2:
-        st.download_button(
-            label="💾 Guardar",
-            data=exportar_sesion(),
-            file_name=f"IkigAI_Turno_{date.today()}.json",
-            mime="application/json"
-        )
-    
+            st.session_state.messages = []; st.session_state.export_pool = []; st.rerun()
+    with c2:
+        st.download_button("💾 Guardar", data=exportar_sesion(), file_name=f"Sesion_{date.today()}.json")
+
+    # 2. PERFIL ESTRATÉGICO
     st.divider()
     st.markdown("<div class='section-tag'>PERFIL ESTRATÉGICO</div>", unsafe_allow_html=True)
-    rol_activo = st.radio("Rol activo:", options=list(ROLES.keys()), label_visibility="collapsed")
-    
-    # --- LÓGICA DE EXPORTACIÓN SINCRONIZADA ---
-    # Capturamos el estado actual del pool de selección
+    rol_activo = st.radio("Rol:", options=list(ROLES.keys()), label_visibility="collapsed")
+
+    # 3. BIBLIOTECA MASTER (CARGA Y ESTUDIO)
+    st.divider()
+    st.markdown("<div class='section-tag'>1. CARGAR PDF A DISCO</div>", unsafe_allow_html=True)
+    nuevos = st.file_uploader("Subir PDFs:", type=['pdf'], accept_multiple_files=True, key="up_master", label_visibility="collapsed")
+    if st.button("📥 GUARDAR EN DISCO", use_container_width=True):
+        if nuevos:
+            if not os.path.exists(DATA_FOLDER): os.makedirs(DATA_FOLDER)
+            for f in nuevos:
+                with open(os.path.join(DATA_FOLDER, f.name), "wb") as f_out: f_out.write(f.getbuffer())
+            st.success("Guardado. Ahora Sincronice.")
+        else: st.error("Suba archivos.")
+
+    st.markdown("<div class='section-tag'>2. ESTUDIAR EVIDENCIA</div>", unsafe_allow_html=True)
+    if st.button("🔄 SINCRONIZAR MEMORIA", use_container_width=True):
+        with st.spinner("Estudiando biblioteca..."):
+            res_msg = actualizar_memoria_persistente()
+            st.info(res_msg)
+
+    # 4. ENTREGABLES DINÁMICOS
     pool_actual = st.session_state.get("export_pool", [])
-    
-    if len(pool_actual) > 0:
+    if pool_actual:
         st.divider()
-        st.markdown(f"<div class='section-tag'>ENTREGABLES ACTIVOS ({len(pool_actual)})</div>", unsafe_allow_html=True)
-        
-        # 1. Extracción dinámica del título según el tema del chat
-        nombre_tema = extraer_titulo_dictado(st.session_state.messages, pool_actual)
-        file_name_clean = re.sub(r'[^\w\s-]', '', nombre_tema).strip().replace(' ', '_')[:40]
-        
-        # 2. Preparación de datos para Word (Autoría: Jairo Pérez Cely)
+        st.markdown(f"<div class='section-tag'>REPORTES ({len(pool_actual)})</div>", unsafe_allow_html=True)
+        # Word
         word_data = download_word_compilado(pool_actual, st.session_state.messages, rol_activo)
-        
-        st.download_button(
-            label=f"📄 Generar Word", 
-            data=word_data, 
-            file_name=f"{file_name_clean}_{date.today()}.docx", 
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True,
-            key="btn_word_final_v2"
-        )
-        
-        # 3. Preparación de datos para PPT
-        contenido_para_ppt = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(pool_actual)])
-        ppt_data = download_pptx(contenido_para_ppt, rol_activo)
-        
-        st.download_button(
-            label="📊 Generar PPT", 
-            data=ppt_data, 
-            file_name=f"PPT_{file_name_clean}.pptx", 
-            use_container_width=True,
-            key="btn_ppt_final_v2"
-        )
+        st.download_button("📄 Generar Word", data=word_data, file_name=f"Reporte_{date.today()}.docx", use_container_width=True)
+        # PPT
+        ppt_cont = "\n\n".join([st.session_state.messages[idx]["content"] for idx in sorted(pool_actual)])
+        st.download_button("📊 Generar PPT", data=download_pptx(ppt_cont, rol_activo), file_name=f"Presentacion_{date.today()}.pptx", use_container_width=True)
     else:
         st.divider()
-        st.info("💡 Seleccione bloques con 📥 en el chat para activar la exportación.")
-
-    # --- FUENTES DE CONTEXTO ---
+        st.info("💡 Seleccione bloques con 📥 para exportar.")
+        
+# --- FUENTES DE CONTEXTO ---
     st.divider()
     st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
     tab_doc, tab_url, tab_img = st.tabs(["DOC", "URL", "IMG"])
@@ -467,6 +457,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
 
 
 
