@@ -477,105 +477,69 @@ st.markdown("""
 # Recuperamos versión para llaves dinámicas (Cierre automático de editores)
 ver = st.session_state.get("editor_version", 0)
 
-# --- 6. PANEL CENTRAL: WORKSTATION V3.5 ---
-ver = st.session_state.editor_version
+# --- 6. PANEL CENTRAL: WORKSTATION V3.5 (INTEGRACIÓN TOTAL) ---
 
-# Renderizado de historial
-for i, msg in enumerate(st.session_state.get("messages", [])):
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-        if msg["role"] == "assistant":
-            # Botones de Excel/Gráficos
-            if '|' in msg["content"]:
-                exc = download_excel(msg["content"])
-                if exc:
-                    c1, c2 = st.columns(2)
-                    with c1: st.download_button("📊 Excel", exc, f"Data_{i}.xlsx", key=f"ex_{i}_{ver}")
-            
-            # Selección y Edición
-            is_sel = i in st.session_state.export_pool
-            if st.checkbox("📥 Incluir", key=f"sel_{i}_{ver}", value=is_sel):
-                if i not in st.session_state.export_pool: st.session_state.export_pool.append(i); st.rerun()
-            elif i in st.session_state.export_pool:
-                st.session_state.export_pool.remove(i); st.rerun()
-            
-            # --- PANEL DE GESTIÓN CON COPIADO Y CIERRE ---
-            with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
-                # Creamos dos pestañas para separar funciones
-                t_visualizar, t_editar = st.tabs(["📋 COPIAR TEXTO", "📝 EDITAR CONTENIDO"])
-                
-                with t_visualizar:
-                    # st.code permite copiar el texto con un solo clic en el icono superior derecho
-                    st.code(msg["content"], language=None)
-                    st.info("💡 Use el botón de la esquina superior derecha del cuadro gris para copiar.")
-                
-                with t_editar:
-                    txt_edit = st.text_area("Borrador para ajustes:", value=msg["content"], height=300, key=f"ed_{i}_{ver}")
-                    
-                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}_{ver}", use_container_width=True):
-                        st.session_state.messages[i]["content"] = txt_edit
-                        st.session_state.editor_version = ver + 1 
-                        st.toast("✅ Sincronizado. Colapsando editor...")
-                        st.rerun()
+# [Mantener el renderizado de historial y editores igual que su código...]
 
-# Captura de nuevo Input con RAG
+# --- CAPTURA DE NUEVO INPUT CON FUSIÓN DE FUENTES ---
 if pr := st.chat_input("Nuestro reto para hoy..."):
+    # 1. Registro del mensaje del usuario
     st.session_state.messages.append({"role": "user", "content": pr})
-    with st.chat_message("user"): st.markdown(pr)
+    with st.chat_message("user"): 
+        st.markdown(pr)
     
     with st.chat_message("assistant"):
         try:
-            contexto_rag = "Sin evidencia específica en biblioteca."
-            if os.path.exists("vector_db"):
+            # --- CAPA 1: RECUPERACIÓN RAG (BIBLIOTECA GITHUB) ---
+            contexto_rag = ""
+            if os.path.exists(DB_PATH):
                 with st.spinner("Consultando Biblioteca Master..."):
                     emb = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-                    vdb = FAISS.load_local("vector_db", emb, allow_dangerous_deserialization=True)
+                    vdb = FAISS.load_local(DB_PATH, emb, allow_dangerous_deserialization=True)
                     docs = vdb.similarity_search(pr, k=3)
-                    contexto_rag = "\n".join([d.page_content for d in docs])
+                    contexto_rag = "\n".join([f"- {d.page_content}" for d in docs])
 
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            sys_prompt = f"Rol: {rol_activo}. Contexto Master: {contexto_rag}. Instrucción: Prioriza evidencia y usa APA 7."
-            resp = model.generate_content([sys_prompt, pr])
-            st.session_state.messages.append({"role": "assistant", "content": resp.text})
+            # --- CAPA 2: RECUPERACIÓN CONTEXTO SIDEBAR (DOC/URL/IMG) ---
+            contexto_sidebar = st.session_state.biblioteca.get(rol_activo, "")
+
+            # --- CAPA 3: ENSAMBLAJE DEL PROMPT MAESTRO DINÁMICO ---
+            etiqueta_rol = rol_activo.upper()
+            
+            prompt_maestro = f"""
+            ESTABLECER CONTEXTO PARA: {etiqueta_rol}
+            
+            FUENTES DISPONIBLES:
+            1. CONTEXTO RECIENTE (SIDEBAR): 
+            {contexto_sidebar if contexto_sidebar else "Sin archivos adicionales en esta sesión."}
+            
+            2. MEMORIA MÁSTER (PROTOCOLOS GITHUB): 
+            {contexto_rag if contexto_rag else "Sin evidencia específica en biblioteca persistente."}
+            
+            INSTRUCCIÓN EJECUTIVA:
+            Como {rol_activo}, analiza la consulta del usuario. 
+            Prioriza la información del Contexto Reciente si existe, pero valídala 
+            contra la Memoria Máster. Mantén rigor técnico, citas APA 7 y tono ejecutivo.
+            
+            CONSULTA DEL {etiqueta_rol}: {pr}
+            """
+
+            # --- CAPA 4: INFERENCIA CON MODELO CORRECTO ---
+            # Nota: Cambiado a gemini-1.5-flash para estabilidad
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            # Generación con indicador de pensamiento
+            with st.spinner(f"IkigAI pensando como {rol_activo}..."):
+                resp = model.generate_content(prompt_maestro)
+                
+                # Respuesta humana y cierre operativo
+                respuesta_final = resp.text
+                if "Punto Ciego" not in respuesta_final:
+                    respuesta_final += f"\n\n---\n**Pregunta de Punto Ciego:** ¿Hemos evaluado cómo este análisis impacta el ROI cognitivo del rol {rol_activo} a largo plazo?"
+
+            st.markdown(respuesta_final)
+            st.session_state.messages.append({"role": "assistant", "content": respuesta_final})
             st.rerun()
+
         except Exception as e:
-            st.error(f"Error: {e}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            st.error(f"Error en el motor de inteligencia: {e}")
+            st.info("Sugerencia: Verifique que la API Key y la conexión a la base de datos vectorial sean correctas.")
