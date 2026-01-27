@@ -525,7 +525,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
             # --- CAPA 4: INFERENCIA CON MODELO CORRECTO ---
             # Nota: Cambiado a gemini-1.5-flash para estabilidad
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             
             # Generación con indicador de pensamiento
             with st.spinner(f"IkigAI pensando como {rol_activo}..."):
@@ -543,5 +543,6 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
         except Exception as e:
             st.error(f"Error en el motor de inteligencia: {e}")
             st.info("Sugerencia: Verifique que la API Key y la conexión a la base de datos vectorial sean correctas.")
+
 
 
