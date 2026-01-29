@@ -30,45 +30,57 @@ st.set_page_config(
 # Estilo CSS Zen: Contraste Quirúrgico y Ergonomía Móvil
 st.markdown("""
     <style>
-    /* 1. Fondo base y tipografía */
+    /* 1. RESET Y FONDO GLOBAL */
     .stApp { background-color: #000000 !important; }
     
-    /* 2. FORZAR TEXTO BLANCO EN CONTENEDORES DE CHAT (VERSIÓN WEB) */
-    .stChatMessage, .stChatMessage div, .stChatMessage p, .stMarkdown, .stMarkdown p {
+    /* 2. ÁREA DE CHAT: FORZAR LEGIBILIDAD */
+    /* Asegura que el texto dentro del chat sea blanco puro */
+    [data-testid="stChatMessage"] div, 
+    [data-testid="stChatMessage"] p, 
+    [data-testid="stChatMessage"] span {
         color: #FFFFFF !important;
     }
-
-    /* 3. Ajuste específico para bloques de texto en escritorio */
-    div[data-testid="stMarkdownContainer"] > p {
-        color: #FFFFFF !important;
-    }
-
-    /* 4. Estilo de los globos de chat */
+    
     [data-testid="stChatMessage"] {
         background-color: #0A0A0A !important;
         border: 1px solid #1A1A1A !important;
-        border-radius: 10px;
-        margin-bottom: 10px;
+        border-radius: 8px;
     }
 
-    /* 5. Títulos y etiquetas */
-    h1, h2, h3, .section-tag {
+    /* 3. BARRA LATERAL (SIDEBAR): RECUPERAR ESTRUCTURA */
+    [data-testid="stSidebar"] {
+        background-color: #080808 !important;
+        border-right: 1px solid #1A1A1A !important;
+    }
+
+    /* Forzamos que las pestañas (tabs) y etiquetas del sidebar sean legibles */
+    [data-testid="stSidebar"] .stMarkdown p, 
+    [data-testid="stSidebar"] label {
+        color: #CCCCCC !important; /* Gris claro para no cansar la vista */
+    }
+
+    /* Resaltado de la Pestaña Activa */
+    [data-testid="stSidebar"] button[p-tagName="button"] p {
         color: #00E6FF !important;
     }
 
-    /* 6. Sidebar y entradas de texto */
-    [data-testid="stSidebar"] { background-color: #080808 !important; }
-    .stTextInput input { color: #FFFFFF !important; background-color: #111 !important; }
-    
-    /* 7. Botones con identidad IkigAI */
+    /* 4. TÍTULOS E IDENTIDAD */
+    h1, h2, h3, .section-tag {
+        color: #00E6FF !important;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* 5. INPUT DE TEXTO (CHAT INPUT) */
+    .stChatInput textarea {
+        color: #FFFFFF !important;
+        background-color: #1A1A1A !important;
+    }
+
+    /* 6. BOTONES */
     .stButton button {
         border: 1px solid #00E6FF !important;
         color: #00E6FF !important;
         background-color: transparent !important;
-    }
-    .stButton button:hover {
-        background-color: #00E6FF !important;
-        color: #000000 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -583,6 +595,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
         except Exception as e:
             st.error(f"Error en el motor de inteligencia: {e}")
             st.info("Sugerencia: Verifique que la API Key y la conexión a la base de datos vectorial sean correctas.")
+
 
 
 
