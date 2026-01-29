@@ -30,37 +30,46 @@ st.set_page_config(
 # Estilo CSS Zen: Contraste Quirúrgico y Ergonomía Móvil
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+    /* 1. Fondo base y tipografía */
+    .stApp { background-color: #000000 !important; }
     
-    /* Fondo General */
-    .stApp { background-color: #000000 !important; font-family: 'Inter', sans-serif !important; }
-    
-    /* FORZAR COLOR DE TEXTO EN CHAT */
-    /* Este bloque soluciona el problema de lectura */
-    [data-testid="stChatMessage"] { 
-        background-color: #0A0A0A !important; 
-        border: 1px solid #1A1A1A !important; 
-        color: #FFFFFF !important; 
-    }
-    
-    .stMarkdown p, .stMarkdown li, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 { 
-        color: #FFFFFF !important; 
-        font-size: 16px !important; 
-        line-height: 1.7 !important; 
-    }
-
-    /* Ajuste para que los textos dentro del chat no se pierdan */
-    div[data-testid="stChatMessage"] p {
+    /* 2. FORZAR TEXTO BLANCO EN CONTENEDORES DE CHAT (VERSIÓN WEB) */
+    .stChatMessage, .stChatMessage div, .stChatMessage p, .stMarkdown, .stMarkdown p {
         color: #FFFFFF !important;
     }
 
-    [data-testid="stSidebar"] { background-color: #080808 !important; border-right: 1px solid #1A1A1A !important; }
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1 { color: #FFFFFF !important; }
+    /* 3. Ajuste específico para bloques de texto en escritorio */
+    div[data-testid="stMarkdownContainer"] > p {
+        color: #FFFFFF !important;
+    }
+
+    /* 4. Estilo de los globos de chat */
+    [data-testid="stChatMessage"] {
+        background-color: #0A0A0A !important;
+        border: 1px solid #1A1A1A !important;
+        border-radius: 10px;
+        margin-bottom: 10px;
+    }
+
+    /* 5. Títulos y etiquetas */
+    h1, h2, h3, .section-tag {
+        color: #00E6FF !important;
+    }
+
+    /* 6. Sidebar y entradas de texto */
+    [data-testid="stSidebar"] { background-color: #080808 !important; }
+    .stTextInput input { color: #FFFFFF !important; background-color: #111 !important; }
     
-    .stDownloadButton button, .stButton button { width: 100%; border-radius: 4px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; }
-    .stDownloadButton button:hover, .stButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
-    
-    .section-tag { font-size: 11px; color: #00E6FF; letter-spacing: 1.5px; margin: 15px 0 5px 0; font-weight: 600; }
+    /* 7. Botones con identidad IkigAI */
+    .stButton button {
+        border: 1px solid #00E6FF !important;
+        color: #00E6FF !important;
+        background-color: transparent !important;
+    }
+    .stButton button:hover {
+        background-color: #00E6FF !important;
+        color: #000000 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 if "GOOGLE_API_KEY" in st.secrets:
@@ -574,6 +583,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
         except Exception as e:
             st.error(f"Error en el motor de inteligencia: {e}")
             st.info("Sugerencia: Verifique que la API Key y la conexión a la base de datos vectorial sean correctas.")
+
 
 
 
