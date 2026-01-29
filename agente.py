@@ -336,38 +336,43 @@ with st.sidebar:
         st.info("💡 Seleccione bloques con 📥 para exportar.")
         
     # 4. FUENTES DE CONTEXTO ---
+    # --- 4. FUENTES DE CONTEXTO ---
     st.divider()
     st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
     tab_doc, tab_url, tab_img = st.tabs(["📄 DOC", "🔗 URL", "🖼️ IMG"])
     
     # --- PESTAÑA DOCUMENTOS ---
     with tab_doc:
-    up = st.file_uploader("Subir PDF, Word o PPTX:", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True, label_visibility="collapsed")
+        # Esta línea DEBE tener sangría (4 espacios)
+        up = st.file_uploader("Subir PDF, Word o PPTX:", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True, label_visibility="collapsed")
+        
         if st.button("🧠 Procesar documentos", use_container_width=True):
-    raw_text = ""
-    for f in up:
-        if f.type == "application/pdf":
-            raw_text += get_pdf_text(f)
-        elif f.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            raw_text += get_docx_text(f)
-        elif f.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-            # LÓGICA PARA LEER PPTX
-            prs = Presentation(f)
-            for slide in prs.slides:
-                for shape in slide.shapes:
-                    if hasattr(shape, "text"):
-                        raw_text += shape.text + " "          
-            with st.spinner("Extrayendo evidencia técnica..."):
+            raw_text = ""
+            for f in up:
+                if f.type == "application/pdf":
+                    raw_text += get_pdf_text(f)
+                elif f.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                    raw_text += get_docx_text(f)
+                elif f.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+                    # Lógica para extraer texto de PowerPoint
+                    from pptx import Presentation
+                    prs = Presentation(f)
+                    for slide in prs.slides:
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text"):
+                                raw_text += shape.text + " "
+            
+            with st.spinner("Refinando evidencia técnica..."):
                 try:
-                    refiner = genai.GenerativeModel('gemini-2.5-flash')
-                    prompt_res = f"Actúa como consultor experto. Extrae datos, normas y referencias clave de este texto para usar como contexto: {raw_text[:45000]}"
+                    # Usamos 1.5-flash para estabilidad total
+                    refiner = genai.GenerativeModel('gemini-1.5-flash')
+                    prompt_res = f"Extrae datos, normas y referencias clave: {raw_text[:45000]}"
                     resumen = refiner.generate_content(prompt_res)
                     st.session_state.biblioteca[rol_activo] = resumen.text
-                    st.success("Biblioteca documental actualizada.")
+                    st.success("Biblioteca actualizada con PPTX/DOC/PDF.")
                 except Exception as e:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
-                    st.warning("Texto cargado sin refinamiento (límite de capacidad).")
-
+                    st.warning("Cargado sin refinamiento por límite de tokens.")
     # --- PESTAÑA URL (WEB SCRAPING) ---
     with tab_url:
         url_input = st.text_input("Pegar enlace web:", placeholder="https://ejemplo.com/protocolo")
@@ -552,6 +557,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
         except Exception as e:
             st.error(f"Error en el motor de inteligencia: {e}")
             st.info("Sugerencia: Verifique que la API Key y la conexión a la base de datos vectorial sean correctas.")
+
 
 
 
