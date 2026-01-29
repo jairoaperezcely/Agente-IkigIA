@@ -342,12 +342,21 @@ with st.sidebar:
     
     # --- PESTAÑA DOCUMENTOS ---
     with tab_doc:
-        up = st.file_uploader("Subir PDF o Word:", type=['pdf', 'docx'], accept_multiple_files=True, label_visibility="collapsed")
+    up = st.file_uploader("Subir PDF, Word o PPTX:", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True, label_visibility="collapsed")
         if st.button("🧠 Procesar documentos", use_container_width=True):
-            raw_text = ""
-            for f in up:
-                raw_text += get_pdf_text(f) if f.type == "application/pdf" else get_docx_text(f)
-            
+    raw_text = ""
+    for f in up:
+        if f.type == "application/pdf":
+            raw_text += get_pdf_text(f)
+        elif f.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            raw_text += get_docx_text(f)
+        elif f.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+            # LÓGICA PARA LEER PPTX
+            prs = Presentation(f)
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        raw_text += shape.text + " "          
             with st.spinner("Extrayendo evidencia técnica..."):
                 try:
                     refiner = genai.GenerativeModel('gemini-2.5-flash')
@@ -543,6 +552,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
         except Exception as e:
             st.error(f"Error en el motor de inteligencia: {e}")
             st.info("Sugerencia: Verifique que la API Key y la conexión a la base de datos vectorial sean correctas.")
+
 
 
 
