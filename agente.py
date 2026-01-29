@@ -30,57 +30,83 @@ st.set_page_config(
 # Estilo CSS Zen: Contraste Quirúrgico y Ergonomía Móvil
 st.markdown("""
     <style>
-    /* 1. RESET Y FONDO GLOBAL */
-    .stApp { background-color: #000000 !important; }
-    
-    /* 2. ÁREA DE CHAT: FORZAR LEGIBILIDAD */
-    /* Asegura que el texto dentro del chat sea blanco puro */
-    [data-testid="stChatMessage"] div, 
-    [data-testid="stChatMessage"] p, 
-    [data-testid="stChatMessage"] span {
-        color: #FFFFFF !important;
+    /* 1. RESET INTEGRAL DE COLORES */
+    :root {
+        --primary-color: #00E6FF;
+        --background-color: #000000;
+        --secondary-background-color: #080808;
+        --text-color: #FFFFFF;
     }
-    
+
+    .stApp { background-color: #000000 !important; }
+
+    /* 2. REORGANIZACIÓN DEL SIDEBAR */
+    section[data-testid="stSidebar"] {
+        background-color: #080808 !important;
+        border-right: 1px solid #1A1A1A !important;
+        min-width: 350px !important;
+    }
+
+    /* Forzar visibilidad de textos en Sidebar */
+    section[data-testid="stSidebar"] .stMarkdown p, 
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] span {
+        color: #FFFFFF !important;
+        font-weight: 500 !important;
+    }
+
+    /* 3. ORGANIZACIÓN DEL CHAT (Cuerpo Principal) */
+    .main .block-container {
+        padding-top: 2rem !important;
+        max-width: 900px !important;
+    }
+
     [data-testid="stChatMessage"] {
         background-color: #0A0A0A !important;
         border: 1px solid #1A1A1A !important;
-        border-radius: 8px;
-    }
-
-    /* 3. BARRA LATERAL (SIDEBAR): RECUPERAR ESTRUCTURA */
-    [data-testid="stSidebar"] {
-        background-color: #080808 !important;
-        border-right: 1px solid #1A1A1A !important;
-    }
-
-    /* Forzamos que las pestañas (tabs) y etiquetas del sidebar sean legibles */
-    [data-testid="stSidebar"] .stMarkdown p, 
-    [data-testid="stSidebar"] label {
-        color: #CCCCCC !important; /* Gris claro para no cansar la vista */
-    }
-
-    /* Resaltado de la Pestaña Activa */
-    [data-testid="stSidebar"] button[p-tagName="button"] p {
-        color: #00E6FF !important;
-    }
-
-    /* 4. TÍTULOS E IDENTIDAD */
-    h1, h2, h3, .section-tag {
-        color: #00E6FF !important;
-        font-family: 'Inter', sans-serif;
-    }
-
-    /* 5. INPUT DE TEXTO (CHAT INPUT) */
-    .stChatInput textarea {
         color: #FFFFFF !important;
-        background-color: #1A1A1A !important;
+        border-radius: 12px !important;
+        padding: 1.5rem !important;
+        margin-bottom: 1rem !important;
     }
 
-    /* 6. BOTONES */
+    /* Forzar lectura de texto en el Chat */
+    [data-testid="stChatMessage"] p, 
+    [data-testid="stChatMessage"] li,
+    [data-testid="stChatMessage"] div {
+        color: #FFFFFF !important;
+        font-size: 16px !important;
+    }
+
+    /* 4. TABS (DOC/URL/IMG) ORGANIZADOS */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px !important;
+        background-color: transparent !important;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        height: 40px !important;
+        background-color: #1A1A1A !important;
+        border-radius: 4px 4px 0 0 !important;
+        color: #888 !important;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background-color: #00E6FF !important;
+        color: #000000 !important;
+    }
+
+    /* 5. BOTONES E INPUTS */
     .stButton button {
         border: 1px solid #00E6FF !important;
         color: #00E6FF !important;
         background-color: transparent !important;
+    }
+    
+    .stChatInput textarea {
+        background-color: #111 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #1A1A1A !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -595,6 +621,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
         except Exception as e:
             st.error(f"Error en el motor de inteligencia: {e}")
             st.info("Sugerencia: Verifique que la API Key y la conexión a la base de datos vectorial sean correctas.")
+
 
 
 
