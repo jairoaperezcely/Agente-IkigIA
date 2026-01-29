@@ -31,21 +31,38 @@ st.set_page_config(
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+    
+    /* Fondo General */
     .stApp { background-color: #000000 !important; font-family: 'Inter', sans-serif !important; }
+    
+    /* FORZAR COLOR DE TEXTO EN CHAT */
+    /* Este bloque soluciona el problema de lectura */
+    [data-testid="stChatMessage"] { 
+        background-color: #0A0A0A !important; 
+        border: 1px solid #1A1A1A !important; 
+        color: #FFFFFF !important; 
+    }
+    
+    .stMarkdown p, .stMarkdown li, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 { 
+        color: #FFFFFF !important; 
+        font-size: 16px !important; 
+        line-height: 1.7 !important; 
+    }
+
+    /* Ajuste para que los textos dentro del chat no se pierdan */
+    div[data-testid="stChatMessage"] p {
+        color: #FFFFFF !important;
+    }
+
     [data-testid="stSidebar"] { background-color: #080808 !important; border-right: 1px solid #1A1A1A !important; }
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, h2, h3 { color: #FFFFFF !important; }
-    [data-testid="stChatMessage"] { background-color: #050505 !important; border: 1px solid #1A1A1A !important; }
-    .stMarkdown p, .stMarkdown li { color: #FFFFFF !important; font-size: 16px !important; line-height: 1.7 !important; }
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1 { color: #FFFFFF !important; }
+    
     .stDownloadButton button, .stButton button { width: 100%; border-radius: 4px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; }
     .stDownloadButton button:hover, .stButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
-    .section-tag { font-size: 11px; color: #666; letter-spacing: 1.5px; margin: 15px 0 5px 0; font-weight: 600; }
-    .stExpander { border: 1px solid #1A1A1A !important; background-color: #050505 !important; border-radius: 8px !important; }
-    textarea { background-color: #0D1117 !important; color: #FFFFFF !important; border: 1px solid #00E6FF !important; font-family: 'Courier New', monospace !important; font-size: 14px !important; }
-    /* Estilo Checkbox de Selección */
-    .stCheckbox { background-color: #111; padding: 5px; border-radius: 5px; border: 1px solid #333; margin-top: 10px; }
+    
+    .section-tag { font-size: 11px; color: #00E6FF; letter-spacing: 1.5px; margin: 15px 0 5px 0; font-weight: 600; }
     </style>
 """, unsafe_allow_html=True)
-
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
@@ -557,6 +574,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
         except Exception as e:
             st.error(f"Error en el motor de inteligencia: {e}")
             st.info("Sugerencia: Verifique que la API Key y la conexión a la base de datos vectorial sean correctas.")
+
 
 
 
