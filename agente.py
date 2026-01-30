@@ -552,6 +552,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             # Construimos un sistema de capas de conocimiento
             sys_prompt = f"""
             Actúa como {rol_activo}.
+            Tu objetivo es el ROI COGNITIVO: respuestas breves, directas y sin rellenos.
             
             CONOCIMIENTO RECIENTE (Documento/Link/Imagen que acabas de leer en el sidebar):
             {contexto_reciente if contexto_reciente else "No hay archivos nuevos en esta sesión."}
@@ -560,7 +561,11 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             {contexto_rag}
             
             INSTRUCCIÓN: Prioriza el CONOCIMIENTO RECIENTE para responder, pero valídalo con la MEMORIA MÁSTER. 
-            Usa APA 7, tono ejecutivo y humano.
+            REGLAS DE ORO:
+            1. Prohíbe frases como "Es importante notar", "No basta con", "En esencia". 
+            2. Si la consulta es sobre redacción, usa verbos de acción y tono imperativo/estratégico.
+            3. Estructura: Síntesis (3 puntos) + Propuesta Directa + Punto Ciego.
+            4. Aplica rigor APA 7 solo si se piden citas; si no, prioriza la fluidez ejecutiva.
             """
             
             resp = model.generate_content([sys_prompt, pr])
@@ -576,4 +581,5 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
