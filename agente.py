@@ -338,23 +338,66 @@ with st.sidebar:
     # 4. FUENTES DE CONTEXTO ---
     st.divider()
     st.markdown("<div class='section-tag'>FUENTES DE CONTEXTO</div>", unsafe_allow_html=True)
-    tab_doc, tab_url, tab_img = st.tabs(["DOC", "URL", "IMG"])
+    tab_doc, tab_url, tab_img = st.tabs(["📄 DOC/PPT", "🔗 URL", "🖼️ IMG"])
     
+    # --- PESTAÑA DOCUMENTOS (Incluye PPTX) ---
     with tab_doc:
-        up = st.file_uploader("Subir PDF o Word:", type=['pdf', 'docx'], accept_multiple_files=True, label_visibility="collapsed")
+        up = st.file_uploader("Subir PDF, Word o PPTX:", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True, label_visibility="collapsed")
         if st.button("🧠 Procesar archivos", use_container_width=True):
             raw_text = ""
             for f in up:
-                raw_text += get_pdf_text(f) if f.type == "application/pdf" else get_docx_text(f)
+                if f.type == "application/pdf":
+                    raw_text += get_pdf_text(f)
+                elif f.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                    raw_text += get_docx_text(f)
+                elif f.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+                    # Lógica para PowerPoint
+                    from pptx import Presentation
+                    prs = Presentation(f)
+                    for slide in prs.slides:
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text"):
+                                raw_text += shape.text + " "
+            
             with st.spinner("Refinando contexto técnico..."):
                 try:
                     refiner = genai.GenerativeModel('gemini-2.5-flash')
-                    prompt_res = f"Extrae datos, normas y referencias clave: {raw_text[:45000]}"
+                    prompt_res = f"Extrae datos, normas y referencias clave de este material: {raw_text[:45000]}"
                     resumen = refiner.generate_content(prompt_res)
                     st.session_state.biblioteca[rol_activo] = resumen.text
-                    st.success("Biblioteca actualizada.")
+                    st.success("Biblioteca actualizada con documentos/diapositivas.")
                 except:
                     st.session_state.biblioteca[rol_activo] = raw_text[:30000]
+
+    # --- PESTAÑA URL (WEB SCRAPING) ---
+    with tab_url:
+        url_input = st.text_input("Pegar enlace de página web:", placeholder="https://ejemplo.com/articulo")
+        if st.button("🌐 Analizar Enlace", use_container_width=True) and url_input:
+            with st.spinner("Navegando y extrayendo contenido..."):
+                try:
+                    refiner = genai.GenerativeModel('gemini-2.5-flash')
+                    prompt_url = f"Accede o analiza la información estratégica de esta URL para mi contexto: {url_input}"
+                    resumen_web = refiner.generate_content(prompt_url)
+                    st.session_state.biblioteca[rol_activo] = resumen_web.text
+                    st.success("Contexto web integrado con éxito.")
+                except:
+                    st.error("Error al acceder a la URL. Verifique que sea pública.")
+
+    # --- PESTAÑA IMG (VISIÓN COMPUTACIONAL) ---
+    with tab_img:
+        up_img = st.file_uploader("Subir imagen (Grafos, Tablas, Fotos):", type=['jpg', 'jpeg', 'png'], label_visibility="collapsed")
+        if up_img and st.button("👁️ Analizar Imagen", use_container_width=True):
+            with st.spinner("Interpretando imagen..."):
+                try:
+                    import PIL.Image
+                    img = PIL.Image.open(up_img)
+                    refiner = genai.GenerativeModel('gemini-2.5-flash')
+                    # Análisis visual directo
+                    resumen_img = refiner.generate_content(["Describe técnicamente esta imagen y extrae datos clave para mi contexto estratégico.", img])
+                    st.session_state.biblioteca[rol_activo] = resumen_img.text
+                    st.success("Análisis de imagen integrado.")
+                except Exception as e:
+                    st.error(f"Error de visión: {e}")
     # 5. BIBLIOTECA MASTER
     
         # --- NODO DE INTELIGENCIA RAG ---
@@ -505,3 +548,4 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
+
