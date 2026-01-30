@@ -547,7 +547,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             contexto_reciente = st.session_state.biblioteca.get(rol_activo, "")
 
             # C. ENSAMBLAJE DEL PROMPT DINÁMICO
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             
             # Construimos un sistema de capas de conocimiento
             sys_prompt = f"""
@@ -576,3 +576,4 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
