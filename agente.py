@@ -528,24 +528,51 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
 
 # Captura de nuevo Input con RAG
 if pr := st.chat_input("Nuestro reto para hoy..."):
+    # 1. Registro del mensaje del usuario
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
     
     with st.chat_message("assistant"):
         try:
-            contexto_rag = "Sin evidencia específica en biblioteca."
+            # A. CONSULTA A LA BIBLIOTECA MÁSTER (RAG - Persistente)
+            contexto_rag = ""
             if os.path.exists("vector_db"):
-                with st.spinner("Consultando Biblioteca Master..."):
-                    emb = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-                    vdb = FAISS.load_local("vector_db", emb, allow_dangerous_deserialization=True)
-                    docs = vdb.similarity_search(pr, k=3)
-                    contexto_rag = "\n".join([d.page_content for d in docs])
+                emb = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+                vdb = FAISS.load_local("vector_db", emb, allow_dangerous_deserialization=True)
+                docs = vdb.similarity_search(pr, k=3)
+                contexto_rag = "\n".join([d.page_content for d in docs])
 
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            sys_prompt = f"Rol: {rol_activo}. Contexto Master: {contexto_rag}. Instrucción: Prioriza evidencia y usa APA 7."
+            # B. CONSULTA AL SIDEBAR (Contexto Efímero - Lo que acaba de subir)
+            # Aquí es donde estaba el fallo: ahora leemos lo que procesó en las pestañas
+            contexto_reciente = st.session_state.biblioteca.get(rol_activo, "")
+
+            # C. ENSAMBLAJE DEL PROMPT DINÁMICO
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            # Construimos un sistema de capas de conocimiento
+            sys_prompt = f"""
+            Actúa como {rol_activo}.
+            
+            CONOCIMIENTO RECIENTE (Documento/Link/Imagen que acabas de leer en el sidebar):
+            {contexto_reciente if contexto_reciente else "No hay archivos nuevos en esta sesión."}
+            
+            MEMORIA MÁSTER (Protocolos históricos):
+            {contexto_rag}
+            
+            INSTRUCCIÓN: Prioriza el CONOCIMIENTO RECIENTE para responder, pero valídalo con la MEMORIA MÁSTER. 
+            Usa APA 7, tono ejecutivo y humano.
+            """
+            
             resp = model.generate_content([sys_prompt, pr])
-            st.session_state.messages.append({"role": "assistant", "content": resp.text})
-            st.rerun()
-        except Exception as e:
-            st.error(f"Error: {e}")
+            
+            # D. RESPUESTA Y CIERRE
+            respuesta_final = resp.text
+            if "Punto Ciego" not in respuesta_final:
+                respuesta_final += f"\n\n---\n**Pregunta de Punto Ciego:** ¿Cómo afecta esta nueva información al ROI cognitivo de su rol como {rol_activo}?"
 
+            st.markdown(respuesta_final)
+            st.session_state.messages.append({"role": "assistant", "content": respuesta_final})
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"Error en el motor de pensamiento: {e}")
