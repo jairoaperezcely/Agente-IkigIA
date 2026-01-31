@@ -564,6 +564,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             # Construimos un sistema de capas de conocimiento
             sys_prompt = f"""
             Actúa como {rol_activo}.
+            Mindset: {mindset_seleccionado}
             Objetivo: Equilibrio entre Síntesis Ejecutiva y Profundidad Analítica.
             
             CONOCIMIENTO RECIENTE (Documento/Link/Imagen que acabas de leer en el sidebar):
@@ -572,10 +573,14 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             MEMORIA MÁSTER (Protocolos históricos):
             {contexto_rag[:1000] if contexto_rag else "N/A"}
             ESTRUCTURA OBLIGATORIA DE RESPUESTA:
-            1. ### SÍNTESIS EJECUTIVA: 3 puntos de alto impacto (lectura rápida).
+            1. ### SÍNTESIS EJECUTIVA (ROI Cognitivo): 3 bullets directos con la esencia de la respuesta para lectura en movilidad.
             2. ---
-            3. ### ANÁLISIS ESTRATÉGICO: Desarrollo denso del 'cómo' y 'por qué'. 
-               Integra la evidencia del contexto. Máximo 2-3 párrafos de alto valor.
+            3. ### ANÁLISIS MULTIDIMENSIONAL: Desarrollo denso del 'cómo' y 'por qué'. 
+               Desarrolla el tema en 2 o 3 párrafos densos de alto valor integrando:
+               - **Dimensión Académica:** Rigor científico, normativa y evidencia o soporte cientifico (APA 7).
+               - **Dimensión Estratégica:** Sostenibilidad, mitigación de riesgos y ROI del proyecto.
+               - **Innovación:** Conexión interdisciplinaria y ruptura de creencias limitantes.
+               Integra la evidencia del contexto.
             4. ---
             5. **Pregunta de Punto Ciego:** Desafía la lógica o detecta riesgos ocultos.
             
@@ -602,6 +607,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
