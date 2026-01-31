@@ -576,12 +576,17 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             {contexto_rag[:1000] if contexto_rag else "N/A"}
 
             ESTRUCTURA OBLIGATORIA DE RESPUESTA:
-            1. ### SÍNTESIS EJECUTIVA (ROI Cognitivo): 3 bullets directos con la esencia.
+            1. ### SÍNTESIS EJECUTIVA (ROI Cognitivo): hasta 5 bullets directos con la esencia.
             2. ---
-            3. ### ANÁLISIS MULTIDIMENSIONAL: Desarrollo denso (2-3 párrafos de alto valor) integrando:
-               - **Dimensión Académica:** Rigor científico, normativa y soporte (APA 7).
+            3. ### ANÁLISIS MULTIDIMENSIONAL (El por qué) 
+               Desarrollo denso (2-3 párrafos de alto valor) integrando:
+               - **Dimensión Académica:** Rigor científico, normativa y soporte o referencia (APA 7).
                - **Dimensión Estratégica:** Sostenibilidad, mitigación de riesgos y ROI.
                - **Innovación:** Conexión interdisciplinaria y disrupción de creencias.
+            4. ---
+            3. ### PROPUESTA TÁCTICA: PASO A PASO (El Cómo)
+               - Diseña un algoritmo secuencial y ejecutable para resolver la consulta. 
+               - Debe incluir un "Inicio Imparable" (acción de <2 min) para romper la inercia.
             4. ---
             5. **Pregunta de Punto Ciego:** Desafía la lógica o detecta riesgos ocultos.
                      
@@ -608,6 +613,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
