@@ -576,6 +576,9 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             {contexto_rag[:1000] if contexto_rag else "N/A"}
 
             ESTRUCTURA OBLIGATORIA DE RESPUESTA:
+            0. ### FILTRO DE ALINEACIÓN (Triage Estratégico)
+               - Antes de dar pasos tácticos, evalúa: ¿Es esta tarea Vital, Delegable o Eliminable? 
+               - Si es delegable, indica a quién o cómo automatizarla. Si es vital, procede al análisis.
             1. ### SÍNTESIS EJECUTIVA (ROI Cognitivo): hasta 5 bullets directos con la esencia.
             2. ---
             3. ### ANÁLISIS MULTIDIMENSIONAL (El por qué) 
@@ -613,6 +616,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
