@@ -584,14 +584,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
                - **Innovación:** Conexión interdisciplinaria y disrupción de creencias.
             4. ---
             5. **Pregunta de Punto Ciego:** Desafía la lógica o detecta riesgos ocultos.
-            
-            REGLAS DE ORO:
-            1. Prohíbe frases como "Es importante notar", "No basta con", "En esencia". 
-            2. Prohibido el relleno conversacional.
-            3. Tono imperativo en síntesis y académico en el análisis.
-            4. Si no hay datos en contexto, indícalo pero no inventes.
-            """
-            
+                     
             INSTRUCCIÓN: Prioriza el CONOCIMIENTO RECIENTE para responder, pero valídalo con la MEMORIA MÁSTER. 
             REGLAS DE ORO:
             1. Prohíbe frases como "Es importante notar", "No basta con", "En esencia". 
@@ -615,6 +608,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
