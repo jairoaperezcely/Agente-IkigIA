@@ -543,23 +543,25 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
                 contexto_rag = "\n".join([d.page_content for d in docs])
 
             # B. CONSULTA AL SIDEBAR (Contexto Efímero - Lo que acaba de subir)
-            # Aquí es donde estaba el fallo: ahora leemos lo que procesó en las pestañas
             contexto_reciente = st.session_state.biblioteca.get(rol_activo, "")
 
             # C. ENSAMBLAJE DEL PROMPT DINÁMICO
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            # 1. Definición de Mindset por Rol (Para profundidad analítica)
+            model = genai.GenerativeModel('gemini-2.5-flash')# C. ENSAMBLAJE DEL PROMPT DINÁMICO
+            
+            # 1. Definición de Mindset por Rol
             perfiles = {
                 "Coach de Alto Desempeño": "Foco en ROI cognitivo, gestión de energía (biohacking), sostenibilidad y eliminación de procrastinación oculta.",
                 "Director Centro Telemedicina": "Enfoque en transformación digital, interoperabilidad, modelos de atención remota e innovación tecnológica en salud.",
-                "Vicedecano Académico": "Enfoque en política educativa superior, calidad académica con los mejores estandares, normativa y procesos curriculares UNAL.",
-                "Director de UCI": "Prioridad en seguridad del paciente, algoritmos clínicos de alta complejidad, gestión datos y procesos HUN, evidenica cientifica en UCI.",
+                "Vicedecano Académico": "Enfoque en política educativa superior, calidad académica con los mejores estándares, normativa y procesos curriculares UNAL.",
+                "Director de UCI": "Prioridad en seguridad del paciente, algoritmos clínicos de alta complejidad, gestión datos y procesos HUN, evidencia científica en UCI.",
                 "Investigador Científico": "Rigor metodológico, medicina traslacional, análisis estadístico, mejor evidencia científica y redacción bajo estándares APA 7.",
                 "Consultor Salud Digital": "Visión de sostenibilidad financiera (BID/MinSalud), ROI social, impacto en territorio e interculturalidad.",
                 "Professor Universitario": "Pedagogía médica disruptiva, fomento del pensamiento crítico y humanización de la enseñanza técnica.",
                 "Estratega de Trading": "Gestión de riesgo (RR), confluencias técnicas (SMC/Price Action), indicadores técnicos y control de sesgos psicológicos."
             }
-            mindset = perfiles.get(rol_activo, "Visión estrategica, innovadora, ejecutiva y humana.")
+            
+            # ASIGNACIÓN CORRECTA (Asegúrese que el nombre coincida con el f-string de abajo)
+            mindset_seleccionado = perfiles.get(rol_activo, "Visión estratégica, innovadora, ejecutiva y humana.")
             
             # Construimos un sistema de capas de conocimiento
             sys_prompt = f"""
@@ -567,22 +569,28 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             Mindset: {mindset_seleccionado}
             Objetivo: Equilibrio entre Síntesis Ejecutiva y Profundidad Analítica.
             
-            CONOCIMIENTO RECIENTE (Documento/Link/Imagen que acabas de leer en el sidebar):
+            CONOCIMIENTO RECIENTE (Sidebar):
             {contexto_reciente[:1000] if contexto_reciente else "N/A"}
             
-            MEMORIA MÁSTER (Protocolos históricos):
+            MEMORIA MÁSTER (GitHub):
             {contexto_rag[:1000] if contexto_rag else "N/A"}
+
             ESTRUCTURA OBLIGATORIA DE RESPUESTA:
-            1. ### SÍNTESIS EJECUTIVA (ROI Cognitivo): 3 bullets directos con la esencia de la respuesta para lectura en movilidad.
+            1. ### SÍNTESIS EJECUTIVA (ROI Cognitivo): 3 bullets directos con la esencia.
             2. ---
-            3. ### ANÁLISIS MULTIDIMENSIONAL: Desarrollo denso del 'cómo' y 'por qué'. 
-               Desarrolla el tema en 2 o 3 párrafos densos de alto valor integrando:
-               - **Dimensión Académica:** Rigor científico, normativa y evidencia o soporte cientifico (APA 7).
-               - **Dimensión Estratégica:** Sostenibilidad, mitigación de riesgos y ROI del proyecto.
-               - **Innovación:** Conexión interdisciplinaria y ruptura de creencias limitantes.
-               Integra la evidencia del contexto.
+            3. ### ANÁLISIS MULTIDIMENSIONAL: Desarrollo denso (2-3 párrafos de alto valor) integrando:
+               - **Dimensión Académica:** Rigor científico, normativa y soporte (APA 7).
+               - **Dimensión Estratégica:** Sostenibilidad, mitigación de riesgos y ROI.
+               - **Innovación:** Conexión interdisciplinaria y disrupción de creencias.
             4. ---
             5. **Pregunta de Punto Ciego:** Desafía la lógica o detecta riesgos ocultos.
+            
+            REGLAS DE ORO:
+            1. Prohíbe frases como "Es importante notar", "No basta con", "En esencia". 
+            2. Prohibido el relleno conversacional.
+            3. Tono imperativo en síntesis y académico en el análisis.
+            4. Si no hay datos en contexto, indícalo pero no inventes.
+            """
             
             INSTRUCCIÓN: Prioriza el CONOCIMIENTO RECIENTE para responder, pero valídalo con la MEMORIA MÁSTER. 
             REGLAS DE ORO:
@@ -607,6 +615,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
