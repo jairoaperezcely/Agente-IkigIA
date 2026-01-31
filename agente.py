@@ -548,24 +548,45 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
             # C. ENSAMBLAJE DEL PROMPT DINÁMICO
             model = genai.GenerativeModel('gemini-2.5-flash')
+            # 1. Definición de Mindset por Rol (Para profundidad analítica)
+            perfiles = {
+                "Coach de Alto Desempeño": "Foco en ROI cognitivo, gestión de energía (biohacking), sostenibilidad y eliminación de procrastinación oculta.",
+                "Director Centro Telemedicina": "Enfoque en transformación digital, interoperabilidad, modelos de atención remota e innovación tecnológica en salud.",
+                "Vicedecano Académico": "Enfoque en política educativa superior, calidad académica con los mejores estandares, normativa y procesos curriculares UNAL.",
+                "Director de UCI": "Prioridad en seguridad del paciente, algoritmos clínicos de alta complejidad, gestión datos y procesos HUN, evidenica cientifica en UCI.",
+                "Investigador Científico": "Rigor metodológico, medicina traslacional, análisis estadístico, mejor evidencia científica y redacción bajo estándares APA 7.",
+                "Consultor Salud Digital": "Visión de sostenibilidad financiera (BID/MinSalud), ROI social, impacto en territorio e interculturalidad.",
+                "Professor Universitario": "Pedagogía médica disruptiva, fomento del pensamiento crítico y humanización de la enseñanza técnica.",
+                "Estratega de Trading": "Gestión de riesgo (RR), confluencias técnicas (SMC/Price Action), indicadores técnicos y control de sesgos psicológicos."
+            }
+            mindset = perfiles.get(rol_activo, "Visión estrategica, innovadora, ejecutiva y humana.")
             
             # Construimos un sistema de capas de conocimiento
             sys_prompt = f"""
             Actúa como {rol_activo}.
-            Tu objetivo es el ROI COGNITIVO: respuestas breves, directas y sin rellenos.
+            Objetivo: Equilibrio entre Síntesis Ejecutiva y Profundidad Analítica.
             
             CONOCIMIENTO RECIENTE (Documento/Link/Imagen que acabas de leer en el sidebar):
-            {contexto_reciente if contexto_reciente else "No hay archivos nuevos en esta sesión."}
+            {contexto_reciente[:1000] if contexto_reciente else "N/A"}
             
             MEMORIA MÁSTER (Protocolos históricos):
-            {contexto_rag}
+            {contexto_rag[:1000] if contexto_rag else "N/A"}
+            ESTRUCTURA OBLIGATORIA DE RESPUESTA:
+            1. ### SÍNTESIS EJECUTIVA: 3 puntos de alto impacto (lectura rápida).
+            2. ---
+            3. ### ANÁLISIS ESTRATÉGICO: Desarrollo denso del 'cómo' y 'por qué'. 
+               Integra la evidencia del contexto. Máximo 2-3 párrafos de alto valor.
+            4. ---
+            5. **Pregunta de Punto Ciego:** Desafía la lógica o detecta riesgos ocultos.
             
             INSTRUCCIÓN: Prioriza el CONOCIMIENTO RECIENTE para responder, pero valídalo con la MEMORIA MÁSTER. 
             REGLAS DE ORO:
             1. Prohíbe frases como "Es importante notar", "No basta con", "En esencia". 
-            2. Si la consulta es sobre redacción, usa verbos de acción y tono imperativo/estratégico.
-            3. Estructura: Síntesis (3 puntos) + Propuesta Directa + Punto Ciego.
-            4. Aplica rigor APA 7 solo si se piden citas; si no, prioriza la fluidez ejecutiva.
+            2. Prohibido el relleno conversacional.
+            3. Usa tono imperativo en la síntesis y tono académico en el análisis.
+            4. Si la consulta es sobre redacción, usa verbos de acción y tono imperativo/estratégico.
+            5. Si no hay datos en el contexto, indícalo pero no inventes.
+            6. Aplica rigor APA 7 solo si se piden citas; si no, prioriza la fluidez ejecutiva.
             """
             
             resp = model.generate_content([sys_prompt, pr])
@@ -581,5 +602,6 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
