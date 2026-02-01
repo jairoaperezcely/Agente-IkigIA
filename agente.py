@@ -96,6 +96,32 @@ ROLES = {
 def get_pdf_text(f): return "".join([p.extract_text() for p in PdfReader(f).pages])
 def get_docx_text(f): return "\n".join([p.text for p in docx.Document(f).paragraphs])
 def get_excel_text(f): return pd.read_excel(f).to_string()
+def buscar_evidencia_investigador(query):
+    import requests
+    import re
+    evidencia = ""
+    
+    # A. PubMed API
+    url_pm = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={query}&retmode=json&retmax=2"
+    try:
+        res_pm = requests.get(url_pm).json()
+        ids = res_pm.get("esearchresult", {}).get("idlist", [])
+        if ids:
+            f_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={','.join(ids)}&retmode=text&rettype=abstract"
+            evidencia += f"--- FUENTES PUBMED ---\n{requests.get(f_url).text}\n"
+    except: pass
+
+    # B. Crossref/SciELO API (Filtro Académico Global)
+    url_cr = f"https://api.crossref.org/works?query={query}&filter=has-abstract:true&rows=2"
+    try:
+        res_cr = requests.get(url_cr).json()
+        for item in res_cr.get("message", {}).get("items", []):
+            title = item.get("title", [""])[0]
+            abstract = re.sub(r'<[^>]*>', '', item.get("abstract", "Sin abstract."))
+            evidencia += f"--- FUENTES SCIELO/ACADÉMICO ---\nTítulo: {title}\nAbstract: {abstract}\n\n"
+    except: pass
+    
+    return evidencia
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -594,8 +620,13 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
                 contexto_rag = "\n".join([d.page_content for d in docs])
 
             contexto_reciente = st.session_state.biblioteca.get(rol_activo, "")
+            # 2. TRIAGE CIENTÍFICO
+            contexto_cientifico = ""
+            if any(kw in pr.lower() for kw in ["estudio", "evidencia", "investigar", "unal", "sci"]):
+                with st.spinner("Escaneando PubMed, SciELO y Repositorios Globales..."):
+                    contexto_cientifico = buscar_evidencia_investigador(pr)
 
-            # 2. DEFINICIÓN DE MINDSET POR ROL
+            # 3. DEFINICIÓN DE MINDSET POR ROL
             perfiles = {
                 "Coach de Alto Desempeño": "ROI cognitivo, biohacking y sostenibilidad.",
                 "Director Centro Telemedicina": "Transformación digital e interoperabilidad salud.",
@@ -608,12 +639,12 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             }
             mindset = perfiles.get(rol_activo, "Visión estratégica, innovadora, ejecutiva y humana.")
 
-            # 3. CONFIGURACIÓN DEL MODELO CON HERRAMIENTAS
+            # 4. CONFIGURACIÓN DEL MODELO CON HERRAMIENTAS
             model = genai.GenerativeModel(
                 model_name='gemini-2.5-flash',
             )
 
-            # 4. PROMPT MAESTRO (PERSONA + CONTEXTO + REGLAS)
+            # 5. PROMPT MAESTRO (PERSONA + CONTEXTO + REGLAS)
             sys_prompt = f"""
             Hoy es {fecha_hoy}. Actúa como {rol_activo}. 
             Mindset: {mindset}
@@ -671,7 +702,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             6. Aplica rigor APA 7 solo si se piden citas; si no, prioriza la fluidez ejecutiva.
             """
             
-            # 5. GENERACIÓN Y RENDERIZADO
+            # 6. GENERACIÓN Y RENDERIZADO
             resp = model.generate_content([sys_prompt, pr])
             respuesta_final = resp.text
             
@@ -681,6 +712,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor híbrido: {e}")
+
 
 
 
