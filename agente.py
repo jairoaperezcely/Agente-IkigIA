@@ -572,10 +572,10 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             perfiles = {
                 "Coach de Alto Desempeño": "ROI cognitivo, biohacking y sostenibilidad.",
                 "Director Centro Telemedicina": "Transformación digital e interoperabilidad salud.",
-                "Vicedecano Académico": "Política educativa, normativa UNAL y MD-PhD.",
-                "Director de UCI": "Seguridad paciente, algoritmos complejos y datos HUN.",
-                "Investigador Científico": "Rigor metodológico y estándares APA 7.",
-                "Consultor Salud Digital": "Sostenibilidad BID/MinSalud y territorio.",
+                "Vicedecano Académico": "Política educativa, normas y mejores estándares internacionales.",
+                "Director de UCI": "Seguridad paciente, algoritmos complejos, datos y proeceos HUN.",
+                "Investigador Científico": "Rigor metodológico, mejor evidencia científica y estándares APA 7.",
+                "Consultor Salud Digital": "Sostenibilidad, estándares internacionales, territorio y normas nacionales.",
                 "Professor Universitario": "Pedagogía disruptiva y pensamiento crítico.",
                 "Estratega de Trading": "Gestión de riesgo (RR), SMC y control de sesgos."
             }
@@ -589,28 +589,54 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
             # 4. PROMPT MAESTRO (PERSONA + CONTEXTO + REGLAS)
             sys_prompt = f"""
-            Hoy es {fecha_hoy}. Actúa como {rol_activo}.
+            Hoy es {fecha_hoy}. Actúa como {rol_activo}. 
             Mindset: {mindset}
             
-            CONTEXTO LOCAL (Biblioteca Máster): {contexto_rag if contexto_rag else "N/A"}
-            CONTEXTO RECIENTE (Sidebar): {contexto_reciente[:1000] if contexto_reciente else "N/A"}
-
+            FUENTES DE CONOCIMIENTO:
+            - MEMORIA MÁSTER (Local): {contexto_rag if contexto_rag else "N/A"}
+            - CONTEXTO RECIENTE (Sidebar): {contexto_reciente[:1000] if contexto_reciente else "N/A"}
+            - BÚSQUEDA WEB: Usa Google Search para validar evidencia de 2025-2026.
+            
             REGLA DE SEMÁFORO DE EVIDENCIA (Búsqueda Web):
-            Busca en la web para complementar. Clasifica obligatoriamente:
+            Busca en la web para complementar. Clasifica obligatoriamente toda fuente externa:
             - 🟢 [ALTA CERTEZA]: Metaanálisis o Revisiones Sistemáticas.
             - 🟡 [MEDIA CERTEZA]: Ensayos Clínicos o Estudios de Cohortes.
             - 🔴 [BAJA CERTEZA]: Reportes de caso, pre-prints o blogs.
             Si hay contradicción con la Biblioteca Máster, genera 'ALERTA DE CHOQUE'.
 
-            ESTRUCTURA OBLIGATORIA:
-            1. ### Triage Estratégico (Vital, Delegable o Eliminable)
-            2. ### ROI Cognitivo (5 bullets esencia)
+            ESTRUCTURA OBLIGATORIA DE RESPUESTA:
+            1. ### Triage Estratégico:
+               - Antes de dar pasos tácticos, evalúa: ¿Es esta tarea Vital, Delegable o Eliminable? 
+               - Si es delegable, indica a quién o cómo automatizarla. Si es vital, procede al análisis.
+            2. ### ROI Cognitivo: hasta 5 bullets directos con la esencia.
             3. ---
-            4. ### Análisis multidimensional (Académico, Estratégico, Innovación)
-            5. ### Propuesta táctica (Algoritmo con Inicio Imparable)
-            6. **Pregunta de Punto Ciego**
+            4. ### Análisis multidimensional (El por qué) 
+               Desarrollo denso (2-3 párrafos de alto valor) integrando:
+               - **Dimensión Académica:** Rigor científico, normativa y soporte o referencia (APA 7).
+               - **Dimensión Estratégica:** Sostenibilidad, mitigación de riesgos y ROI.
+               - **Innovación:** Conexión interdisciplinaria y disrupción de creencias.
+            5. ---
+            6. ### Propuesta táctica (El cómo)
+               - Diseña un algoritmo secuencial y ejecutable para resolver la consulta. 
+               - Debe incluir un "Inicio Imparable" (acción de <2 min) para romper la inercia.
+            7. ---
+            8. **Pregunta de Punto Ciego:** Desafía la lógica o detecta riesgos ocultos.
+                     
+            INSTRUCCIÓN: Prioriza el CONOCIMIENTO RECIENTE para responder, pero valídalo con la MEMORIA MÁSTER.
+            PONDERACIÓN:
+            Aplica la 'Ecualización Dinámica': No des el mismo peso a todas las dimensiones. 
+                - Si el rol es Académico/Investigador: Maximiza Rigor y Normativa.
+                - Si el rol es Director UCI/Trader: Maximiza Riesgo, ROI y Mitigación.
+                - Si el rol es Coach/Consultor: Maximiza Disrupción e Interdisciplinariedad.
+            REGLAS DE ORO:
+            1. Prohíbe frases como "Es importante notar", "No basta con", "En esencia". 
+            2. Prohibido el relleno conversacional.
+            3. Usa tono imperativo en la síntesis y tono académico en el análisis.
+            4. Si la consulta es sobre redacción, usa verbos de acción y tono imperativo/estratégico.
+            5. Si no hay datos en el contexto, indícalo pero no inventes.
+            6. Aplica rigor APA 7 solo si se piden citas; si no, prioriza la fluidez ejecutiva.
             """
-
+            
             # 5. GENERACIÓN Y RENDERIZADO
             resp = model.generate_content([sys_prompt, pr])
             respuesta_final = resp.text
@@ -621,6 +647,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor híbrido: {e}")
+
 
 
 
