@@ -502,35 +502,25 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
             
             # Selección y Edición
             # --- RENDERIZADO DE MENSAJES CON COPIADO DIRECTO ---
+# --- RENDERIZADO LIMPIO CON BOTÓN DE COPIADO ---
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
-        # A. Visualización Ejecutiva
+        # 1. Visualización Ejecutiva (Solo se lee esto)
         st.markdown(msg["content"])
         
-        # B. COPIADO DIRECTO (Aparece siempre en respuestas del asistente)
+        # 2. ACCIÓN DE COPIADO (Solo para el asistente)
         if msg["role"] == "assistant":
-            # Un bloque de código discreto con botón de copiar nativo
-            st.code(msg["content"], language=None)
+            # Usamos st.code pero solo con una línea o colapsado para que no estorbe
+            # O mejor aún, un expander muy pequeño que solo diga "Copiar respuesta"
+            with st.popover("📋 Copiar para pegar"):
+                st.code(msg["content"], language=None)
             
-            # C. PANEL DE GESTIÓN (Solo para Exportar y Editar)
-            col1, col2 = st.columns([1, 3])
-            with col1:
-                is_sel = i in st.session_state.export_pool
-                if st.checkbox("📥 Incluir", key=f"sel_{i}", value=is_sel):
-                    if i not in st.session_state.export_pool:
-                        st.session_state.export_pool.append(i)
-                        st.rerun()
-                elif i in st.session_state.export_pool:
-                    st.session_state.export_pool.remove(i)
-                    st.rerun()
-            
-            with col2:
-                with st.expander("📝 EDITAR CONTENIDO"):
-                    txt_edit = st.text_area("Borrador:", value=msg["content"], height=200, key=f"ed_{i}")
-                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}"):
-                        st.session_state.messages[i]["content"] = txt_edit
-                        st.toast("Cambios guardados.")
-                        st.rerun()
+            # 3. PANEL DE GESTIÓN (Selección y Edición)
+            # Aquí va su código de 'is_sel' y 'st.expander' de edición que ya tiene
+            is_sel = i in st.session_state.export_pool
+            if st.checkbox("📥 Incluir en Word", key=f"sel_{i}", value=is_sel):
+                # ... su lógica de append/remove ...
+                pass
 # Captura de nuevo Input con RAG
 if pr := st.chat_input("Nuestro reto para hoy..."):
     # 1. Registro del mensaje del usuario
@@ -626,6 +616,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
