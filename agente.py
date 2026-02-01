@@ -29,12 +29,26 @@ st.set_page_config(
 )
 
 # Estilo CSS Zen: Contraste Quirúrgico y Ergonomía Móvil
+# --- ESTILOS GLOBALES (INYECTADOS CORRECTAMENTE) ---
 st.markdown("""
     <style>
-    /* Forzar altura y alineación de botones y checkboxes */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+    
+    html, body, [data-testid="stappview-container"] {
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Forzar alineación de botones y checkboxes */
     .stCheckbox { margin-bottom: 0px; padding-top: 5px; }
-    .stExpander { border: 1px solid #d1d5db !important; }
-    div[data-testid="stHorizontalBlock"] { align-items: flex-start; }
+    .stExpander { border: 1px solid #d1d5db !important; margin-top: 5px; }
+    div[data-testid="stHorizontalBlock"] { align-items: start; gap: 10px; }
+    
+    /* Botón de copiar estética */
+    .copy-btn {
+        width: 100%; height: 38px; background-color: #f0f2f6; 
+        border: 1px solid #d1d5db; border-radius: 4px; 
+        cursor: pointer; font-size: 14px; color: #31333F;
+    }
     </style>
     """, unsafe_allow_html=True)
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -656,6 +670,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
