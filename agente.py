@@ -501,23 +501,46 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                     with c1: st.download_button("📊 Excel", exc, f"Data_{i}.xlsx", key=f"ex_{i}_{ver}")
             
             # Selección y Edición
-            # --- RENDERIZADO DE MENSAJES CON COPIADO DIRECTO ---
 # --- RENDERIZADO LIMPIO CON BOTÓN DE COPIADO ---
+# --- RENDERIZADO DEL CHAT CON COPIADO INVISIBLE ---
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
-        # 1. Lectura Ejecutiva
+        # 1. Visualización única del contenido
         st.markdown(msg["content"])
         
-        # 2. Solo para las respuestas del Asistente
+        # 2. Acciones del Asistente
         if msg["role"] == "assistant":
-            # ESTE ES EL BOTÓN DE COPIAR: Aparece como un cuadro gris con icono
-            st.code(msg["content"], language=None)
+            # BOTÓN HTML/JS: Copia al portapapeles sin mostrar el texto otra vez
+            texto_para_copiar = msg["content"].replace("`", "\\`").replace("$", "\\$")
+            html_button = f"""
+            <div style="text-align: right;">
+                <button id="btn_{i}" style="
+                    background-color: #4CAF50; color: white; border: none; 
+                    padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                    📋 Copiar Respuesta
+                </button>
+            </div>
+            <script>
+            document.getElementById("btn_{i}").addEventListener("click", function() {{
+                const text = `{texto_para_copiar}`;
+                navigator.clipboard.writeText(text).then(function() {{
+                    const btn = document.getElementById("btn_{i}");
+                    btn.innerText = "✅ ¡Copiado!";
+                    btn.style.backgroundColor = "#2196F3";
+                    setTimeout(() => {{ 
+                        btn.innerText = "📋 Copiar Respuesta"; 
+                        btn.style.backgroundColor = "#4CAF50";
+                    }}, 2000);
+                }});
+            }});
+            </script>
+            """
+            components.html(html_button, height=45)
             
-            # --- Panel de Gestión ---
+            # 3. Panel de Gestión (Word / Editar)
             is_sel = i in st.session_state.export_pool
-            col_c, col_e = st.columns([1, 2])
-            
-            with col_c:
+            col_sel, col_ed = st.columns([1, 2])
+            with col_sel:
                 if st.checkbox("📥 Word", key=f"sel_{i}", value=is_sel):
                     if i not in st.session_state.export_pool:
                         st.session_state.export_pool.append(i)
@@ -525,8 +548,7 @@ for i, msg in enumerate(st.session_state.messages):
                 elif i in st.session_state.export_pool:
                     st.session_state.export_pool.remove(i)
                     st.rerun()
-            
-            with col_e:
+            with col_ed:
                 with st.expander("📝 Editar"):
                     editado = st.text_area("Borrador:", value=msg["content"], height=150, key=f"ed_{i}")
                     if st.button("✅ Guardar", key=f"sv_{i}"):
@@ -627,6 +649,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
