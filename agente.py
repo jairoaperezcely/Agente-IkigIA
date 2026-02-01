@@ -501,31 +501,36 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                     with c1: st.download_button("📊 Excel", exc, f"Data_{i}.xlsx", key=f"ex_{i}_{ver}")
             
             # Selección y Edición
-            is_sel = i in st.session_state.export_pool
-            if st.checkbox("📥 Incluir", key=f"sel_{i}_{ver}", value=is_sel):
-                if i not in st.session_state.export_pool: st.session_state.export_pool.append(i); st.rerun()
-            elif i in st.session_state.export_pool:
-                st.session_state.export_pool.remove(i); st.rerun()
+            # --- RENDERIZADO DE MENSAJES CON COPIADO DIRECTO ---
+for i, msg in enumerate(st.session_state.messages):
+    with st.chat_message(msg["role"]):
+        # A. Visualización Ejecutiva
+        st.markdown(msg["content"])
+        
+        # B. COPIADO DIRECTO (Aparece siempre en respuestas del asistente)
+        if msg["role"] == "assistant":
+            # Un bloque de código discreto con botón de copiar nativo
+            st.code(msg["content"], language=None)
             
-            # --- PANEL DE GESTIÓN CON COPIADO Y CIERRE ---
-            with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
-                # Creamos dos pestañas para separar funciones
-                t_visualizar, t_editar = st.tabs(["📋 COPIAR TEXTO", "📝 EDITAR CONTENIDO"])
-                
-                with t_visualizar:
-                    # st.code permite copiar el texto con un solo clic en el icono superior derecho
-                    st.code(msg["content"], language=None)
-                    st.info("💡 Use el botón de la esquina superior derecha del cuadro gris para copiar.")
-                
-                with t_editar:
-                    txt_edit = st.text_area("Borrador para ajustes:", value=msg["content"], height=300, key=f"ed_{i}_{ver}")
-                    
-                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}_{ver}", use_container_width=True):
-                        st.session_state.messages[i]["content"] = txt_edit
-                        st.session_state.editor_version = ver + 1 
-                        st.toast("✅ Sincronizado. Colapsando editor...")
+            # C. PANEL DE GESTIÓN (Solo para Exportar y Editar)
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                is_sel = i in st.session_state.export_pool
+                if st.checkbox("📥 Incluir", key=f"sel_{i}", value=is_sel):
+                    if i not in st.session_state.export_pool:
+                        st.session_state.export_pool.append(i)
                         st.rerun()
-
+                elif i in st.session_state.export_pool:
+                    st.session_state.export_pool.remove(i)
+                    st.rerun()
+            
+            with col2:
+                with st.expander("📝 EDITAR CONTENIDO"):
+                    txt_edit = st.text_area("Borrador:", value=msg["content"], height=200, key=f"ed_{i}")
+                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}"):
+                        st.session_state.messages[i]["content"] = txt_edit
+                        st.toast("Cambios guardados.")
+                        st.rerun()
 # Captura de nuevo Input con RAG
 if pr := st.chat_input("Nuestro reto para hoy..."):
     # 1. Registro del mensaje del usuario
@@ -621,6 +626,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
