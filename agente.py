@@ -503,41 +503,33 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
             # Selección y Edición
             # --- RENDERIZADO DE MENSAJES CON COPIADO DIRECTO ---
 # --- RENDERIZADO LIMPIO CON BOTÓN DE COPIADO ---
+# --- RENDERIZADO DEL CHAT (CORRECCIÓN DE INDENTACIÓN) ---
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
-        # 1. Visualización Ejecutiva (Solo se lee esto)
+        # A. Visualización del contenido
         st.markdown(msg["content"])
         
-        # 2. ACCIÓN DE COPIADO (Solo para el asistente)
-def boton_copiar(texto, id):
-    # Genera un botón pequeño en HTML/JS que copia al portapapeles
-    html_code = f"""
-    <button id="btn_{id}" style="
-        background-color: #f0f2f6; 
-        border: none; 
-        border-radius: 5px; 
-        padding: 5px 10px; 
-        cursor: pointer;
-        font-size: 12px;
-        color: #31333F;">
-        📋 Copiar respuesta
-    </button>
-    <script>
-    document.getElementById("btn_{id}").onclick = function() {{
-        navigator.clipboard.writeText(`{texto.replace('`', '\\`').replace('$', '\\$')}`);
-        this.innerText = "✅ ¡Copiado!";
-        setTimeout(() => {{ this.innerText = "📋 Copiar respuesta"; }}, 2000);
-    }};
-    </script>
-    """
-    components.html(html_code, height=45)
+        # B. Panel de Gestión (Solo si es respuesta del asistente)
+        if msg["role"] == "assistant":
+            # Botón de Copiado Táctico (st.code es el que permite copiar directo)
+            st.code(msg["content"], language=None)
             
-            # 3. PANEL DE GESTIÓN (Selección y Edición)
-            # Aquí va su código de 'is_sel' y 'st.expander' de edición que ya tiene
+            # Gestión de Exportación y Edición
             is_sel = i in st.session_state.export_pool
             if st.checkbox("📥 Incluir en Word", key=f"sel_{i}", value=is_sel):
-                # ... su lógica de append/remove ...
-                pass
+                if i not in st.session_state.export_pool:
+                    st.session_state.export_pool.append(i)
+                    st.rerun()
+            elif i in st.session_state.export_pool:
+                st.session_state.export_pool.remove(i)
+                st.rerun()
+
+            with st.expander("📝 EDITAR CONTENIDO"):
+                txt_edit = st.text_area("Ajustes:", value=msg["content"], height=200, key=f"ed_{i}")
+                if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}"):
+                    st.session_state.messages[i]["content"] = txt_edit
+                    st.toast("✅ Sincronizado")
+                    st.rerun()
 # Captura de nuevo Input con RAG
 if pr := st.chat_input("Nuestro reto para hoy..."):
     # 1. Registro del mensaje del usuario
@@ -633,6 +625,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
