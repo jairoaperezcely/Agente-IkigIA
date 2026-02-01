@@ -30,21 +30,26 @@ st.set_page_config(
 
 # Estilo CSS Zen: Contraste Quirúrgico y Ergonomía Móvil
 # --- ESTILOS GLOBALES (INYECTADOS CORRECTAMENTE) ---
+# --- 1. CONFIGURACIÓN E INYECCIÓN DE ESTILOS (Línea 40-60 aprox) ---
+import streamlit as st
+import streamlit.components.v1 as components
+
+# Bloque de estilo corregido:
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
     
-    html, body, [data-testid="stappview-container"] {
+    html, body, [data-testid="stAppViewContainer"] {
         font-family: 'Inter', sans-serif;
     }
 
-    /* Forzar alineación de botones y checkboxes */
+    /* Alineación de la Barra de Herramientas Inferior */
     .stCheckbox { margin-bottom: 0px; padding-top: 5px; }
-    .stExpander { border: 1px solid #d1d5db !important; margin-top: 5px; }
-    div[data-testid="stHorizontalBlock"] { align-items: start; gap: 10px; }
+    .stExpander { border: 1px solid #d1d5db !important; margin-top: 0px; }
+    div[data-testid="stHorizontalBlock"] { align-items: start; gap: 5px; }
     
-    /* Botón de copiar estética */
-    .copy-btn {
+    /* Botón de copiar uniforme */
+    .copy-btn-style {
         width: 100%; height: 38px; background-color: #f0f2f6; 
         border: 1px solid #d1d5db; border-radius: 4px; 
         cursor: pointer; font-size: 14px; color: #31333F;
@@ -523,31 +528,24 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
             
             # Selección y Edición
 # --- RENDERIZADO LIMPIO CON BOTÓN DE COPIADO ---
-# --- RENDERIZADO DEL CHAT CON BOTONES HOMOGÉNEOS ---
-# --- RENDERIZADO DEL CHAT CON SIMETRÍA TOTAL ---
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
-            # Creamos una fila de acciones con altura fija
-            # Usamos 3 columnas idénticas
             c1, c2, c3 = st.columns(3)
             
             with c1:
-                # BOTÓN COPIAR (HTML/JS)
+                # BOTÓN COPIAR (Mismo tamaño y color)
                 texto_seguro = msg["content"].replace('`', '\\`').replace('$', '\\$').replace('\n', '\\n')
                 html_copy = f"""
-                <button id="btn_{i}" style="
-                    width: 100%; height: 38px; background-color: #f0f2f6; 
-                    border: 1px solid #d1d5db; border-radius: 4px; 
-                    cursor: pointer; font-size: 14px; color: #31333F;">
-                    📋 Copiar
+                <button id="btn_{i}" style="width:100%; height:38px; background-color:#f0f2f6; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; color:#31333F;">
+                📋 Copiar
                 </button>
                 <script>
                 document.getElementById("btn_{i}").onclick = function() {{
                     navigator.clipboard.writeText(`{texto_seguro}`);
-                    this.innerText = "✅ Copiado";
+                    this.innerText = "✅!";
                     setTimeout(() => {{ this.innerText = "📋 Copiar"; }}, 2000);
                 }};
                 </script>
@@ -555,23 +553,20 @@ for i, msg in enumerate(st.session_state.messages):
                 components.html(html_copy, height=45)
 
             with c2:
-                # BOTÓN WORD (Checkbox alineado)
-                # Enmarcamos en un contenedor para igualar altura visual
+                # BOTÓN WORD (Enmarcado para simetría)
+                st.markdown('<div style="height:38px; background-color:#f0f2f6; border:1px solid #d1d5db; border-radius:4px; padding-left:10px; display:flex; align-items:center;">', unsafe_allow_html=True)
                 is_sel = i in st.session_state.export_pool
-                st.markdown('<div style="height: 38px; background-color: #f0f2f6; border: 1px solid #d1d5db; border-radius: 4px; padding-left: 10px;">', unsafe_allow_html=True)
                 if st.checkbox("📥 Word", key=f"sel_{i}", value=is_sel):
                     if i not in st.session_state.export_pool:
-                        st.session_state.export_pool.append(i)
-                        st.rerun()
+                        st.session_state.export_pool.append(i); st.rerun()
                 elif i in st.session_state.export_pool:
-                    st.session_state.export_pool.remove(i)
-                    st.rerun()
+                    st.session_state.export_pool.remove(i); st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
             with c3:
-                # BOTÓN EDITAR (Expander simplificado)
+                # BOTÓN EDITAR (Expander)
                 with st.expander("📝 Editar"):
-                    editado = st.text_area("Borrador:", value=msg["content"], height=150, key=f"ed_{i}")
+                    editado = st.text_area("Ajustes:", value=msg["content"], height=150, key=f"ed_{i}")
                     if st.button("✅ Guardar", key=f"sv_{i}", use_container_width=True):
                         st.session_state.messages[i]["content"] = editado
                         st.rerun()
@@ -670,6 +665,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
