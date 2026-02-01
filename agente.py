@@ -630,9 +630,13 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             # Inyección en el sys_prompt (REGLA ESTRICTA)
             sys_prompt += f"""
             REGLA DE ORO DE VERACIDAD:
-            1. Solo puedes citar o mencionar bibliografía si aparece en 'EVIDENCIA EXTERNA REAL'.
-            2. Si la sección dice 'NO_SE_ENCONTRO_EVIDENCIA_REAL', indica honestamente que no hay datos externos verificados.
-            3. PROHIBIDO INVENTAR AUTORES, TÍTULOS O DOIs.
+            Actúa como {rol_activo}. 
+            CONTEXTO LOCAL: {contexto_rag}
+            CONTEXTO RECIENTE: {contexto_reciente}
+            EVIDENCIA EXTERNA REAL: {contexto_cientifico}
+
+            REGLA DE VERACIDAD: Solo cita la EVIDENCIA EXTERNA REAL proporcionada. 
+            Si no hay datos, básate en CONTEXTO LOCAL, MEMORIA MÁSTER Y tu conocimiento. PROHIBIDO INVENTAR AUTORES, TÍTULOS O DOIs.
 
             EVIDENCIA EXTERNA REAL:
             {contexto_cientifico}
@@ -724,6 +728,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor híbrido: {e}")
+
 
 
 
