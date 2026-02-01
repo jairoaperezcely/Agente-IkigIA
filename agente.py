@@ -548,6 +548,8 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
 
 # Captura de nuevo Input con RAG
 if pr := st.chat_input("Nuestro reto para hoy..."):
+    from datetime import datetime
+    fecha_actual = datetime.now().strftime("%d de %B de %Y")
     # 1. Registro del mensaje del usuario
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
@@ -586,6 +588,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             # Construimos un sistema de capas de conocimiento
             sys_prompt = f"""
             Actúa como {rol_activo}.
+            FECHA ACTUAL: {fecha_actual}.
             Mindset: {mindset_seleccionado}
             Objetivo: Equilibrio entre Síntesis Ejecutiva y Profundidad Analítica.
             
@@ -641,4 +644,5 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
