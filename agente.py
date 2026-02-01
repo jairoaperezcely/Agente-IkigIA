@@ -645,3 +645,4 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
 
+
