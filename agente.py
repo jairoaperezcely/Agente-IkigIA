@@ -625,7 +625,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             contexto_cientifico = ""
             if any(kw in pr.lower() for kw in ["estudio", "evidencia", "investigar", "bibliografía"]):
                 with st.spinner("Consultando bases de datos reales (PubMed + SciELO)..."):
-                contexto_cientifico = buscar_evidencia_unificada(pr)
+                    contexto_cientifico = buscar_evidencia_unificada(pr)
 
             # Inyección en el sys_prompt (REGLA ESTRICTA)
             sys_prompt += f"""
@@ -724,6 +724,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor híbrido: {e}")
+
 
 
 
