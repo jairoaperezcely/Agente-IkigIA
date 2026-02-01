@@ -472,16 +472,35 @@ def actualizar_memoria_persistente():
         contenido_interno = os.listdir(target_dir)
         return f"⚠️ CARPETA ENCONTRADA, PERO VACÍA: Visto en 'biblioteca_master': {contenido_interno}. ¿Subió los archivos a GitHub?"
 
-    # 3. Procesamiento RAG (FAISS)
+    # 3. Procesamiento RAG (FAISS) con Identidad de Fuente
     try:
         splitter = RecursiveCharacterTextSplitter(chunk_size=1200, chunk_overlap=200)
-        final_docs = splitter.create_documents(docs_text)
+        chunks_con_metadatos = []
+
+        # Volvemos a recorrer para procesar archivo por archivo con su nombre
+        for root, dirs, files in os.walk(target_dir):
+            for file in files:
+                if file.lower().endswith(".pdf"):
+                    ruta = os.path.join(root, file)
+                    with open(ruta, "rb") as f:
+                        texto_archivo = get_pdf_text(f)
+                        # Creamos documentos que conservan el nombre del archivo en 'metadata'
+                        doc_chunks = splitter.create_documents(
+                            [texto_archivo], 
+                            metadatas=[{"source": file}]
+                        )
+                        chunks_con_metadatos.extend(doc_chunks)
+
+        if not chunks_con_metadatos:
+            return "⚠️ No se pudieron generar fragmentos con metadatos."
+
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        vector_db = FAISS.from_documents(final_docs, embeddings)
+        vector_db = FAISS.from_documents(chunks_con_metadatos, embeddings)
         vector_db.save_local(DB_PATH)
-        return f"✅ ÉXITO: {archivos_encontrados} documentos integrados desde {target_dir}."
+        
+        return f"✅ ÉXITO: {archivos_encontrados} documentos integrados con Trazabilidad de Fuente."
     except Exception as e:
-        return f"❌ Error en motor RAG: {str(e)}"        
+        return f"❌ Error en motor RAG: {str(e)}"       
 # --- 6. PANEL CENTRAL: WORKSTATION (V3.5 - INTEGRACIÓN RAG & EDICIÓN) ---
 
 # 1. ESTILO Y ERGONOMÍA (Zen & Clean)
@@ -644,5 +663,6 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
