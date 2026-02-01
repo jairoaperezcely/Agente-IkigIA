@@ -1,5 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
+from datetime import datetime
+import streamlit.components.v1 as components
 from pypdf import PdfReader
 import docx
 import pandas as pd
@@ -549,10 +551,48 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
 # Captura de nuevo Input con RAG
 if pr := st.chat_input("Nuestro reto para hoy..."):
     from datetime import datetime
-    fecha_actual = datetime.now().strftime("%d de %B de %Y")
+    # Anclaje temporal dinámico
+    fecha_hoy = datetime.now().strftime("%d de %B de %Y")
+    
     # 1. Registro del mensaje del usuario
     st.session_state.messages.append({"role": "user", "content": pr})
-    with st.chat_message("user"): st.markdown(pr)
+    with st.chat_message("user"): 
+        st.markdown(pr)
+    
+    # 2. Respuesta del Asistente con Herramientas
+    with st.chat_message("assistant"):
+        try:
+            # Configuración del modelo con HERRAMIENTAS ACTIVAS
+            model = genai.GenerativeModel(
+                model_name='gemini-2.5-flash',
+                tools=[{"google_search": {}}] 
+            )
+
+            # Instrucciones de Rigor Científico (Semáforo)
+            sys_prompt = f"""
+            Hoy es {fecha_hoy}. Actúa como {rol_activo}.
+            Tu objetivo es el equilibrio entre Síntesis Ejecutiva y Profundidad Analítica.
+            
+            REGLA DE SEMÁFORO DE EVIDENCIA:
+            Para toda búsqueda bibliográfica externa, clasifica obligatoriamente:
+            - 🟢 [ALTA CERTEZA]: Metaanálisis o Revisiones Sistemáticas.
+            - 🟡 [MEDIA CERTEZA]: Ensayos Clínicos o Estudios de Cohortes.
+            - 🔴 [BAJA CERTEZA]: Reportes de caso, pre-prints o blogs.
+            
+            Si la información externa contradice la 'Memoria Máster', genera una 'ALERTA DE CHOQUE'.
+            """
+
+            # Generación de contenido con búsqueda activa
+            resp = model.generate_content([sys_prompt, pr])
+            respuesta_final = resp.text
+            
+            # 3. Post-procesamiento y Visualización
+            st.markdown(respuesta_final)
+            st.session_state.messages.append({"role": "assistant", "content": respuesta_final})
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"Error en el motor de búsqueda/evidencia: {e}")
     
     with st.chat_message("assistant"):
         try:
@@ -568,7 +608,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             contexto_reciente = st.session_state.biblioteca.get(rol_activo, "")
 
             # C. ENSAMBLAJE DEL PROMPT DINÁMICO
-            model = genai.GenerativeModel('gemini-2.5-flash')# C. ENSAMBLAJE DEL PROMPT DINÁMICO
+            model = genai.GenerativeModel('gemini-2.5-flash')
             
             # 1. Definición de Mindset por Rol
             perfiles = {
@@ -644,5 +684,6 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
