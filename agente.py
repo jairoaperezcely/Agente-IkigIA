@@ -36,31 +36,40 @@ import streamlit.components.v1 as components
 
 # Bloque de estilo corregido:
 # --- 1. IDENTIDAD VISUAL Y ESTILOS (UNIFICADO) ---
-st.markdown("""
+# --- 1. CONFIGURACIÓN DE IDENTIDAD VISUAL ---
+import streamlit.components.v1 as components
+
 st.markdown("""
 <style>
-    /* Forzar alineación de la barra de acciones */
-    [data-testid="column"] {
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
+    /* Estilos Globales */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+    html, body, [data-testid="stAppViewContainer"], .stApp {
+        background-color: #000000 !important;
+        font-family: 'Inter', sans-serif !important;
+        color: #FFFFFF !important;
+    }
+    
+    /* Forzar alineación de botones inferiores */
+    div[data-testid="stHorizontalBlock"] {
+        align-items: flex-start !important;
+        gap: 0px !important;
     }
 
-    /* Estilo para que el botón de Word y Editar no tengan márgenes extra */
-    .stCheckbox { margin: 0px !important; padding: 0px !important; }
-    .stExpander { margin-top: 0px !important; }
-    
-    /* Contenedor del checkbox para que parezca botón */
-    .word-container {
-        height: 38px; 
-        width: 100%;
-        background-color: #050505; 
-        border: 1px solid #00E6FF; 
-        border-radius: 4px; 
-        display: flex; 
-        align-items: center; 
-        padding-left: 10px;
+    /* Contenedores para botones simétricos */
+    .btn-container {
+        height: 38px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #00E6FF;
+        border-radius: 4px;
+        background-color: #050505;
+        margin: 0px !important;
     }
+
+    /* Ajuste específico para Checkbox nativo */
+    .stCheckbox { margin-bottom: 0px !important; padding-top: 5px !important; }
+    .stExpander { border: 1px solid #1A1A1A !important; background-color: #050505 !important; margin-top: 0px !important; }
 </style>
 """, unsafe_allow_html=True)
 if "GOOGLE_API_KEY" in st.secrets:
@@ -656,6 +665,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
