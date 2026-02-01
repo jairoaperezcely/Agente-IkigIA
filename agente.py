@@ -509,11 +509,28 @@ for i, msg in enumerate(st.session_state.messages):
         st.markdown(msg["content"])
         
         # 2. ACCIÓN DE COPIADO (Solo para el asistente)
-        if msg["role"] == "assistant":
-            # Usamos st.code pero solo con una línea o colapsado para que no estorbe
-            # O mejor aún, un expander muy pequeño que solo diga "Copiar respuesta"
-            with st.popover("📋 Copiar para pegar"):
-                st.code(msg["content"], language=None)
+def boton_copiar(texto, id):
+    # Genera un botón pequeño en HTML/JS que copia al portapapeles
+    html_code = f"""
+    <button id="btn_{id}" style="
+        background-color: #f0f2f6; 
+        border: none; 
+        border-radius: 5px; 
+        padding: 5px 10px; 
+        cursor: pointer;
+        font-size: 12px;
+        color: #31333F;">
+        📋 Copiar respuesta
+    </button>
+    <script>
+    document.getElementById("btn_{id}").onclick = function() {{
+        navigator.clipboard.writeText(`{texto.replace('`', '\\`').replace('$', '\\$')}`);
+        this.innerText = "✅ ¡Copiado!";
+        setTimeout(() => {{ this.innerText = "📋 Copiar respuesta"; }}, 2000);
+    }};
+    </script>
+    """
+    components.html(html_code, height=45)
             
             # 3. PANEL DE GESTIÓN (Selección y Edición)
             # Aquí va su código de 'is_sel' y 'st.expander' de edición que ya tiene
@@ -616,6 +633,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
