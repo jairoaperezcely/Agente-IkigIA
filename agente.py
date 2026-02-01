@@ -96,32 +96,33 @@ ROLES = {
 def get_pdf_text(f): return "".join([p.extract_text() for p in PdfReader(f).pages])
 def get_docx_text(f): return "\n".join([p.text for p in docx.Document(f).paragraphs])
 def get_excel_text(f): return pd.read_excel(f).to_string()
-def buscar_evidencia_investigador(query):
+def buscar_evidencia_unificada(query):
     import requests
     import re
     evidencia = ""
     
-    # A. PubMed API
-    url_pm = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={query}&retmode=json&retmax=2"
+    # --- PARTE A: PUBMED (Global) ---
     try:
-        res_pm = requests.get(url_pm).json()
+        url_pm = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={query}&retmode=json&retmax=2"
+        res_pm = requests.get(url_pm, timeout=5).json()
         ids = res_pm.get("esearchresult", {}).get("idlist", [])
         if ids:
             f_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={','.join(ids)}&retmode=text&rettype=abstract"
-            evidencia += f"--- FUENTES PUBMED ---\n{requests.get(f_url).text}\n"
-    except: pass
+            evidencia += f"\n[PUBMED - EVIDENCIA GLOBAL]:\n{requests.get(f_url, timeout=5).text}\n"
+    except: evidencia += "\n[!] Error de conexión con PubMed.\n"
 
-    # B. Crossref/SciELO API (Filtro Académico Global)
-    url_cr = f"https://api.crossref.org/works?query={query}&filter=has-abstract:true&rows=2"
+    # --- PARTE B: SCIELO/CROSSREF (Regional/DOI) ---
     try:
-        res_cr = requests.get(url_cr).json()
+        url_cr = f"https://api.crossref.org/works?query={query}&filter=has-abstract:true&rows=2"
+        res_cr = requests.get(url_cr, timeout=5).json()
         for item in res_cr.get("message", {}).get("items", []):
-            title = item.get("title", [""])[0]
-            abstract = re.sub(r'<[^>]*>', '', item.get("abstract", "Sin abstract."))
-            evidencia += f"--- FUENTES SCIELO/ACADÉMICO ---\nTítulo: {title}\nAbstract: {abstract}\n\n"
-    except: pass
+            title = item.get("title", ["Sin título"])[0]
+            doi = item.get("DOI", "N/A")
+            abstract = re.sub(r'<[^>]*>', '', item.get("abstract", "Abstract no disponible."))
+            evidencia += f"\n[SCIELO/ACADÉMICO - EVIDENCIA REGIONAL]:\nTítulo: {title}\nDOI: {doi}\nResumen: {abstract[:700]}\n"
+    except: evidencia += "\n[!] Error de conexión con SciELO/Crossref.\n"
     
-    return evidencia
+    return evidencia if evidencia else "NO_SE_ENCONTRO_EVIDENCIA_REAL"
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -622,9 +623,20 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             contexto_reciente = st.session_state.biblioteca.get(rol_activo, "")
             # 2. TRIAGE CIENTÍFICO
             contexto_cientifico = ""
-            if any(kw in pr.lower() for kw in ["estudio", "evidencia", "investigar", "unal", "sci"]):
-                with st.spinner("Escaneando PubMed, SciELO y Repositorios Globales..."):
-                    contexto_cientifico = buscar_evidencia_investigador(pr)
+            if any(kw in pr.lower() for kw in ["estudio", "evidencia", "investigar", "bibliografía"]):
+                with st.spinner("Consultando bases de datos reales (PubMed + SciELO)..."):
+                contexto_cientifico = buscar_evidencia_unificada(pr)
+
+            # Inyección en el sys_prompt (REGLA ESTRICTA)
+            sys_prompt += f"""
+            REGLA DE ORO DE VERACIDAD:
+            1. Solo puedes citar o mencionar bibliografía si aparece en 'EVIDENCIA EXTERNA REAL'.
+            2. Si la sección dice 'NO_SE_ENCONTRO_EVIDENCIA_REAL', indica honestamente que no hay datos externos verificados.
+            3. PROHIBIDO INVENTAR AUTORES, TÍTULOS O DOIs.
+
+            EVIDENCIA EXTERNA REAL:
+            {contexto_cientifico}
+            """
 
             # 3. DEFINICIÓN DE MINDSET POR ROL
             perfiles = {
@@ -712,6 +724,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor híbrido: {e}")
+
 
 
 
