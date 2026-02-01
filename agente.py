@@ -217,37 +217,57 @@ def download_word_compilado(indices_seleccionados, messages, role):
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
 def download_pptx(content, role):
-    """Genera Presentación Ejecutiva con ajuste automático de texto y segmentación."""
+    """Genera Presentación Ejecutiva con segmentación inteligente para evitar desbordamiento."""
+    from pptx import Presentation
+    from pptx.util import Pt, Inches
+    
     prs = Presentation()
-    clean_text = clean_markdown(content)
     
-    # 1. SLIDE DE PORTADA
-    lineas = [l for l in clean_text.split('\n') if l.strip() and not any(x in l.upper() for x in ["COMO IKIGAI", "DOCTOR"])]
+    # 1. LIMPIEZA Y SEGMENTACIÓN
+    text_clean = clean_markdown(content)
+    # Filtro de líneas vacías y metadatos
+    lineas = [l.strip() for l in text_clean.split('\n') if l.strip() and not any(x in l.upper() for x in ["COMO IKIGAI", "DOCTOR", "PRESENTE"])]
+    
     titulo_doc = extraer_titulo_dictado(st.session_state.messages, st.session_state.export_pool)
-    
-    slide = prs.slides.add_slide(prs.slide_layouts[0])
-    slide.shapes.title.text = titulo_doc
-    slide.placeholders[1].text = f"Autor: Jairo Antonio Pérez Cely\n{role} | {date.today()}"
 
-    # 2. PROCESAMIENTO DE CONTENIDO TÉCNICO
-    # Segmentamos el texto en bloques de máximo 600 caracteres para evitar desbordamiento
-    bloques = [lineas[i:i + 4] for i in range(1, len(lineas), 4)] # Máximo 4 párrafos por slide
+    # 2. SLIDE DE PORTADA (Branding Ejecutivo)
+    slide_layout = prs.slide_layouts[0] 
+    slide = prs.slides.add_slide(slide_layout)
+    slide.shapes.title.text = titulo_doc
+    slide.placeholders[1].text = f"Autor: Jairo Antonio Pérez Cely\n{role}\n{date.today()}"
+
+    # 3. DISTRIBUCIÓN DE CONTENIDO (Algoritmo de Triage Visual)
+    # Agrupamos líneas en bloques de máximo 500 caracteres o 5 líneas
+    bloques = []
+    bloque_actual = []
+    caracteres_acumulados = 0
     
+    for linea in lineas:
+        if len(bloque_actual) >= 5 or caracteres_acumulados > 500:
+            bloques.append(bloque_actual)
+            bloque_actual = []
+            caracteres_acumulados = 0
+        bloque_actual.append(linea)
+        caracteres_acumulados += len(linea)
+    
+    if bloque_actual: bloques.append(bloque_actual)
+
+    # 4. CREACIÓN DE SLIDES DE CONTENIDO
     for i, bloque in enumerate(bloques):
-        slide = prs.slides.add_slide(prs.slide_layouts[1]) # Layout de Título y Cuerpo
-        
-        # Título de la diapositiva dinámico
-        slide.shapes.title.text = f"{titulo_doc} (Parte {i+1})"
+        slide = prs.slides.add_slide(prs.slide_layouts[1])
+        slide.shapes.title.text = f"{titulo_doc} | Continuación" if i > 0 else titulo_doc
         
         body_shape = slide.placeholders[1]
         tf = body_shape.text_frame
-        tf.word_wrap = True # Forzamos el ajuste de línea
+        tf.word_wrap = True
         
         for p_text in bloque:
             p = tf.add_paragraph()
-            p.text = p_text.strip()
-            p.font.size = Pt(18) # Tamaño ejecutivo legible
-            p.space_after = Pt(10)
+            p.text = p_text
+            # Tamaño de fuente adaptativo: Si el bloque es grande, reduce a 16pt, sino 18pt
+            p.font.size = Pt(16) if len(bloque) > 4 else Pt(18)
+            p.font.name = 'Arial'
+            p.space_after = Pt(12)
             
     bio = BytesIO()
     prs.save(bio)
@@ -621,3 +641,4 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
