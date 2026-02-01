@@ -503,25 +503,28 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
             
             # Selección y Edición
 # --- RENDERIZADO LIMPIO CON BOTÓN DE COPIADO ---
-# --- RENDERIZADO DEL CHAT CON COPIADO INVISIBLE ---
-# --- RENDERIZADO DEL CHAT CON BARRA DE HERRAMIENTAS HORIZONTAL ---
+# --- RENDERIZADO DEL CHAT CON BOTONES HOMOGÉNEOS ---
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         
         if msg["role"] == "assistant":
-            # 1. Definición de Columnas para la Barra de Herramientas
-            # Ajustamos los pesos para que queden bien distribuidos
-            c1, c2, c3 = st.columns([1.2, 1, 1.5])
+            # Estilo común: Gris claro profesional, borde fino, misma altura
+            # Definimos 3 columnas exactas
+            c1, c2, c3 = st.columns(3)
             
             with c1:
-                # BOTÓN COPIAR (HTML/JS)
+                # BOTÓN COPIAR (HTML/JS con estilo unificado)
                 texto_seguro = msg["content"].replace('`', '\\`').replace('$', '\\$').replace('\n', '\\n')
                 html_copy = f"""
-                <button id="btn_{i}" style="width:100%; background-color:#f0f2f6; border:1px solid #d1d5db; 
-                padding:5px; border-radius:4px; cursor:pointer; font-size:12px; font-family:sans-serif;">
-                📋 Copiar
-                </button>
+                <div style="padding-top: 5px;">
+                    <button id="btn_{i}" style="
+                        width: 100%; height: 38px; background-color: #f0f2f6; 
+                        border: 1px solid #d1d5db; border-radius: 4px; 
+                        cursor: pointer; font-size: 14px; color: #31333F;">
+                        📋 Copiar
+                    </button>
+                </div>
                 <script>
                 document.getElementById("btn_{i}").onclick = function() {{
                     navigator.clipboard.writeText(`{texto_seguro}`);
@@ -530,10 +533,11 @@ for i, msg in enumerate(st.session_state.messages):
                 }};
                 </script>
                 """
-                components.html(html_copy, height=40)
+                components.html(html_copy, height=45)
 
             with c2:
-                # CHECKBOX WORD
+                # CONTENEDOR WORD (Simulando botón con checkbox)
+                st.markdown('<div style="padding-top: 5px;">', unsafe_allow_html=True)
                 is_sel = i in st.session_state.export_pool
                 if st.checkbox("📥 Word", key=f"sel_{i}", value=is_sel):
                     if i not in st.session_state.export_pool:
@@ -542,12 +546,13 @@ for i, msg in enumerate(st.session_state.messages):
                 elif i in st.session_state.export_pool:
                     st.session_state.export_pool.remove(i)
                     st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
             with c3:
-                # EXPANDER EDICIÓN
-                with st.expander("📝 Editar"):
+                # EXPANDER EDICIÓN (Ajustado a la altura)
+                with st.expander("📝 Editar", expanded=False):
                     editado = st.text_area("Borrador:", value=msg["content"], height=150, key=f"ed_{i}")
-                    if st.button("✅ Guardar", key=f"sv_{i}"):
+                    if st.button("✅ Guardar", key=f"sv_{i}", use_container_width=True):
                         st.session_state.messages[i]["content"] = editado
                         st.rerun()
 # Captura de nuevo Input con RAG
@@ -645,6 +650,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
