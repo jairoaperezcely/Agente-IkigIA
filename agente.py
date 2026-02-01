@@ -554,8 +554,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
     fecha_hoy = datetime.now().strftime("%d de %B de %Y")
     
     st.session_state.messages.append({"role": "user", "content": pr})
-    with st.chat_message("user"): 
-        st.markdown(pr)
+    with st.chat_message("user"): st.markdown(pr)
     
     with st.chat_message("assistant"):
         try:
@@ -569,110 +568,59 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
             contexto_reciente = st.session_state.biblioteca.get(rol_activo, "")
 
-            # 2. CONFIGURACIÓN DEL MODELO CON HERRAMIENTAS
+            # 2. DEFINICIÓN DE MINDSET POR ROL
+            perfiles = {
+                "Coach de Alto Desempeño": "ROI cognitivo, biohacking y sostenibilidad.",
+                "Director Centro Telemedicina": "Transformación digital e interoperabilidad salud.",
+                "Vicedecano Académico": "Política educativa, normativa UNAL y MD-PhD.",
+                "Director de UCI": "Seguridad paciente, algoritmos complejos y datos HUN.",
+                "Investigador Científico": "Rigor metodológico y estándares APA 7.",
+                "Consultor Salud Digital": "Sostenibilidad BID/MinSalud y territorio.",
+                "Professor Universitario": "Pedagogía disruptiva y pensamiento crítico.",
+                "Estratega de Trading": "Gestión de riesgo (RR), SMC y control de sesgos."
+            }
+            mindset = perfiles.get(rol_activo, "Visión estratégica, innovadora, ejecutiva y humana.")
+
+            # 3. CONFIGURACIÓN DEL MODELO CON HERRAMIENTAS
             model = genai.GenerativeModel(
-                model_name='gemini-1.5-flash', # Estable para tool use
+                model_name='gemini-2.5-flash',
                 tools=[{"google_search": {}}] 
             )
 
-            # 3. PROMPT ESTRATÉGICO UNIFICADO
+            # 4. PROMPT MAESTRO (PERSONA + CONTEXTO + REGLAS)
             sys_prompt = f"""
             Hoy es {fecha_hoy}. Actúa como {rol_activo}.
+            Mindset: {mindset}
             
-            CONTEXTO LOCAL (Biblioteca/Documentos):
-            {contexto_rag if contexto_rag else "No hay documentos previos."}
-            
-            CONTEXTO RECIENTE (Sidebar):
-            {contexto_reciente[:1000] if contexto_reciente else "N/A"}
+            CONTEXTO LOCAL (Biblioteca Máster): {contexto_rag if contexto_rag else "N/A"}
+            CONTEXTO RECIENTE (Sidebar): {contexto_reciente[:1000] if contexto_reciente else "N/A"}
 
-            REGLA DE SEMÁFORO DE EVIDENCIA:
-            Busca en la web para complementar. Clasifica:
+            REGLA DE SEMÁFORO DE EVIDENCIA (Búsqueda Web):
+            Busca en la web para complementar. Clasifica obligatoriamente:
             - 🟢 [ALTA CERTEZA]: Metaanálisis o Revisiones Sistemáticas.
             - 🟡 [MEDIA CERTEZA]: Ensayos Clínicos o Estudios de Cohortes.
             - 🔴 [BAJA CERTEZA]: Reportes de caso, pre-prints o blogs.
-            
-            Si la web contradice la 'Memoria Máster', genera una 'ALERTA DE CHOQUE'.
-            Mantén el equilibrio entre Síntesis Ejecutiva y Profundidad Analítica.
-            """
+            Si hay contradicción con la Biblioteca Máster, genera 'ALERTA DE CHOQUE'.
 
-            # 4. GENERACIÓN ÚNICA
-            resp = model.generate_content([sys_prompt, pr])
-            respuesta_final = resp.text
-                                    
-            # 1. Definición de Mindset por Rol
-            perfiles = {
-                "Coach de Alto Desempeño": "Foco en ROI cognitivo, gestión de energía (biohacking), sostenibilidad y eliminación de procrastinación oculta.",
-                "Director Centro Telemedicina": "Enfoque en transformación digital, interoperabilidad, modelos de atención remota e innovación tecnológica en salud.",
-                "Vicedecano Académico": "Enfoque en política educativa superior, calidad académica con los mejores estándares, normativa y procesos curriculares UNAL.",
-                "Director de UCI": "Prioridad en seguridad del paciente, algoritmos clínicos de alta complejidad, gestión datos y procesos HUN, evidencia científica en UCI.",
-                "Investigador Científico": "Rigor metodológico, medicina traslacional, análisis estadístico, mejor evidencia científica y redacción bajo estándares APA 7.",
-                "Consultor Salud Digital": "Visión de sostenibilidad financiera (BID/MinSalud), ROI social, impacto en territorio e interculturalidad.",
-                "Professor Universitario": "Pedagogía médica disruptiva, fomento del pensamiento crítico y humanización de la enseñanza técnica.",
-                "Estratega de Trading": "Gestión de riesgo (RR), confluencias técnicas (SMC/Price Action), indicadores técnicos y control de sesgos psicológicos."
-            }
-            
-            # ASIGNACIÓN CORRECTA (Asegúrese que el nombre coincida con el f-string de abajo)
-            mindset_seleccionado = perfiles.get(rol_activo, "Visión estratégica, innovadora, ejecutiva y humana.")
-            
-            # Construimos un sistema de capas de conocimiento
-            sys_prompt = f"""
-            Actúa como {rol_activo}.
-            FECHA ACTUAL: {fecha_actual}.
-            Mindset: {mindset_seleccionado}
-            Objetivo: Equilibrio entre Síntesis Ejecutiva y Profundidad Analítica.
-            
-            CONOCIMIENTO RECIENTE (Sidebar):
-            {contexto_reciente[:1000] if contexto_reciente else "N/A"}
-            
-            MEMORIA MÁSTER (GitHub):
-            {contexto_rag[:1000] if contexto_rag else "N/A"}
-
-            ESTRUCTURA OBLIGATORIA DE RESPUESTA:
-            1. ### Triage Estratégico:
-               - Antes de dar pasos tácticos, evalúa: ¿Es esta tarea Vital, Delegable o Eliminable? 
-               - Si es delegable, indica a quién o cómo automatizarla. Si es vital, procede al análisis.
-            2. ### ROI Cognitivo: hasta 5 bullets directos con la esencia.
+            ESTRUCTURA OBLIGATORIA:
+            1. ### Triage Estratégico (Vital, Delegable o Eliminable)
+            2. ### ROI Cognitivo (5 bullets esencia)
             3. ---
-            4. ### Análisis multidimensional (El por qué) 
-               Desarrollo denso (2-3 párrafos de alto valor) integrando:
-               - **Dimensión Académica:** Rigor científico, normativa y soporte o referencia (APA 7).
-               - **Dimensión Estratégica:** Sostenibilidad, mitigación de riesgos y ROI.
-               - **Innovación:** Conexión interdisciplinaria y disrupción de creencias.
-            5. ---
-            6. ### Propuesta táctica (El cómo)
-               - Diseña un algoritmo secuencial y ejecutable para resolver la consulta. 
-               - Debe incluir un "Inicio Imparable" (acción de <2 min) para romper la inercia.
-            7. ---
-            8. **Pregunta de Punto Ciego:** Desafía la lógica o detecta riesgos ocultos.
-                     
-            INSTRUCCIÓN: Prioriza el CONOCIMIENTO RECIENTE para responder, pero valídalo con la MEMORIA MÁSTER.
-            PONDERACIÓN:
-            Aplica la 'Ecualización Dinámica': No des el mismo peso a todas las dimensiones. 
-                - Si el rol es Académico/Investigador: Maximiza Rigor y Normativa.
-                - Si el rol es Director UCI/Trader: Maximiza Riesgo, ROI y Mitigación.
-                - Si el rol es Coach/Consultor: Maximiza Disrupción e Interdisciplinariedad.
-            REGLAS DE ORO:
-            1. Prohíbe frases como "Es importante notar", "No basta con", "En esencia". 
-            2. Prohibido el relleno conversacional.
-            3. Usa tono imperativo en la síntesis y tono académico en el análisis.
-            4. Si la consulta es sobre redacción, usa verbos de acción y tono imperativo/estratégico.
-            5. Si no hay datos en el contexto, indícalo pero no inventes.
-            6. Aplica rigor APA 7 solo si se piden citas; si no, prioriza la fluidez ejecutiva.
+            4. ### Análisis multidimensional (Académico, Estratégico, Innovación)
+            5. ### Propuesta táctica (Algoritmo con Inicio Imparable)
+            6. **Pregunta de Punto Ciego**
             """
-            
-            resp = model.generate_content([sys_prompt, pr])
-            
-            # D. RESPUESTA Y CIERRE
-            respuesta_final = resp.text
-            if "Punto Ciego" not in respuesta_final:
-                respuesta_final += f"\n\n---\n**Pregunta de Punto Ciego:** ¿Cómo afecta esta nueva información al ROI cognitivo de su rol como {rol_activo}?"
 
+            # 5. GENERACIÓN Y RENDERIZADO
+            resp = model.generate_content([sys_prompt, pr])
+            respuesta_final = resp.text
+            
             st.markdown(respuesta_final)
             st.session_state.messages.append({"role": "assistant", "content": respuesta_final})
             st.rerun()
 
         except Exception as e:
-            st.error(f"Error en el motor de pensamiento: {e}")
+            st.error(f"Error en el motor híbrido: {e}")
 
 
 
