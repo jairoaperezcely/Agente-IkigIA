@@ -503,33 +503,35 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
             # Selección y Edición
             # --- RENDERIZADO DE MENSAJES CON COPIADO DIRECTO ---
 # --- RENDERIZADO LIMPIO CON BOTÓN DE COPIADO ---
-# --- RENDERIZADO DEL CHAT (CORRECCIÓN DE INDENTACIÓN) ---
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
-        # A. Visualización del contenido
+        # 1. Lectura Ejecutiva
         st.markdown(msg["content"])
         
-        # B. Panel de Gestión (Solo si es respuesta del asistente)
+        # 2. Solo para las respuestas del Asistente
         if msg["role"] == "assistant":
-            # Botón de Copiado Táctico (st.code es el que permite copiar directo)
+            # ESTE ES EL BOTÓN DE COPIAR: Aparece como un cuadro gris con icono
             st.code(msg["content"], language=None)
             
-            # Gestión de Exportación y Edición
+            # --- Panel de Gestión ---
             is_sel = i in st.session_state.export_pool
-            if st.checkbox("📥 Incluir en Word", key=f"sel_{i}", value=is_sel):
-                if i not in st.session_state.export_pool:
-                    st.session_state.export_pool.append(i)
+            col_c, col_e = st.columns([1, 2])
+            
+            with col_c:
+                if st.checkbox("📥 Word", key=f"sel_{i}", value=is_sel):
+                    if i not in st.session_state.export_pool:
+                        st.session_state.export_pool.append(i)
+                        st.rerun()
+                elif i in st.session_state.export_pool:
+                    st.session_state.export_pool.remove(i)
                     st.rerun()
-            elif i in st.session_state.export_pool:
-                st.session_state.export_pool.remove(i)
-                st.rerun()
-
-            with st.expander("📝 EDITAR CONTENIDO"):
-                txt_edit = st.text_area("Ajustes:", value=msg["content"], height=200, key=f"ed_{i}")
-                if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}"):
-                    st.session_state.messages[i]["content"] = txt_edit
-                    st.toast("✅ Sincronizado")
-                    st.rerun()
+            
+            with col_e:
+                with st.expander("📝 Editar"):
+                    editado = st.text_area("Borrador:", value=msg["content"], height=150, key=f"ed_{i}")
+                    if st.button("✅ Guardar", key=f"sv_{i}"):
+                        st.session_state.messages[i]["content"] = editado
+                        st.rerun()
 # Captura de nuevo Input con RAG
 if pr := st.chat_input("Nuestro reto para hoy..."):
     # 1. Registro del mensaje del usuario
@@ -625,6 +627,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
