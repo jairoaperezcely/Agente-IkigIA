@@ -504,44 +504,37 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
             # Selección y Edición
 # --- RENDERIZADO LIMPIO CON BOTÓN DE COPIADO ---
 # --- RENDERIZADO DEL CHAT CON COPIADO INVISIBLE ---
+# --- RENDERIZADO DEL CHAT CON BARRA DE HERRAMIENTAS HORIZONTAL ---
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
-        # 1. Visualización única del contenido
         st.markdown(msg["content"])
         
-        # 2. Acciones del Asistente
         if msg["role"] == "assistant":
-            # BOTÓN HTML/JS: Copia al portapapeles sin mostrar el texto otra vez
-            texto_para_copiar = msg["content"].replace("`", "\\`").replace("$", "\\$")
-            html_button = f"""
-            <div style="text-align: right;">
-                <button id="btn_{i}" style="
-                    background-color: #4CAF50; color: white; border: none; 
-                    padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                    📋 Copiar Respuesta
-                </button>
-            </div>
-            <script>
-            document.getElementById("btn_{i}").addEventListener("click", function() {{
-                const text = `{texto_para_copiar}`;
-                navigator.clipboard.writeText(text).then(function() {{
-                    const btn = document.getElementById("btn_{i}");
-                    btn.innerText = "✅ ¡Copiado!";
-                    btn.style.backgroundColor = "#2196F3";
-                    setTimeout(() => {{ 
-                        btn.innerText = "📋 Copiar Respuesta"; 
-                        btn.style.backgroundColor = "#4CAF50";
-                    }}, 2000);
-                }});
-            }});
-            </script>
-            """
-            components.html(html_button, height=45)
+            # 1. Definición de Columnas para la Barra de Herramientas
+            # Ajustamos los pesos para que queden bien distribuidos
+            c1, c2, c3 = st.columns([1.2, 1, 1.5])
             
-            # 3. Panel de Gestión (Word / Editar)
-            is_sel = i in st.session_state.export_pool
-            col_sel, col_ed = st.columns([1, 2])
-            with col_sel:
+            with c1:
+                # BOTÓN COPIAR (HTML/JS)
+                texto_seguro = msg["content"].replace('`', '\\`').replace('$', '\\$').replace('\n', '\\n')
+                html_copy = f"""
+                <button id="btn_{i}" style="width:100%; background-color:#f0f2f6; border:1px solid #d1d5db; 
+                padding:5px; border-radius:4px; cursor:pointer; font-size:12px; font-family:sans-serif;">
+                📋 Copiar
+                </button>
+                <script>
+                document.getElementById("btn_{i}").onclick = function() {{
+                    navigator.clipboard.writeText(`{texto_seguro}`);
+                    this.innerText = "✅!";
+                    setTimeout(() => {{ this.innerText = "📋 Copiar"; }}, 2000);
+                }};
+                </script>
+                """
+                components.html(html_copy, height=40)
+
+            with c2:
+                # CHECKBOX WORD
+                is_sel = i in st.session_state.export_pool
                 if st.checkbox("📥 Word", key=f"sel_{i}", value=is_sel):
                     if i not in st.session_state.export_pool:
                         st.session_state.export_pool.append(i)
@@ -549,7 +542,9 @@ for i, msg in enumerate(st.session_state.messages):
                 elif i in st.session_state.export_pool:
                     st.session_state.export_pool.remove(i)
                     st.rerun()
-            with col_ed:
+
+            with c3:
+                # EXPANDER EDICIÓN
                 with st.expander("📝 Editar"):
                     editado = st.text_area("Borrador:", value=msg["content"], height=150, key=f"ed_{i}")
                     if st.button("✅ Guardar", key=f"sv_{i}"):
@@ -650,6 +645,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
