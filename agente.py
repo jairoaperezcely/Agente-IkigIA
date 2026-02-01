@@ -591,10 +591,18 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             Hoy es {fecha_hoy}. Actúa como {rol_activo}. 
             Mindset: {mindset}
             
+            # --- CONFIGURACIÓN DE FUENTES EN EL PROMPT ---
             FUENTES DE CONOCIMIENTO:
-            - MEMORIA MÁSTER (Local): {contexto_rag if contexto_rag else "N/A"}
-            - CONTEXTO RECIENTE (Sidebar): {contexto_reciente[:1000] if contexto_reciente else "N/A"}
-            - BÚSQUEDA WEB: Usa Google Search para validar evidencia más reciente.
+            1. MEMORIA MÁSTER (Estructural): {contexto_rag if contexto_rag else "Sin datos locales."}
+               - Prioridad: Archivos guardados en memoria máster según el rol.
+            2. CONTEXTO RECIENTE (Efímero): {contexto_reciente[:1000] if contexto_reciente else "N/A"}
+               - Prioridad: Datos del día o archivos subidos al sidebar.
+            3. CONOCIMIENTO GLOBAL (Vigilancia 2026): Utiliza tu base de entrenamiento más reciente.
+               - Prioridad: Evidencia científica global, tendencias de trading y salud digital 2025-2026.
+
+            INSTRUCCIÓN DE CONTRASTE:
+            - Valida siempre lo local (1 y 2) frente a lo global (3).
+            - Si hay una actualización científica que no esté en mis archivos, aplícale el SEMÁFORO DE EVIDENCIA (🟢🟡🔴) e infórmame.
             
             REGLA DE SEMÁFORO DE EVIDENCIA (Búsqueda Web):
             Busca en la web para complementar. Clasifica obligatoriamente toda fuente externa:
@@ -646,6 +654,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor híbrido: {e}")
+
 
 
 
