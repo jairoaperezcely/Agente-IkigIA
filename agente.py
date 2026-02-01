@@ -21,6 +21,33 @@ import json
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+# --- FUNCIÓN DE PROTECCIÓN DE PRIVACIDAD (Habeas Data) ---
+def filtrar_privacidad(texto):
+    import re
+    # 1. LISTA BLANCA: Términos que NO deben anonimizarse
+    lista_blanca = ["autores de articulos", "autores de libros", "Pérez-Cely", "nombres de instituciones", "nombres de cargos", "SMC", "website", "blogger"]
+    
+    # 2. PROTECCIÓN DE CITAS APA (Excepción de patrón)
+    # Ignora nombres que estén dentro de paréntesis con un año (ej: Smith, 2024)
+    if re.search(r'\([A-Z][a-z]+,\s\d{4}\)', texto):
+        return texto # Si detecta formato de cita, deja el bloque intacto para no dañar la bibliografía
+
+    # 3. PATRONES DE ANONIMIZACIÓN (Solo para datos sensibles)
+    patrones = {
+        r'\b\d{7,10}\b': '[ID_REDACTADO]',
+        r'\b[\w\.-]+@[\w\.-]+\.\w{2,4}\b': '[EMAIL_REDACTADO]',
+        r'\b(3[0-9]{2})[ -]?[0-9]{3}[ -]?[0-9]{4}\b': '[TEL_REDACTADO]',
+        # Solo anonimiza si viene precedido por "Paciente" o "Identificado como"
+        r'(?i)(paciente|sujeto|usuario|identificado como)\s+[A-Z][a-z]+\b': r'\1 [NOMBRE_REDACTADO]'
+    }
+
+    texto_final = texto
+    for patron, reemplazo in patrones.items():
+        # Verificamos que el término no esté en la lista blanca antes de aplicar
+        if not any(word in texto_final for word in lista_blanca):
+            texto_final = re.sub(patron, reemplazo, texto_final)
+            
+    return texto_final
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
     page_title="IkigAI V1.86 - Executive Workstation", 
@@ -654,6 +681,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor híbrido: {e}")
+
 
 
 
