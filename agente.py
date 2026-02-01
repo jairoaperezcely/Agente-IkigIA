@@ -583,7 +583,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
             # 3. CONFIGURACIÓN DEL MODELO CON HERRAMIENTAS
             model = genai.GenerativeModel(
-                model_name='gemini-2.5-flash',
+                model_name='gemini-1.5-flash',
                 tools=['google_search_retrieval']
             )
 
@@ -647,6 +647,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor híbrido: {e}")
+
 
 
 
