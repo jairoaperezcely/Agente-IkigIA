@@ -628,7 +628,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
                     contexto_cientifico = buscar_evidencia_unificada(pr)
 
             # Inyección en el sys_prompt (REGLA ESTRICTA)
-            sys_prompt += f"""
+            sys_prompt = f"""
             REGLA DE ORO DE VERACIDAD:
             Actúa como {rol_activo}. 
             CONTEXTO LOCAL: {contexto_rag}
@@ -728,6 +728,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor híbrido: {e}")
+
 
 
 
