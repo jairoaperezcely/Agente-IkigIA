@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import google.generativeai as genai
 from pypdf import PdfReader
 import docx
@@ -29,49 +28,24 @@ st.set_page_config(
 )
 
 # Estilo CSS Zen: Contraste Quirúrgico y Ergonomía Móvil
-# --- ESTILOS GLOBALES (INYECTADOS CORRECTAMENTE) ---
-# --- 1. CONFIGURACIÓN E INYECCIÓN DE ESTILOS (Línea 40-60 aprox) ---
-import streamlit as st
-import streamlit.components.v1 as components
-
-# Bloque de estilo corregido:
-# --- 1. IDENTIDAD VISUAL Y ESTILOS (UNIFICADO) ---
-# --- 1. CONFIGURACIÓN DE IDENTIDAD VISUAL ---
-import streamlit.components.v1 as components
-
 st.markdown("""
-<style>
-    /* Estilos Globales */
+    <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
-    html, body, [data-testid="stAppViewContainer"], .stApp {
-        background-color: #000000 !important;
-        font-family: 'Inter', sans-serif !important;
-        color: #FFFFFF !important;
-    }
-    
-    /* Forzar alineación de botones inferiores */
-    div[data-testid="stHorizontalBlock"] {
-        align-items: flex-start !important;
-        gap: 0px !important;
-    }
-
-    /* Contenedores para botones simétricos */
-    .btn-container {
-        height: 38px !important;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid #00E6FF;
-        border-radius: 4px;
-        background-color: #050505;
-        margin: 0px !important;
-    }
-
-    /* Ajuste específico para Checkbox nativo */
-    .stCheckbox { margin-bottom: 0px !important; padding-top: 5px !important; }
-    .stExpander { border: 1px solid #1A1A1A !important; background-color: #050505 !important; margin-top: 0px !important; }
-</style>
+    .stApp { background-color: #000000 !important; font-family: 'Inter', sans-serif !important; }
+    [data-testid="stSidebar"] { background-color: #080808 !important; border-right: 1px solid #1A1A1A !important; }
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, h2, h3 { color: #FFFFFF !important; }
+    [data-testid="stChatMessage"] { background-color: #050505 !important; border: 1px solid #1A1A1A !important; }
+    .stMarkdown p, .stMarkdown li { color: #FFFFFF !important; font-size: 16px !important; line-height: 1.7 !important; }
+    .stDownloadButton button, .stButton button { width: 100%; border-radius: 4px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; }
+    .stDownloadButton button:hover, .stButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
+    .section-tag { font-size: 11px; color: #666; letter-spacing: 1.5px; margin: 15px 0 5px 0; font-weight: 600; }
+    .stExpander { border: 1px solid #1A1A1A !important; background-color: #050505 !important; border-radius: 8px !important; }
+    textarea { background-color: #0D1117 !important; color: #FFFFFF !important; border: 1px solid #00E6FF !important; font-family: 'Courier New', monospace !important; font-size: 14px !important; }
+    /* Estilo Checkbox de Selección */
+    .stCheckbox { background-color: #111; padding: 5px; border-radius: 5px; border: 1px solid #333; margin-top: 10px; }
+    </style>
 """, unsafe_allow_html=True)
+
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
@@ -527,49 +501,31 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
                     with c1: st.download_button("📊 Excel", exc, f"Data_{i}.xlsx", key=f"ex_{i}_{ver}")
             
             # Selección y Edición
-# --- RENDERIZADO LIMPIO CON BOTÓN DE COPIADO ---
-for i, msg in enumerate(st.session_state.messages):
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-        
-        if msg["role"] == "assistant":
-            c1, c2, c3 = st.columns(3)
+            is_sel = i in st.session_state.export_pool
+            if st.checkbox("📥 Incluir", key=f"sel_{i}_{ver}", value=is_sel):
+                if i not in st.session_state.export_pool: st.session_state.export_pool.append(i); st.rerun()
+            elif i in st.session_state.export_pool:
+                st.session_state.export_pool.remove(i); st.rerun()
             
-            with c1:
-                # BOTÓN COPIAR (Mismo tamaño y color)
-                texto_seguro = msg["content"].replace('`', '\\`').replace('$', '\\$').replace('\n', '\\n')
-                html_copy = f"""
-                <button id="btn_{i}" style="width:100%; height:38px; background-color:#f0f2f6; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; color:#31333F;">
-                📋 Copiar
-                </button>
-                <script>
-                document.getElementById("btn_{i}").onclick = function() {{
-                    navigator.clipboard.writeText(`{texto_seguro}`);
-                    this.innerText = "✅!";
-                    setTimeout(() => {{ this.innerText = "📋 Copiar"; }}, 2000);
-                }};
-                </script>
-                """
-                components.html(html_copy, height=45)
-
-            with c2:
-                # BOTÓN WORD (Enmarcado para simetría)
-                st.markdown('<div style="height:38px; background-color:#f0f2f6; border:1px solid #d1d5db; border-radius:4px; padding-left:10px; display:flex; align-items:center;">', unsafe_allow_html=True)
-                is_sel = i in st.session_state.export_pool
-                if st.checkbox("📥 Word", key=f"sel_{i}", value=is_sel):
-                    if i not in st.session_state.export_pool:
-                        st.session_state.export_pool.append(i); st.rerun()
-                elif i in st.session_state.export_pool:
-                    st.session_state.export_pool.remove(i); st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            with c3:
-                # BOTÓN EDITAR (Expander)
-                with st.expander("📝 Editar"):
-                    editado = st.text_area("Ajustes:", value=msg["content"], height=150, key=f"ed_{i}")
-                    if st.button("✅ Guardar", key=f"sv_{i}", use_container_width=True):
-                        st.session_state.messages[i]["content"] = editado
+            # --- PANEL DE GESTIÓN CON COPIADO Y CIERRE ---
+            with st.expander("🛠️ GESTIONAR ESTE BLOQUE", expanded=False):
+                # Creamos dos pestañas para separar funciones
+                t_visualizar, t_editar = st.tabs(["📋 COPIAR TEXTO", "📝 EDITAR CONTENIDO"])
+                
+                with t_visualizar:
+                    # st.code permite copiar el texto con un solo clic en el icono superior derecho
+                    st.code(msg["content"], language=None)
+                    st.info("💡 Use el botón de la esquina superior derecha del cuadro gris para copiar.")
+                
+                with t_editar:
+                    txt_edit = st.text_area("Borrador para ajustes:", value=msg["content"], height=300, key=f"ed_{i}_{ver}")
+                    
+                    if st.button("✅ FIJAR CAMBIOS", key=f"save_{i}_{ver}", use_container_width=True):
+                        st.session_state.messages[i]["content"] = txt_edit
+                        st.session_state.editor_version = ver + 1 
+                        st.toast("✅ Sincronizado. Colapsando editor...")
                         st.rerun()
+
 # Captura de nuevo Input con RAG
 if pr := st.chat_input("Nuestro reto para hoy..."):
     # 1. Registro del mensaje del usuario
@@ -665,27 +621,3 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
