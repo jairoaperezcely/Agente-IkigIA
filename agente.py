@@ -575,16 +575,28 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
     
     with st.chat_message("assistant"):
         try:
-            # A. CONSULTA A LA BIBLIOTECA MÁSTER (RAG - Persistente)
+            # A. CONSULTA A LA BIBLIOTECA MÁSTER (Con Auditoría de Fuente)
             contexto_rag = ""
             if os.path.exists("vector_db"):
                 emb = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
                 vdb = FAISS.load_local("vector_db", emb, allow_dangerous_deserialization=True)
+                
+                # Buscamos los 3 fragmentos más relevantes
                 docs = vdb.similarity_search(pr, k=3)
-                contexto_rag = "\n".join([d.page_content for d in docs])
+                
+                # Construimos el contexto incluyendo el origen de cada fragmento
+                fragmentos = []
+                for d in docs:
+                    # Extraemos el nombre del archivo de los metadatos
+                    fuente = d.metadata.get('source', 'Archivo Local')
+                    fragmentos.append(f"--- INICIO FRAGMENTO (Fuente: {fuente}) ---\n{d.page_content}\n--- FIN FRAGMENTO ---")
+                
+                contexto_rag = "\n\n".join(fragmentos)
 
-            # B. CONSULTA AL SIDEBAR (Contexto Efímero - Lo que acaba de subir)
+            # B. CONSULTA AL SIDEBAR (Contexto Efímero / Carga Directa)
             contexto_reciente = st.session_state.biblioteca.get(rol_activo, "")
+            if contexto_reciente:
+                contexto_reciente = f"--- CONTENIDO CARGADO EN SIDEBAR ---\n{contexto_reciente}"
 
             # C. ENSAMBLAJE DEL PROMPT DINÁMICO
             model = genai.GenerativeModel('gemini-2.5-flash')# C. ENSAMBLAJE DEL PROMPT DINÁMICO
@@ -663,6 +675,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
