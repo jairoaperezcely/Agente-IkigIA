@@ -35,43 +35,88 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # Bloque de estilo corregido:
+# --- 1. IDENTIDAD VISUAL Y ESTILOS (UNIFICADO) ---
 st.markdown("""
-    <style>
+<style>
+    /* 1. Fuentes e Interfaz Base */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
     
-    html, body, [data-testid="stAppViewContainer"] {
-        font-family: 'Inter', sans-serif;
+    html, body, [data-testid="stAppViewContainer"], .stApp {
+        background-color: #000000 !important;
+        font-family: 'Inter', sans-serif !important;
+        color: #FFFFFF !important;
     }
 
-    /* Alineación de la Barra de Herramientas Inferior */
-    .stCheckbox { margin-bottom: 0px; padding-top: 5px; }
-    .stExpander { border: 1px solid #d1d5db !important; margin-top: 0px; }
-    div[data-testid="stHorizontalBlock"] { align-items: start; gap: 5px; }
-    
-    /* Botón de copiar uniforme */
-    .copy-btn-style {
-        width: 100%; height: 38px; background-color: #f0f2f6; 
-        border: 1px solid #d1d5db; border-radius: 4px; 
-        cursor: pointer; font-size: 14px; color: #31333F;
+    /* 2. Sidebar y Navegación */
+    [data-testid="stSidebar"] {
+        background-color: #080808 !important;
+        border-right: 1px solid #1A1A1A !important;
     }
-    </style>
-    """, unsafe_allow_html=True)
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
-    .stApp { background-color: #000000 !important; font-family: 'Inter', sans-serif !important; }
-    [data-testid="stSidebar"] { background-color: #080808 !important; border-right: 1px solid #1A1A1A !important; }
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, h2, h3 { color: #FFFFFF !important; }
-    [data-testid="stChatMessage"] { background-color: #050505 !important; border: 1px solid #1A1A1A !important; }
-    .stMarkdown p, .stMarkdown li { color: #FFFFFF !important; font-size: 16px !important; line-height: 1.7 !important; }
-    .stDownloadButton button, .stButton button { width: 100%; border-radius: 4px; background-color: transparent !important; color: #00E6FF !important; border: 1px solid #00E6FF !important; font-weight: 600; }
-    .stDownloadButton button:hover, .stButton button:hover { background-color: #00E6FF !important; color: #000000 !important; }
-    .section-tag { font-size: 11px; color: #666; letter-spacing: 1.5px; margin: 15px 0 5px 0; font-weight: 600; }
-    .stExpander { border: 1px solid #1A1A1A !important; background-color: #050505 !important; border-radius: 8px !important; }
-    textarea { background-color: #0D1117 !important; color: #FFFFFF !important; border: 1px solid #00E6FF !important; font-family: 'Courier New', monospace !important; font-size: 14px !important; }
-    /* Estilo Checkbox de Selección */
-    .stCheckbox { background-color: #111; padding: 5px; border-radius: 5px; border: 1px solid #333; margin-top: 10px; }
-    </style>
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, h2, h3 {
+        color: #FFFFFF !important;
+    }
+
+    /* 3. Mensajes del Chat y Contenedores */
+    [data-testid="stChatMessage"] {
+        background-color: #050505 !important;
+        border: 1px solid #1A1A1A !important;
+        border-radius: 10px;
+    }
+    .stMarkdown p, .stMarkdown li {
+        color: #FFFFFF !important;
+        font-size: 16px !important;
+        line-height: 1.7 !important;
+    }
+
+    /* 4. Botones y Acción (Estilo Cyan Estratégico) */
+    .stDownloadButton button, .stButton button {
+        width: 100%;
+        border-radius: 4px;
+        background-color: transparent !important;
+        color: #00E6FF !important;
+        border: 1px solid #00E6FF !important;
+        font-weight: 600;
+        height: 38px;
+    }
+    .stDownloadButton button:hover, .stButton button:hover {
+        background-color: #00E6FF !important;
+        color: #000000 !important;
+    }
+
+    /* 5. Barra de Herramientas Inferior (Simetría) */
+    .stCheckbox {
+        background-color: #111;
+        padding: 5px 10px;
+        border-radius: 5px;
+        border: 1px solid #333;
+        margin-top: 0px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+    }
+    .stExpander {
+        border: 1px solid #1A1A1A !important;
+        background-color: #050505 !important;
+        border-radius: 8px !important;
+        margin-top: 0px !important;
+    }
+    
+    /* 6. Inputs y Áreas de Texto */
+    textarea {
+        background-color: #0D1117 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #00E6FF !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 14px !important;
+    }
+
+    /* 7. Ajuste Global de Bloques Horizontales */
+    div[data-testid="stHorizontalBlock"] {
+        align-items: start !important;
+        gap: 10px !important;
+    }
+</style>
 """, unsafe_allow_html=True)
-
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
@@ -665,6 +710,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
