@@ -629,11 +629,13 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
             # Inyección en el sys_prompt (REGLA ESTRICTA)
             sys_prompt = f"""
-            REGLA DE ORO DE VERACIDAD:
             Actúa como {rol_activo}. 
+            REGLA DE ORO DE VERACIDAD: Tienes PROHIBIDO inventar estudios o autores.
             CONTEXTO LOCAL: {contexto_rag}
             CONTEXTO RECIENTE: {contexto_reciente}
             EVIDENCIA EXTERNA REAL: {contexto_cientifico}
+            - Si la sección 'EVIDENCIA EXTERNA REAL' está vacía o dice 'NO_SE_ENCONTRO', di honestamente que no hay datos.
+            - Solo puedes aplicar el SEMÁFORO DE EVIDENCIA a los artículos que aparezcan abajo.
 
             REGLA DE VERACIDAD: Solo cita la EVIDENCIA EXTERNA REAL proporcionada. 
             Si no hay datos, básate en CONTEXTO LOCAL, MEMORIA MÁSTER Y tu conocimiento. PROHIBIDO INVENTAR AUTORES, TÍTULOS O DOIs.
@@ -728,6 +730,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor híbrido: {e}")
+
 
 
 
