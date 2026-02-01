@@ -37,83 +37,29 @@ import streamlit.components.v1 as components
 # Bloque de estilo corregido:
 # --- 1. IDENTIDAD VISUAL Y ESTILOS (UNIFICADO) ---
 st.markdown("""
+st.markdown("""
 <style>
-    /* 1. Fuentes e Interfaz Base */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
-    
-    html, body, [data-testid="stAppViewContainer"], .stApp {
-        background-color: #000000 !important;
-        font-family: 'Inter', sans-serif !important;
-        color: #FFFFFF !important;
-    }
-
-    /* 2. Sidebar y Navegación */
-    [data-testid="stSidebar"] {
-        background-color: #080808 !important;
-        border-right: 1px solid #1A1A1A !important;
-    }
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, h2, h3 {
-        color: #FFFFFF !important;
-    }
-
-    /* 3. Mensajes del Chat y Contenedores */
-    [data-testid="stChatMessage"] {
-        background-color: #050505 !important;
-        border: 1px solid #1A1A1A !important;
-        border-radius: 10px;
-    }
-    .stMarkdown p, .stMarkdown li {
-        color: #FFFFFF !important;
-        font-size: 16px !important;
-        line-height: 1.7 !important;
-    }
-
-    /* 4. Botones y Acción (Estilo Cyan Estratégico) */
-    .stDownloadButton button, .stButton button {
-        width: 100%;
-        border-radius: 4px;
-        background-color: transparent !important;
-        color: #00E6FF !important;
-        border: 1px solid #00E6FF !important;
-        font-weight: 600;
-        height: 38px;
-    }
-    .stDownloadButton button:hover, .stButton button:hover {
-        background-color: #00E6FF !important;
-        color: #000000 !important;
-    }
-
-    /* 5. Barra de Herramientas Inferior (Simetría) */
-    .stCheckbox {
-        background-color: #111;
-        padding: 5px 10px;
-        border-radius: 5px;
-        border: 1px solid #333;
-        margin-top: 0px;
-        height: 38px;
+    /* Forzar alineación de la barra de acciones */
+    [data-testid="column"] {
         display: flex;
-        align-items: center;
-    }
-    .stExpander {
-        border: 1px solid #1A1A1A !important;
-        background-color: #050505 !important;
-        border-radius: 8px !important;
-        margin-top: 0px !important;
-    }
-    
-    /* 6. Inputs y Áreas de Texto */
-    textarea {
-        background-color: #0D1117 !important;
-        color: #FFFFFF !important;
-        border: 1px solid #00E6FF !important;
-        font-family: 'Courier New', monospace !important;
-        font-size: 14px !important;
+        align-items: flex-start;
+        justify-content: center;
     }
 
-    /* 7. Ajuste Global de Bloques Horizontales */
-    div[data-testid="stHorizontalBlock"] {
-        align-items: start !important;
-        gap: 10px !important;
+    /* Estilo para que el botón de Word y Editar no tengan márgenes extra */
+    .stCheckbox { margin: 0px !important; padding: 0px !important; }
+    .stExpander { margin-top: 0px !important; }
+    
+    /* Contenedor del checkbox para que parezca botón */
+    .word-container {
+        height: 38px; 
+        width: 100%;
+        background-color: #050505; 
+        border: 1px solid #00E6FF; 
+        border-radius: 4px; 
+        display: flex; 
+        align-items: center; 
+        padding-left: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -710,6 +656,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
