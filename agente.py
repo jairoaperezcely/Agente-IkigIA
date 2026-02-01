@@ -1,7 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-from datetime import datetime
-import streamlit.components.v1 as components
 from pypdf import PdfReader
 import docx
 import pandas as pd
@@ -21,33 +19,6 @@ import json
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-# --- FUNCIÓN DE PROTECCIÓN DE PRIVACIDAD (Habeas Data) ---
-def filtrar_privacidad(texto):
-    import re
-    # 1. LISTA BLANCA: Términos que NO deben anonimizarse
-    lista_blanca = ["autores de articulos", "autores de libros", "Pérez-Cely", "nombres de instituciones", "nombres de cargos", "SMC", "website", "blogger"]
-    
-    # 2. PROTECCIÓN DE CITAS APA (Excepción de patrón)
-    # Ignora nombres que estén dentro de paréntesis con un año (ej: Smith, 2024)
-    if re.search(r'\([A-Z][a-z]+,\s\d{4}\)', texto):
-        return texto # Si detecta formato de cita, deja el bloque intacto para no dañar la bibliografía
-
-    # 3. PATRONES DE ANONIMIZACIÓN (Solo para datos sensibles)
-    patrones = {
-        r'\b\d{7,10}\b': '[ID_REDACTADO]',
-        r'\b[\w\.-]+@[\w\.-]+\.\w{2,4}\b': '[EMAIL_REDACTADO]',
-        r'\b(3[0-9]{2})[ -]?[0-9]{3}[ -]?[0-9]{4}\b': '[TEL_REDACTADO]',
-        # Solo anonimiza si viene precedido por "Paciente" o "Identificado como"
-        r'(?i)(paciente|sujeto|usuario|identificado como)\s+[A-Z][a-z]+\b': r'\1 [NOMBRE_REDACTADO]'
-    }
-
-    texto_final = texto
-    for patron, reemplazo in patrones.items():
-        # Verificamos que el término no esté en la lista blanca antes de aplicar
-        if not any(word in texto_final for word in lista_blanca):
-            texto_final = re.sub(patron, reemplazo, texto_final)
-            
-    return texto_final
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
     page_title="IkigAI V1.86 - Executive Workstation", 
@@ -96,33 +67,6 @@ ROLES = {
 def get_pdf_text(f): return "".join([p.extract_text() for p in PdfReader(f).pages])
 def get_docx_text(f): return "\n".join([p.text for p in docx.Document(f).paragraphs])
 def get_excel_text(f): return pd.read_excel(f).to_string()
-def buscar_evidencia_unificada(query):
-    import requests
-    import re
-    evidencia = ""
-    
-    # --- PARTE A: PUBMED (Global) ---
-    try:
-        url_pm = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={query}&retmode=json&retmax=2"
-        res_pm = requests.get(url_pm, timeout=5).json()
-        ids = res_pm.get("esearchresult", {}).get("idlist", [])
-        if ids:
-            f_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={','.join(ids)}&retmode=text&rettype=abstract"
-            evidencia += f"\n[PUBMED - EVIDENCIA GLOBAL]:\n{requests.get(f_url, timeout=5).text}\n"
-    except: evidencia += "\n[!] Error de conexión con PubMed.\n"
-
-    # --- PARTE B: SCIELO/CROSSREF (Regional/DOI) ---
-    try:
-        url_cr = f"https://api.crossref.org/works?query={query}&filter=has-abstract:true&rows=2"
-        res_cr = requests.get(url_cr, timeout=5).json()
-        for item in res_cr.get("message", {}).get("items", []):
-            title = item.get("title", ["Sin título"])[0]
-            doi = item.get("DOI", "N/A")
-            abstract = re.sub(r'<[^>]*>', '', item.get("abstract", "Abstract no disponible."))
-            evidencia += f"\n[SCIELO/ACADÉMICO - EVIDENCIA REGIONAL]:\nTítulo: {title}\nDOI: {doi}\nResumen: {abstract[:700]}\n"
-    except: evidencia += "\n[!] Error de conexión con SciELO/Crossref.\n"
-    
-    return evidencia if evidencia else "NO_SE_ENCONTRO_EVIDENCIA_REAL"
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -605,14 +549,14 @@ for i, msg in enumerate(st.session_state.get("messages", [])):
 # Captura de nuevo Input con RAG
 if pr := st.chat_input("Nuestro reto para hoy..."):
     from datetime import datetime
-    fecha_hoy = datetime.now().strftime("%d de %B de %Y")
-    
+    fecha_actual = datetime.now().strftime("%d de %B de %Y")
+    # 1. Registro del mensaje del usuario
     st.session_state.messages.append({"role": "user", "content": pr})
     with st.chat_message("user"): st.markdown(pr)
     
     with st.chat_message("assistant"):
         try:
-            # 1. RECUPERACIÓN DE CONTEXTO (RAG Local)
+            # A. CONSULTA A LA BIBLIOTECA MÁSTER (RAG - Persistente)
             contexto_rag = ""
             if os.path.exists("vector_db"):
                 emb = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
@@ -620,72 +564,39 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
                 docs = vdb.similarity_search(pr, k=3)
                 contexto_rag = "\n".join([d.page_content for d in docs])
 
+            # B. CONSULTA AL SIDEBAR (Contexto Efímero - Lo que acaba de subir)
             contexto_reciente = st.session_state.biblioteca.get(rol_activo, "")
-            # 2. TRIAGE CIENTÍFICO
-            contexto_cientifico = ""
-            if any(kw in pr.lower() for kw in ["estudio", "evidencia", "investigar", "bibliografía"]):
-                with st.spinner("Consultando bases de datos reales (PubMed + SciELO)..."):
-                    contexto_cientifico = buscar_evidencia_unificada(pr)
 
-            # Inyección en el sys_prompt (REGLA ESTRICTA)
-            sys_prompt = f"""
-            Actúa como {rol_activo}. 
-            REGLA DE ORO DE VERACIDAD: Tienes PROHIBIDO inventar estudios o autores.
-            CONTEXTO LOCAL: {contexto_rag}
-            CONTEXTO RECIENTE: {contexto_reciente}
-            EVIDENCIA EXTERNA REAL: {contexto_cientifico}
-            - Si la sección 'EVIDENCIA EXTERNA REAL' está vacía o dice 'NO_SE_ENCONTRO', di honestamente que no hay datos.
-            - Solo puedes aplicar el SEMÁFORO DE EVIDENCIA a los artículos que aparezcan abajo.
-
-            REGLA DE VERACIDAD: Solo cita la EVIDENCIA EXTERNA REAL proporcionada. 
-            Si no hay datos, básate en CONTEXTO LOCAL, MEMORIA MÁSTER Y tu conocimiento. PROHIBIDO INVENTAR AUTORES, TÍTULOS O DOIs.
-
-            EVIDENCIA EXTERNA REAL:
-            {contexto_cientifico}
-            """
-
-            # 3. DEFINICIÓN DE MINDSET POR ROL
+            # C. ENSAMBLAJE DEL PROMPT DINÁMICO
+            model = genai.GenerativeModel('gemini-2.5-flash')# C. ENSAMBLAJE DEL PROMPT DINÁMICO
+            
+            # 1. Definición de Mindset por Rol
             perfiles = {
-                "Coach de Alto Desempeño": "ROI cognitivo, biohacking y sostenibilidad.",
-                "Director Centro Telemedicina": "Transformación digital e interoperabilidad salud.",
-                "Vicedecano Académico": "Política educativa, normas y mejores estándares internacionales.",
-                "Director de UCI": "Seguridad paciente, algoritmos complejos, datos y proeceos HUN.",
-                "Investigador Científico": "Rigor metodológico, mejor evidencia científica y estándares APA 7.",
-                "Consultor Salud Digital": "Sostenibilidad, estándares internacionales, territorio y normas nacionales.",
-                "Professor Universitario": "Pedagogía disruptiva y pensamiento crítico.",
-                "Estratega de Trading": "Gestión de riesgo (RR), SMC y control de sesgos."
+                "Coach de Alto Desempeño": "Foco en ROI cognitivo, gestión de energía (biohacking), sostenibilidad y eliminación de procrastinación oculta.",
+                "Director Centro Telemedicina": "Enfoque en transformación digital, interoperabilidad, modelos de atención remota e innovación tecnológica en salud.",
+                "Vicedecano Académico": "Enfoque en política educativa superior, calidad académica con los mejores estándares, normativa y procesos curriculares UNAL.",
+                "Director de UCI": "Prioridad en seguridad del paciente, algoritmos clínicos de alta complejidad, gestión datos y procesos HUN, evidencia científica en UCI.",
+                "Investigador Científico": "Rigor metodológico, medicina traslacional, análisis estadístico, mejor evidencia científica y redacción bajo estándares APA 7.",
+                "Consultor Salud Digital": "Visión de sostenibilidad financiera (BID/MinSalud), ROI social, impacto en territorio e interculturalidad.",
+                "Professor Universitario": "Pedagogía médica disruptiva, fomento del pensamiento crítico y humanización de la enseñanza técnica.",
+                "Estratega de Trading": "Gestión de riesgo (RR), confluencias técnicas (SMC/Price Action), indicadores técnicos y control de sesgos psicológicos."
             }
-            mindset = perfiles.get(rol_activo, "Visión estratégica, innovadora, ejecutiva y humana.")
-
-            # 4. CONFIGURACIÓN DEL MODELO CON HERRAMIENTAS
-            model = genai.GenerativeModel(
-                model_name='gemini-2.5-flash',
-            )
-
-            # 5. PROMPT MAESTRO (PERSONA + CONTEXTO + REGLAS)
+            
+            # ASIGNACIÓN CORRECTA (Asegúrese que el nombre coincida con el f-string de abajo)
+            mindset_seleccionado = perfiles.get(rol_activo, "Visión estratégica, innovadora, ejecutiva y humana.")
+            
+            # Construimos un sistema de capas de conocimiento
             sys_prompt = f"""
-            Hoy es {fecha_hoy}. Actúa como {rol_activo}. 
-            Mindset: {mindset}
+            Actúa como {rol_activo}.
+            FECHA ACTUAL: {fecha_actual}.
+            Mindset: {mindset_seleccionado}
+            Objetivo: Equilibrio entre Síntesis Ejecutiva y Profundidad Analítica.
             
-            # --- CONFIGURACIÓN DE FUENTES EN EL PROMPT ---
-            FUENTES DE CONOCIMIENTO:
-            1. MEMORIA MÁSTER (Estructural): {contexto_rag if contexto_rag else "Sin datos locales."}
-               - Prioridad: Archivos guardados en memoria máster según el rol.
-            2. CONTEXTO RECIENTE (Efímero): {contexto_reciente[:1000] if contexto_reciente else "N/A"}
-               - Prioridad: Datos del día o archivos subidos al sidebar.
-            3. CONOCIMIENTO GLOBAL (Vigilancia 2026): Utiliza tu base de entrenamiento más reciente.
-               - Prioridad: Evidencia científica global, tendencias de trading y salud digital 2025-2026.
-
-            INSTRUCCIÓN DE CONTRASTE:
-            - Valida siempre lo local (1 y 2) frente a lo global (3).
-            - Si hay una actualización científica que no esté en mis archivos, aplícale el SEMÁFORO DE EVIDENCIA (🟢🟡🔴) e infórmame.
+            CONOCIMIENTO RECIENTE (Sidebar):
+            {contexto_reciente[:1000] if contexto_reciente else "N/A"}
             
-            REGLA DE SEMÁFORO DE EVIDENCIA (Búsqueda Web):
-            Busca en la web para complementar. Clasifica obligatoriamente toda fuente externa:
-            - 🟢 [ALTA CERTEZA]: Metaanálisis o Revisiones Sistemáticas.
-            - 🟡 [MEDIA CERTEZA]: Ensayos Clínicos o Estudios de Cohortes.
-            - 🔴 [BAJA CERTEZA]: Reportes de caso, pre-prints o blogs.
-            Si hay contradicción con la Biblioteca Máster, genera 'ALERTA DE CHOQUE'.
+            MEMORIA MÁSTER (GitHub):
+            {contexto_rag[:1000] if contexto_rag else "N/A"}
 
             ESTRUCTURA OBLIGATORIA DE RESPUESTA:
             1. ### Triage Estratégico:
@@ -720,33 +631,17 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             6. Aplica rigor APA 7 solo si se piden citas; si no, prioriza la fluidez ejecutiva.
             """
             
-            # 6. GENERACIÓN Y RENDERIZADO
             resp = model.generate_content([sys_prompt, pr])
-            respuesta_final = resp.text
             
+            # D. RESPUESTA Y CIERRE
+            respuesta_final = resp.text
+            if "Punto Ciego" not in respuesta_final:
+                respuesta_final += f"\n\n---\n**Pregunta de Punto Ciego:** ¿Cómo afecta esta nueva información al ROI cognitivo de su rol como {rol_activo}?"
+
             st.markdown(respuesta_final)
             st.session_state.messages.append({"role": "assistant", "content": respuesta_final})
             st.rerun()
 
         except Exception as e:
-            st.error(f"Error en el motor híbrido: {e}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            st.error(f"Error en el motor de pensamiento: {e}")
 
