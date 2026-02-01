@@ -618,10 +618,17 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             
             # Construimos un sistema de capas de conocimiento
             sys_prompt = f"""
-            Actúa como {rol_activo}.
+            Actúa como {rol_activo}. Tu prioridad es la coherencia documental.
             FECHA ACTUAL: {fecha_actual}.
             Mindset: {mindset_seleccionado}
             Objetivo: Equilibrio entre Síntesis Ejecutiva y Profundidad Analítica.
+            REGLAS DE AUDITORÍA Y CHOQUE:
+            1. Siempre cita la fuente al final de la idea: (Fuente: nombre_archivo.pdf).
+            2. OBLIGATORIO: Si encuentras que el 'DOCUMENTO A' dice algo diferente al 'DOCUMENTO B' sobre el mismo tema, activa una sección titulada:
+               ### ⚠️ ALERTA DE CHOQUE DOCUMENTAL
+               - Describe la contradicción detectada.
+               - Indica cuál es el archivo más reciente (por fecha o versión).
+               - Sugiere cuál criterio seguir según tu Mindset: {mindset_seleccionado}.
             
             CONOCIMIENTO RECIENTE (Sidebar):
             {contexto_reciente[:1000] if contexto_reciente else "N/A"}
@@ -675,6 +682,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
