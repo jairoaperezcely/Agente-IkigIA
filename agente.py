@@ -594,7 +594,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
             FUENTES DE CONOCIMIENTO:
             - MEMORIA MÁSTER (Local): {contexto_rag if contexto_rag else "N/A"}
             - CONTEXTO RECIENTE (Sidebar): {contexto_reciente[:1000] if contexto_reciente else "N/A"}
-            - BÚSQUEDA WEB: Usa Google Search para validar evidencia de 2025-2026.
+            - BÚSQUEDA WEB: Usa Google Search para validar evidencia más reciente.
             
             REGLA DE SEMÁFORO DE EVIDENCIA (Búsqueda Web):
             Busca en la web para complementar. Clasifica obligatoriamente toda fuente externa:
@@ -646,6 +646,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor híbrido: {e}")
+
 
 
 
