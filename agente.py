@@ -707,6 +707,19 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
 
+# --- INYECCIÓN DE AUTO-SCROLL (Al final de la Sección 6) ---
+st.components.v1.html(
+    """
+    <script>
+        var window_parent = window.parent;
+        var scroll_target = window_parent.document.querySelector('.main');
+        if (scroll_target) {
+            scroll_target.scrollTop = scroll_target.scrollHeight;
+        }
+    </script>
+    """,
+    height=0,
+)
 
 
 
