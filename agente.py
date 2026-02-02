@@ -379,16 +379,45 @@ with st.sidebar:
                             if hasattr(shape, "text"):
                                 raw_text += shape.text + " "
             
+            with tab_doc:
+        up = st.file_uploader("Subir PDF, Word o PPTX:", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True, label_visibility="collapsed")
+        if st.button("🧠 Procesar archivos", use_container_width=True):
+            raw_text = ""
+            for f in up:
+                if f.type == "application/pdf":
+                    raw_text += get_pdf_text(f)
+                elif f.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                    raw_text += get_docx_text(f)
+                elif f.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+                    from pptx import Presentation
+                    prs = Presentation(f)
+                    for slide in prs.slides:
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text"):
+                                raw_text += shape.text + " "
+            
+        if raw_text: # <--- Validación: solo procesar si hay texto
             with st.spinner("Refinando contexto técnico..."):
                 try:
                     refiner = genai.GenerativeModel('gemini-2.5-flash')
-                    prompt_res = f"Extrae datos, normas y referencias clave de este material: {raw_text[:45000]}"
+                    prompt_res = f"Resume de forma técnica y estructurada para un {rol_activo}, extrayendo datos, normas y referencias clave: {raw_text[:40000]}"
                     resumen = refiner.generate_content(prompt_res)
                     st.session_state.biblioteca[rol_activo] = resumen.text
-                    st.success("Biblioteca actualizada con documentos/diapositivas.")
-                except:
-                    st.session_state.biblioteca[rol_activo] = raw_text[:30000]
+                    st.success(f"✅ {len(up)} archivo(s) procesado(s).")
+                except Exception as e: # <--- Captura del error real
+                    st.session_state.biblioteca[rol_activo] = raw_text[:25000]
+                    st.warning("⚠️ Refinamiento fallido. Se cargó el texto bruto.")
+        else:
+            st.error("No se detectó texto en los archivos.")
 
+        # --- NUEVA MEJORA: VISUALIZADOR DE CARGA ---
+        if st.session_state.biblioteca.get(rol_activo):
+            with st.expander("🔍 Ver Contexto Actual del Sidebar", expanded=False):
+                st.caption(f"Resumen del material cargado para: {rol_activo}")
+                st.write(st.session_state.biblioteca[rol_activo][:1500] + "...") 
+                if st.button("🗑️ Limpiar Contexto Reciente"):
+                    st.session_state.biblioteca[rol_activo] = ""
+                    st.rerun()
     # --- PESTAÑA URL (WEB SCRAPING) ---
     with tab_url:
         url_input = st.text_input("Pegar enlace de página web:", placeholder="https://ejemplo.com/articulo")
@@ -682,6 +711,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
