@@ -379,7 +379,7 @@ with st.sidebar:
                             if hasattr(shape, "text"):
                                 raw_text += shape.text + " "
             
-            with tab_doc:
+    with tab_doc:
         up = st.file_uploader("Subir PDF, Word o PPTX:", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True, label_visibility="collapsed")
         if st.button("🧠 Procesar archivos", use_container_width=True):
             raw_text = ""
@@ -711,6 +711,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
