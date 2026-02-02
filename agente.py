@@ -655,10 +655,10 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
                - Sugiere cuál criterio seguir según tu Mindset: {mindset_seleccionado}.
             
             CONOCIMIENTO RECIENTE (Sidebar):
-            {contexto_reciente[:1000] if contexto_reciente else "N/A"}
+            {contexto_reciente[:40000] if contexto_reciente else "N/A"}
             
             MEMORIA MÁSTER (GitHub):
-            {contexto_rag[:1000] if contexto_rag else "N/A"}
+            {contexto_rag[:40000] if contexto_rag else "N/A"}
 
             ESTRUCTURA OBLIGATORIA DE RESPUESTA:
             1. ### Triage Estratégico:
@@ -706,6 +706,7 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
+
 
 
 
