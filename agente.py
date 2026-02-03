@@ -1,3 +1,11 @@
+import sys
+try:
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
+
+import streamlit as st
 import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
@@ -720,6 +728,7 @@ st.components.v1.html(
     """,
     height=0,
 )
+
 
 
 
