@@ -15,10 +15,8 @@ gTTS
 streamlit-mic-recorder
 watchdog
 packaging
+langchain
 langchain-community
 langchain-google-genai
 faiss-cpu
-google-generativeai
-pandas
-xlsxwriter
 pysqlite3-binary
