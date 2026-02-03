@@ -1,3 +1,24 @@
+# --- LÍNEA 1 EN ADELANTE ---
+import sys
+import os
+
+# Parche para SQLite (Vital para FAISS en Linux)
+try:
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
+
+import streamlit as st
+
+# Intentar importar LangChain con manejo de errores
+try:
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain_community.vectorstores import FAISS
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+except ModuleNotFoundError as e:
+    st.error(f"⚠️ Error Crítico de Librerías: {e}")
+    st.info("Intentando diagnóstico... Verifique que 'langchain' esté en requirements.txt")
 import sys
 try:
     __import__('pysqlite3')
@@ -728,6 +749,7 @@ st.components.v1.html(
     """,
     height=0,
 )
+
 
 
 
