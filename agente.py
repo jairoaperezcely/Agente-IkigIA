@@ -21,14 +21,8 @@ from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
-st.set_page_config(
-    page_title="IkigAI V1.94 - Multi-Format Workstation", 
-    page_icon="🧬", 
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="IkigAI V1.95 - Total Vision", page_icon="🧬", layout="wide")
 
-# Estilo CSS Zen: Contraste Quirúrgico
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -60,15 +54,14 @@ ROLES = {
     "Estratega de Trading": "Gestión de riesgo y SMC."
 }
 
-# --- 2. MOTOR DE LECTURA MULTIFORMATO NATIVO ---
+# --- 2. MOTOR MULTIFORMATO Y WEB ---
 def get_pdf_text(f): return "".join([p.extract_text() for p in PdfReader(f).pages])
 def get_docx_text(f): return "\n".join([p.text for p in docx.Document(f).paragraphs])
 def get_pptx_text(f):
-    prs = Presentation(f)
-    text = []
-    for slide in prs.slides:
-        for shape in slide.shapes:
-            if hasattr(shape, "text"): text.append(shape.text)
+    prs = Presentation(f); text = []
+    for s in prs.slides:
+        for sh in s.shapes:
+            if hasattr(sh, "text"): text.append(sh.text)
     return "\n".join(text)
 
 DB_NATIVO = "memoria_nativa.json"
@@ -80,71 +73,68 @@ def actualizar_memoria_persistente():
     archivos_encontrados = 0
     for file in os.listdir(DATA_FOLDER):
         texto = ""
-        ext = file.lower()
         try:
             path = os.path.join(DATA_FOLDER, file)
-            if ext.endswith(".pdf"): texto = get_pdf_text(open(path, "rb"))
-            elif ext.endswith(".docx"): texto = get_docx_text(path)
-            elif ext.endswith(".pptx"): texto = get_pptx_text(path)
-            
+            if file.lower().endswith(".pdf"): texto = get_pdf_text(open(path, "rb"))
+            elif file.lower().endswith(".docx"): texto = get_docx_text(path)
+            elif file.lower().endswith(".pptx"): texto = get_pptx_text(path)
             if texto:
                 chunks = [texto[i:i+1200] for i in range(0, len(texto), 1000)]
-                for c in chunks:
-                    biblioteca_data.append({"content": c, "source": file})
+                for c in chunks: biblioteca_data.append({"content": c, "source": file})
                 archivos_encontrados += 1
         except: continue
-    
-    with open(DB_NATIVO, "w", encoding="utf-8") as f:
-        json.dump(biblioteca_data, f, ensure_ascii=False)
-    return f"✅ ÉXITO: {archivos_encontrados} documentos (PDF/DOCX/PPTX) sincronizados."
+    with open(DB_NATIVO, "w", encoding="utf-8") as f: json.dump(biblioteca_data, f, ensure_ascii=False)
+    return f"✅ ÉXITO: {archivos_encontrados} documentos sincronizados."
 
-# --- 3. EXPORTACIÓN ---
-def clean_markdown(text):
-    text = re.sub(r'\*+', '', text)
-    text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
-    return text.strip()
-
-def download_word_compilado(indices, messages):
-    doc = docx.Document()
-    for idx in sorted(indices):
-        doc.add_paragraph(clean_markdown(messages[idx]["content"]))
-        doc.add_page_break()
-    bio = BytesIO(); doc.save(bio); return bio.getvalue()
-
-# --- 4. LÓGICA DE ESTADO ---
+# --- 3. LÓGICA DE ESTADO ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
 
-# --- 5. BARRA LATERAL MULTIFORMATO ---
+# --- 4. BARRA LATERAL (MULTIFUENTE) ---
 with st.sidebar:
     st.markdown("<h1 style='text-align: center; color: #00E6FF;'>🧬</h1>", unsafe_allow_html=True)
-    st.markdown("<h2 style='text-align: center; letter-spacing: 5px;'>IKIGAI</h2>", unsafe_allow_html=True)
     rol_activo = st.radio("Rol:", options=list(ROLES.keys()), label_visibility="collapsed")
     
     st.divider()
-    st.markdown("<div class='section-tag'>FUENTES (PDF/DOCX/PPTX)</div>", unsafe_allow_html=True)
-    up = st.file_uploader("Subir archivos:", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True)
+    t_doc, t_url, t_img = st.tabs(["📄 DOC", "🔗 URL", "🖼️ IMG"])
     
-    if st.button("🧠 Procesar Sidebar", use_container_width=True):
-        raw_text = ""
-        for f in up:
-            if f.name.endswith(".pdf"): raw_text += get_pdf_text(f)
-            elif f.name.endswith(".docx"): raw_text += get_docx_text(f)
-            elif f.name.endswith(".pptx"): raw_text += get_pptx_text(f)
-        st.session_state.biblioteca[rol_activo] = raw_text[:40000]
-        st.success("Contexto multiformato cargado.")
+    with t_doc:
+        up = st.file_uploader("Subir PDF/DOCX/PPTX:", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True)
+        if st.button("🧠 Procesar Sidebar", use_container_width=True):
+            raw = ""
+            for f in up:
+                if f.name.endswith(".pdf"): raw += get_pdf_text(f)
+                elif f.name.endswith(".docx"): raw += get_docx_text(f)
+                elif f.name.endswith(".pptx"): raw += get_pptx_text(f)
+            st.session_state.biblioteca[rol_activo] = raw[:40000]; st.success("Sidebar listo.")
+
+    with t_url:
+        url_in = st.text_input("URL:")
+        if st.button("🌐 Scrapear Web", use_container_width=True):
+            try:
+                res = requests.get(url_in)
+                soup = BeautifulSoup(res.text, 'html.parser')
+                st.session_state.biblioteca[rol_activo] = soup.get_text()[:30000]; st.success("Web integrada.")
+            except: st.error("URL inaccesible.")
+
+    with t_img:
+        up_i = st.file_uploader("Imagen:", type=['jpg', 'png', 'jpeg'])
+        if up_i and st.button("👁️ Visión AI", use_container_width=True):
+            img = Image.open(up_i)
+            m_v = genai.GenerativeModel('gemini-1.5-flash')
+            res_v = m_v.generate_content(["Analiza esta imagen para contexto estratégico:", img])
+            st.session_state.biblioteca[rol_activo] = res_v.text; st.success("Imagen analizada.")
 
     if st.button("🧠 Sincronizar Biblioteca Máster", use_container_width=True):
         st.info(actualizar_memoria_persistente())
 
-# --- 6. PANEL CENTRAL ---
+# --- 5. PANEL CENTRAL ---
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        if msg["role"] == "assistant":
-            if st.checkbox("📥 Incluir", key=f"sel_{i}", value=(i in st.session_state.export_pool)):
-                if i not in st.session_state.export_pool: st.session_state.export_pool.append(i); st.rerun()
+        if msg["role"] == "assistant" and st.checkbox("📥 Incluir", key=f"s_{i}"):
+            if i not in st.session_state.export_pool: st.session_state.export_pool.append(i); st.rerun()
 
 if pr := st.chat_input("Nuestro reto hoy..."):
     st.session_state.messages.append({"role": "user", "content": pr})
@@ -152,24 +142,24 @@ if pr := st.chat_input("Nuestro reto hoy..."):
     
     with st.chat_message("assistant"):
         try:
-            contexto_rag = ""
+            # RAG OMNI (10 Fragmentos)
+            c_rag = ""
             if os.path.exists(DB_NATIVO):
                 with open(DB_NATIVO, "r", encoding="utf-8") as f:
-                    data_master = json.load(f)
-                palabras_clave = pr.lower().split()
-                matches = []
-                for item in data_master:
-                    score = sum(2 for p in palabras_clave if p in item["content"].lower())
-                    if score > 0: matches.append((score, item))
-                matches.sort(key=lambda x: x[0], reverse=True)
-                contexto_rag = "\n\n".join([f"--- FUENTE: {m[1]['source']} ---\n{m[1]['content']}" for m in matches[:10]])
+                    master = json.load(f)
+                keys = pr.lower().split()
+                m = []
+                for it in master:
+                    sc = sum(2 for k in keys if k in it["content"].lower())
+                    if sc > 0: m.append((sc, it))
+                m.sort(key=lambda x: x[0], reverse=True)
+                c_rag = "\n\n".join([f"(Fuente: {x[1]['source']}) {x[1]['content']}" for x in m[:10]])
 
-            contexto_sidebar = st.session_state.biblioteca.get(rol_activo, "")
-            model = genai.GenerativeModel('gemini-2.0-flash')
-            sys_prompt = f"Actúa como {rol_activo}. MÁSTER: {contexto_rag[:18000]}. SIDEBAR: {contexto_sidebar[:18000]}"
-            resp = model.generate_content([sys_prompt, pr])
+            c_sid = st.session_state.biblioteca.get(rol_activo, "")
+            model = genai.GenerativeModel('gemini-1.5-flash') # Gemini 1.5 para mayor estabilidad multiformato
+            sys = f"Actúa como {rol_activo}. MÁSTER: {c_rag[:15000]}. SIDEBAR: {c_sid[:15000]}. Prioriza Triage y ROI."
+            resp = model.generate_content([sys, pr])
             st.markdown(resp.text)
             st.session_state.messages.append({"role": "assistant", "content": resp.text})
             st.rerun()
-        except Exception as e:
-            st.error(f"Error: {e}")
+        except Exception as e: st.error(f"Error: {e}")
