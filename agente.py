@@ -22,7 +22,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 # --- 1. CONFIGURACIÓN E IDENTIDAD ---
 st.set_page_config(
-    page_title="IkigAI V1.90 - Omni-Vision Workstation", 
+    page_title="IkigAI V1.92 - Omni-Vision Workstation", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="expanded"
@@ -62,8 +62,9 @@ ROLES = {
     "Estratega de Trading": "Gestión de riesgo y SMC."
 }
 
-# --- 2. FUNCIONES DE LECTURA Y PERSISTENCIA ---
+# --- 2. FUNCIONES DE LECTURA Y PERSISTENCIA NATIVA ---
 def get_pdf_text(f): return "".join([p.extract_text() for p in PdfReader(f).pages])
+def get_docx_text(f): return "\n".join([p.text for p in docx.Document(f).paragraphs])
 
 DB_NATIVO = "memoria_nativa.json"
 DATA_FOLDER = "biblioteca_master"
@@ -78,7 +79,7 @@ def actualizar_memoria_persistente():
                 with open(os.path.join(DATA_FOLDER, file), "rb") as f:
                     texto = get_pdf_text(f)
                     if texto and texto.strip():
-                        # Segmentación: Chunks de 1200 con solapamiento de 200
+                        # Segmentación nativa: Chunks de 1200 caracteres con solapamiento
                         chunks = [texto[i:i+1200] for i in range(0, len(texto), 1000)]
                         for c in chunks:
                             biblioteca_data.append({"content": c, "source": file})
@@ -88,6 +89,10 @@ def actualizar_memoria_persistente():
     with open(DB_NATIVO, "w", encoding="utf-8") as f:
         json.dump(biblioteca_data, f, ensure_ascii=False)
     return f"✅ ÉXITO: {archivos_encontrados} documentos sincronizados."
+
+def exportar_sesion():
+    data = {"biblioteca": st.session_state.biblioteca, "messages": st.session_state.messages}
+    return json.dumps(data, indent=4)
 
 # --- 3. MOTOR DE EXPORTACIÓN ---
 def clean_markdown(text):
@@ -102,10 +107,23 @@ def download_word_compilado(indices, messages):
         doc.add_page_break()
     bio = BytesIO(); doc.save(bio); return bio.getvalue()
 
+def download_excel(content):
+    try:
+        lines = content.split('\n')
+        table_data = [l.split('|') for l in lines if '|' in l]
+        if len(table_data) > 1:
+            df = pd.DataFrame(table_data[1:], columns=table_data[0])
+            bio = BytesIO()
+            with pd.ExcelWriter(bio, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False)
+            return bio.getvalue()
+    except: return None
+
 # --- 4. LÓGICA DE ESTADO ---
 if "biblioteca" not in st.session_state: st.session_state.biblioteca = {rol: "" for rol in ROLES.keys()}
 if "messages" not in st.session_state: st.session_state.messages = []
 if "export_pool" not in st.session_state: st.session_state.export_pool = []
+if "editor_version" not in st.session_state: st.session_state.editor_version = 0
 
 # --- 5. BARRA LATERAL ---
 with st.sidebar:
@@ -114,10 +132,9 @@ with st.sidebar:
     
     rol_activo = st.radio("Rol:", options=list(ROLES.keys()), label_visibility="collapsed")
     
-    # Entregables
     if st.session_state.export_pool:
         st.divider()
-        st.download_button("📄 Word Compilado", data=download_word_compilado(st.session_state.export_pool, st.session_state.messages), file_name=f"Reporte_{date.today()}.docx", use_container_width=True)
+        st.download_button("📄 Word Compilado", data=download_word_compilado(st.session_state.export_pool, st.session_state.messages), file_name=f"Reporte.docx", use_container_width=True)
 
     st.divider()
     tab_doc, tab_url = st.tabs(["📄 Sidebar", "🔗 URL"])
@@ -128,13 +145,12 @@ with st.sidebar:
             st.session_state.biblioteca[rol_activo] = raw[:40000]
             st.success("Cargado al Sidebar.")
 
-    # Botón de Consagración
     if st.session_state.biblioteca[rol_activo]:
         st.markdown("<div class='section-tag'>Curaduría</div>", unsafe_allow_html=True)
         nombre_c = st.text_input("Nombre para la Biblioteca:", value="Analisis_Vital.txt")
         if st.button("📌 Consagrar a Máster", use_container_width=True):
-            ruta = os.path.join(DATA_FOLDER, nombre_c)
-            with open(ruta, "w", encoding="utf-8") as f: f.write(st.session_state.biblioteca[rol_activo])
+            with open(os.path.join(DATA_FOLDER, nombre_c), "w", encoding="utf-8") as f:
+                f.write(st.session_state.biblioteca[rol_activo])
             actualizar_memoria_persistente()
             st.success("Guardado permanentemente.")
 
@@ -143,11 +159,12 @@ with st.sidebar:
         st.info(actualizar_memoria_persistente())
 
 # --- 6. PANEL CENTRAL: OMNI-VISION ---
+ver = st.session_state.editor_version
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if msg["role"] == "assistant":
-            if st.checkbox("📥 Incluir", key=f"sel_{i}", value=(i in st.session_state.export_pool)):
+            if st.checkbox("📥 Incluir", key=f"sel_{i}_{ver}", value=(i in st.session_state.export_pool)):
                 if i not in st.session_state.export_pool: st.session_state.export_pool.append(i); st.rerun()
             elif i in st.session_state.export_pool: st.session_state.export_pool.remove(i); st.rerun()
 
@@ -158,7 +175,7 @@ if pr := st.chat_input("Nuestro reto hoy..."):
     
     with st.chat_message("assistant"):
         try:
-            # A. CONSULTA OMNIVIDENTE (Búsqueda en 10 fragmentos de la Biblioteca Máster)
+            # RAG NATIVO (Búsqueda en 10 fragmentos)
             contexto_rag = ""
             if os.path.exists(DB_NATIVO):
                 with open(DB_NATIVO, "r", encoding="utf-8") as f:
@@ -167,28 +184,20 @@ if pr := st.chat_input("Nuestro reto hoy..."):
                 matches = []
                 for item in data_master:
                     score = sum(2 for p in palabras_clave if p in item["content"].lower())
-                    score += sum(1 for p in palabras_clave if p in item["source"].lower())
                     if score > 0: matches.append((score, item))
                 matches.sort(key=lambda x: x[0], reverse=True)
-                # Ampliamos a 10 fragmentos para leer múltiples archivos
                 contexto_rag = "\n\n".join([f"--- FUENTE: {m[1]['source']} ---\n{m[1]['content']}" for m in matches[:10]])
 
-            # B. CONSULTA AL SIDEBAR
             contexto_sidebar = st.session_state.biblioteca.get(rol_activo, "")
-            
-            # C. MOTOR DE PENSAMIENTO ESTRATÉGICO
             model = genai.GenerativeModel('gemini-2.0-flash')
+            
             sys_prompt = f"""
-            Actúa como {rol_activo}. Tu prioridad es la coherencia entre fuentes.
-            MINDSET: {ROLES[rol_activo]} | FECHA: {fecha_actual}
+            Actúa como {rol_activo}. ROI Cognitivo Prioritario.
+            BIBLIOTECA MÁSTER: {contexto_rag[:18000]}
+            SIDEBAR (ARTÍCULO): {contexto_sidebar[:18000]}
             
-            BIBLIOTECA MÁSTER (Conocimiento Histórico): {contexto_rag[:18000]}
-            SIDEBAR (Artículo Actual): {contexto_sidebar[:18000]}
-            
-            REGLAS DE ORO:
-            1. Cruza la información: Si el Sidebar contradice a la Máster, activa la sección '⚠️ ALERTA DE CHOQUE'.
-            2. Siempre cita la fuente al final: (Fuente: nombre_archivo.pdf).
-            3. ESTRUCTURA: ### Triage Estratégico, ### ROI Cognitivo, ### Análisis Multidimensional, ### Propuesta Táctica, **Pregunta de Punto Ciego**.
+            ESTRUCTURA: ### Triage Estratégico, ### ROI Cognitivo, ### Análisis Multidimensional, ### Propuesta Táctica, **Pregunta de Punto Ciego**.
+            REGLA: Si hay conflicto entre fuentes, señala '⚠️ ALERTA DE CHOQUE'. Cita siempre (Fuente: nombre_archivo.pdf).
             """
             
             resp = model.generate_content([sys_prompt, pr])
