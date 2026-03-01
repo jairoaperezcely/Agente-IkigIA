@@ -4,15 +4,11 @@ pypdf
 python-docx
 python-pptx
 pandas
-openpyxl
-xlsxwriter
 matplotlib
 seaborn
 beautifulsoup4
 requests
 youtube-transcript-api
-gTTS
-streamlit-mic-recorder
 langchain
 langchain-community
 langchain-google-genai
