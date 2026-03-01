@@ -1,32 +1,3 @@
-# --- LÍNEA 1 EN ADELANTE ---
-import sys
-import os
-
-# Parche para SQLite (Vital para FAISS en Linux)
-try:
-    __import__('pysqlite3')
-    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-except ImportError:
-    pass
-
-import streamlit as st
-
-# Intentar importar LangChain con manejo de errores
-try:
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
-    from langchain_community.vectorstores import FAISS
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings
-except ModuleNotFoundError as e:
-    st.error(f"⚠️ Error Crítico de Librerías: {e}")
-    st.info("Intentando diagnóstico... Verifique que 'langchain' esté en requirements.txt")
-import sys
-try:
-    __import__('pysqlite3')
-    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-except ImportError:
-    pass
-
-import streamlit as st
 import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
@@ -390,58 +361,34 @@ with st.sidebar:
     tab_doc, tab_url, tab_img = st.tabs(["📄 DOC/PPT", "🔗 URL", "🖼️ IMG"])
     
     # --- PESTAÑA DOCUMENTOS (Incluye PPTX) ---
-    # --- PESTAÑA DOCUMENTOS (PROCESAMIENTO UNIFICADO) ---
     with tab_doc:
-        up = st.file_uploader(
-            "Subir PDF, Word o PPTX:", 
-            type=['pdf', 'docx', 'pptx'], 
-            accept_multiple_files=True, 
-            label_visibility="collapsed",
-            key="uploader_contexto_sidebar"
-        )
-        
-        if st.button("🧠 Procesar archivos", use_container_width=True, key="btn_procesar_contexto"):
+        up = st.file_uploader("Subir PDF, Word o PPTX:", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True, label_visibility="collapsed")
+        if st.button("🧠 Procesar archivos", use_container_width=True):
             raw_text = ""
-            if up:
-                for f in up:
-                    if f.type == "application/pdf":
-                        raw_text += get_pdf_text(f)
-                    elif f.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                        raw_text += get_docx_text(f)
-                    elif f.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-                        from pptx import Presentation
-                        prs = Presentation(f)
-                        for slide in prs.slides:
-                            for shape in slide.shapes:
-                                if hasattr(shape, "text"):
-                                    raw_text += shape.text + " "
-                
-                if raw_text.strip():
-                    with st.spinner("Refinando contexto técnico..."):
-                        try:
-                            refiner = genai.GenerativeModel('gemini-2.5-flash')
-                            prompt_res = f"Resume de forma técnica y estructurada para un {rol_activo}, extrayendo datos, normas y referencias clave: {raw_text[:40000]}"
-                            resumen = refiner.generate_content(prompt_res)
-                            st.session_state.biblioteca[rol_activo] = resumen.text
-                            st.success(f"✅ {len(up)} archivo(s) procesado(s).")
-                        except Exception as e:
-                            st.session_state.biblioteca[rol_activo] = raw_text[:25000]
-                            st.warning("⚠️ Refinamiento fallido. Se cargó el texto bruto.")
-                else:
-                    st.error("No se detectó texto en los archivos seleccionados.")
-            else:
-                st.warning("Por favor, selecciona archivos antes de procesar.")
+            for f in up:
+                if f.type == "application/pdf":
+                    raw_text += get_pdf_text(f)
+                elif f.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                    raw_text += get_docx_text(f)
+                elif f.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+                    # Lógica para PowerPoint
+                    from pptx import Presentation
+                    prs = Presentation(f)
+                    for slide in prs.slides:
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text"):
+                                raw_text += shape.text + " "
+            
+            with st.spinner("Refinando contexto técnico..."):
+                try:
+                    refiner = genai.GenerativeModel('gemini-2.5-flash')
+                    prompt_res = f"Extrae datos, normas y referencias clave de este material: {raw_text[:45000]}"
+                    resumen = refiner.generate_content(prompt_res)
+                    st.session_state.biblioteca[rol_activo] = resumen.text
+                    st.success("Biblioteca actualizada con documentos/diapositivas.")
+                except:
+                    st.session_state.biblioteca[rol_activo] = raw_text[:30000]
 
-        # --- VISUALIZADOR DE CARGA (FUERA DEL BOTÓN PERO DENTRO DE LA PESTAÑA) ---
-        contexto_actual = st.session_state.biblioteca.get(rol_activo, "")
-        if contexto_actual:
-            st.divider()
-            with st.expander("🔍 Ver Contexto Actual del Sidebar", expanded=False):
-                st.caption(f"Resumen del material cargado para: {rol_activo}")
-                st.write(contexto_actual[:1500] + "...") 
-                if st.button("🗑️ Limpiar Contexto Reciente", key="btn_limpiar_contexto"):
-                    st.session_state.biblioteca[rol_activo] = ""
-                    st.rerun()
     # --- PESTAÑA URL (WEB SCRAPING) ---
     with tab_url:
         url_input = st.text_input("Pegar enlace de página web:", placeholder="https://ejemplo.com/articulo")
@@ -684,10 +631,10 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
                - Sugiere cuál criterio seguir según tu Mindset: {mindset_seleccionado}.
             
             CONOCIMIENTO RECIENTE (Sidebar):
-            {contexto_reciente[:40000] if contexto_reciente else "N/A"}
+            {contexto_reciente[:1000] if contexto_reciente else "N/A"}
             
             MEMORIA MÁSTER (GitHub):
-            {contexto_rag[:40000] if contexto_rag else "N/A"}
+            {contexto_rag[:1000] if contexto_rag else "N/A"}
 
             ESTRUCTURA OBLIGATORIA DE RESPUESTA:
             1. ### Triage Estratégico:
@@ -735,29 +682,3 @@ if pr := st.chat_input("Nuestro reto para hoy..."):
 
         except Exception as e:
             st.error(f"Error en el motor de pensamiento: {e}")
-
-# --- INYECCIÓN DE AUTO-SCROLL (Al final de la Sección 6) ---
-st.components.v1.html(
-    """
-    <script>
-        var window_parent = window.parent;
-        var scroll_target = window_parent.document.querySelector('.main');
-        if (scroll_target) {
-            scroll_target.scrollTop = scroll_target.scrollHeight;
-        }
-    </script>
-    """,
-    height=0,
-)
-
-
-
-
-
-
-
-
-
-
-
-
